@@ -1,18 +1,18 @@
 ---
-// No frontmatter needed
+import gravetaleLogo from '../assets/gravetale_logo.png';
 ---
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Outworld Studios</title>
+    <title>GRAVETALE Studios™</title>
     <style>
       body {
+        background-color: #0b0b0b;
+        color: #f0f0f0;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         margin: 0;
         padding: 0;
-        font-family: Arial, sans-serif;
-        background-color: #0d0d0d;
-        color: #f2f2f2;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -20,25 +20,29 @@
         height: 100vh;
         text-align: center;
       }
+      img {
+        width: 150px;
+        margin-bottom: 1rem;
+      }
       h1 {
         font-size: 3rem;
         letter-spacing: 2px;
+        margin: 0.5rem 0;
       }
       p {
         font-size: 1.2rem;
         max-width: 600px;
-        margin: 1rem;
-      }
-      .coming-soon {
-        margin-top: 2rem;
-        font-style: italic;
         opacity: 0.8;
+      }
+      .tagline {
+        margin-top: 1.5rem;
+        font-style: italic;
+        font-size: 1rem;
+        opacity: 0.6;
       }
     </style>
   </head>
   <body>
-    <h1>Outworld Studios</h1>
-    <p>We’re building something strange, tactical, and unforgettable.</p>
-    <div class="coming-soon">Site coming soon – stay tuned.</div>
-  </body>
-</html>
+    <img src={gravetaleLogo.src} alt="GRAVETALE Studios™ logo" />
+    <h1>GRAVETALE Studios™</h1>
+    <p>We are shaping a tactical co-op horror experience
