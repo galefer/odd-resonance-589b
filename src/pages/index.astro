@@ -30,7 +30,6 @@ import gravetaleLogo from '../assets/gravetale_logo.png';
       img {
         width: 200px;
         margin-bottom: 1rem;
-        animation: flicker 3s infinite;
         filter: drop-shadow(0 0 15px rgba(255, 0, 0, 0.2));
       }
 
@@ -64,31 +63,22 @@ import gravetaleLogo from '../assets/gravetale_logo.png';
       }
 
       .fog {
+        background: url('https://i.ibb.co/vHzwhWk/fog-transparent.png') repeat;
+        background-size: cover;
         position: absolute;
         top: 0;
         left: 0;
-        width: 200%;
-        height: 200%;
-        background: url('https://i.ibb.co/vHzwhWk/fog-transparent.png') repeat;
-        background-size: cover;
-        opacity: 0.08;
-        animation: drift 120s linear infinite;
-        z-index: 1;
+        width: 300%;
+        height: 300%;
+        opacity: 0.04;
+        animation: drift 180s linear infinite;
         pointer-events: none;
-      }
-
-      @keyframes flicker {
-        0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
-          opacity: 1;
-        }
-        20%, 24%, 55% {
-          opacity: 0.4;
-        }
+        z-index: 1;
       }
 
       @keyframes drift {
-        0% { transform: translate(-20%, -10%) scale(1.2); }
-        100% { transform: translate(20%, 10%) scale(1.2); }
+        0% { transform: translate(-10%, -5%) scale(1); }
+        100% { transform: translate(10%, 5%) scale(1); }
       }
     </style>
   </head>
@@ -98,7 +88,7 @@ import gravetaleLogo from '../assets/gravetale_logo.png';
       <img src={gravetaleLogo.src} alt="GRAVETALE Studios™ logo" />
       <h1>GRAVETALE Studios™</h1>
       <p>Experiences designed to crawl under your skin. Coming to you soon.</p>
-      <a href="https://discord.gg/5wpKBRCrAV" class="button" target="_blank">Join Our Discord</a>
+      <a href="https://discord.gg/YOUR_INVITE_CODE" class="button" target="_blank">Join Our Discord</a>
     </div>
   </body>
 </html>
