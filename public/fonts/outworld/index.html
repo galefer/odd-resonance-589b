@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Outworld Archive</title>
+
+    <!-- === FONT IMPORTS === -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+Great+Primer+SC&family=Quintessential&display=swap" rel="stylesheet">
+
+    <!-- === STYLESHEET === -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- === FAVICON === -->
+    <link rel="icon" type="image/png" href="assets/images/favicon.png">
+</head>
+
+<body>
+    <div class="grain"></div>
+
+    <header class="site-header">
+      <h1>OUTWORLD ARCHIVE</h1>
+
+      <!-- Mobile Pie Menu Button -->
+      <div class="menu-toggle" id="menuToggle">
+        <span></span><span></span><span></span>
+      </div>
+
+      <!-- Main Navigation -->
+      <nav id="mainNav">
+        <a href="index.html">Home</a>
+        <a href="records/index.html">Records</a>
+        <a href="systems/index.html">Systems</a>
+        <a href="gameplay/index.html">Gameplay</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <video autoplay muted loop playsinline poster="assets/images/hero.png" class="hero-video">
+          <source src="assets/video/scorn.webm" type="video/webm">
+          <source src="assets/video/scorn.mp4" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+
+          <div class="hero-overlay">
+              <div class="hero-text-bg">
+                  <h2 id="hero-quote" class="hero-glitch">“The sun is watching — and it is hungry.”</h2>
+                  <p id="recovered-entry" class="glitch-text">Recovered entry // AF 400</p>
+              </div>
+          </div>
+      </section>
+
+        <h2 class="section-banner">ACCESS LOGS // GUIDANCE PROTOCOLS</h2>
+
+        <section class="content-grid">
+          <a class="content-card" href="records/quickstart.html">
+              <img src="assets/images/card-quickstart.jpg" alt="Quickstart Image" class="card-img">
+              <div class="card-body">
+                  <h3>Introduction To Outworld</h3>
+                  <p>Basic rules, survival priorities, and essential systems explained.</p>
+              </div>
+          </a>
+
+          <a class="content-card" href="guides/setting.html">
+              <img src="assets/images/card-setting.jpg" alt="Setting Image" class="card-img">
+              <div class="card-body">
+                  <h3>The Setting of Outworld</h3>
+                  <p>An overview of Sanguis — the corpse-world beneath the Necrosun.</p>
+              </div>
+          </a>
+
+          <a class="content-card" href="guides/character.html">
+              <img src="assets/images/card-character.jpg" alt="Character Image" class="card-img">
+              <div class="card-body">
+                  <h3>Character Creation</h3>
+                  <p>Character creation in the dead world: classes, mutations, and identity.</p>
+              </div>
+          </a>
+
+          <a class="content-card" href="guides/setting.html">
+              <img src="assets/images/card-setting.jpg" alt="Setting Image" class="card-img">
+              <div class="card-body">
+                  <h3>The Setting of Outworld</h3>
+                  <p>An overview of Sanguis — the corpse-world beneath the Necrosun.</p>
+              </div>
+          </a>
+        </section>
+    </main>
+
+    <footer>
+        <p>Recovered by GRAVETALE Studios // Cycle AF 400</p>
+    </footer>
+
+    <!-- === RANDOMIZED QUOTE + GLITCH/Flicker SCRIPT === -->
+    <script>
+        const heroQuotes = [
+            "“The sun is watching — and it is hungry.”",
+            "“Faith rots slower than flesh.”",
+            "“Nothing dies. Everything mutates.”",
+            "“Lathander does not answer.”",
+            "“We are echoes of something that forgot itself.”",
+            "“Beneath the Necrosun, even shadows burn.”",
+            "“To remember is to suffer.”",
+            "“Light is just another form of decay.”",
+            "“Do not pray. It remembers your voice.”",
+            "“Every sunrise is a lie.”"
+        ];
+
+        const recoveredEntries = [
+            "Recovered entry // AF 400",
+            "Recovered transcript // The Dretches Sector",
+            "Recovered memory // The Tower’s Root Chamber",
+            "Recovered scripture // Hollow Sun Hierophant",
+            "Recovered fragment // Necrosun Anomaly",
+            "Recovered log // Genesis Wall breach",
+            "Recovered distortion // Unknown Channel",
+            "Recovered thoughtform // Groth Resonance",
+            "Recovered confession // The Blighted Choir",
+            "Recovered residue // The Flesh Engine",
+            "Recovered prayer // No response detected",
+            "Recovered dream // Subject expired mid-transmission"
+        ];
+
+        const randomQuote = heroQuotes[Math.floor(Math.random() * heroQuotes.length)];
+        const finalEntry = recoveredEntries[Math.floor(Math.random() * recoveredEntries.length)];
+
+        const quoteEl = document.getElementById("hero-quote");
+        const entryEl = document.getElementById("recovered-entry");
+
+        document.addEventListener("DOMContentLoaded", () => {
+            if (quoteEl) {
+                quoteEl.textContent = randomQuote;
+                quoteEl.setAttribute("data-text", randomQuote);
+            }
+
+            if (!entryEl) return;
+            const symbols = "!@#$%^&*()_+=-<>?/[]{}";
+            let flickerCount = 0;
+
+            function flicker() {
+                if (flickerCount < 15) {
+                    const randomText = Array.from(finalEntry)
+                        .map(c => (Math.random() < 0.3 ? symbols[Math.floor(Math.random() * symbols.length)] : c))
+                        .join("");
+                    entryEl.textContent = randomText;
+                    flickerCount++;
+                    setTimeout(flicker, 40 + Math.random() * 80);
+                } else {
+                    entryEl.textContent = finalEntry;
+                    entryEl.classList.add("stabilized");
+                }
+            }
+
+            flicker();
+        });
+    </script>
+
+    <script>
+      const menuToggle = document.getElementById('menuToggle');
+      const mainNav = document.getElementById('mainNav');
+
+      menuToggle.addEventListener('click', () => {
+        mainNav.classList.toggle('open');
+        menuToggle.classList.toggle('open');
+      });
+    </script>
+</body>
+</html>
