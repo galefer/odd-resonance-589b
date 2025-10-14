@@ -125,6 +125,7 @@ body {
   object-fit: cover;
   filter: grayscale(100%) brightness(0.6);
   user-select: none;
+  display: none !important;
 }
 
 .hero::after {
