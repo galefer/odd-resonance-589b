@@ -32,69 +32,60 @@
       <nav id="mainNav">
         <a href="index.html">Home</a>
         <a href="records/index.html">Records</a>
+        <a href="guides/index.html">Guides</a>
         <a href="systems/index.html">Systems</a>
         <a href="gameplay/index.html">Gameplay</a>
       </nav>
     </header>
 
     <main>
-<section class="hero">
-  <video 
-    autoplay 
-    muted 
-    loop 
-    playsinline 
-    disablepictureinpicture 
-    controlslist="nodownload noremoteplayback nofullscreen" 
-    poster="assets/images/hero.png" 
-    class="hero-video"
-  >
-    <source src="assets/video/scorn.webm" type="video/webm">
-    <source src="assets/video/scorn.mp4" type="video/mp4">
-    Your browser does not support the video tag.
-  </video>
+      <section class="hero">
+        <video autoplay muted loop playsinline poster="assets/images/hero.png" class="hero-video">
+          <source src="assets/video/scorn.webm" type="video/webm">
+          <source src="assets/video/scorn.mp4" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
 
-  <div class="hero-overlay">
-    <div class="hero-text-bg">
-      <h2 id="hero-quote" class="hero-glitch">“The sun is watching — and it is hungry.”</h2>
-      <p id="recovered-entry" class="glitch-text">Recovered entry // AF 400</p>
-    </div>
-  </div>
-</section>
+          <div class="hero-overlay">
+              <div class="hero-text-bg">
+                  <h2 id="hero-quote" class="hero-glitch">“The sun is watching — and it is hungry.”</h2>
+                  <p id="recovered-entry" class="glitch-text">Recovered entry // AF 400</p>
+              </div>
+          </div>
+      </section>
 
-
-        <h2 class="section-banner">ACCESS LOGS // GUIDANCE PROTOCOLS</h2>
+        <h2 class="section-banner">URGENT DATA // RECOMMENDED ARTICLES</h2>
 
         <section class="content-grid">
-          <a class="content-card" href="records/quickstart.html">
-              <img src="assets/images/card-quickstart.jpg" alt="Quickstart Image" class="card-img">
+          <a class="content-card" href="records/introduction.html">
+              <img src="assets/images/introduction.jpg" alt="Quickstart Image" class="card-img">
               <div class="card-body">
-                  <h3>Introduction To Outworld</h3>
-                  <p>Basic rules, survival priorities, and essential systems explained.</p>
+                  <h3>Introduction</h3>
+                  <p>Taste the dread of the existential.</p>
               </div>
           </a>
 
-          <a class="content-card" href="guides/setting.html">
-              <img src="assets/images/card-setting.jpg" alt="Setting Image" class="card-img">
+          <a class="content-card" href="comingsoon.html">
+              <img src="assets/images/area-1.jpg" alt="Setting Image" class="card-img">
               <div class="card-body">
-                  <h3>The Setting of Outworld</h3>
-                  <p>An overview of Sanguis — the corpse-world beneath the Necrosun.</p>
+                  <h3>Setting Guide</h3>
+                  <p>Get into character and feel your place in the world.</p>
               </div>
           </a>
 
-          <a class="content-card" href="guides/character.html">
-              <img src="assets/images/card-character.jpg" alt="Character Image" class="card-img">
+          <a class="content-card" href="comingsoon.html">
+              <img src="assets/images/scorn-melt.jpg" alt="Character Image" class="card-img">
               <div class="card-body">
-                  <h3>Character Creation</h3>
-                  <p>Character creation in the dead world: classes, mutations, and identity.</p>
+                  <h3>Survival Resources</h3>
+                  <p>The pillars of survival. Vitality, Integrity & Sanity.</p>
               </div>
           </a>
 
-          <a class="content-card" href="guides/setting.html">
-              <img src="assets/images/card-setting.jpg" alt="Setting Image" class="card-img">
+          <a class="content-card" href="comingsoon.html">
+              <img src="assets/images/scorn-4.jpg" alt="Setting Image" class="card-img">
               <div class="card-body">
-                  <h3>The Setting of Outworld</h3>
-                  <p>An overview of Sanguis — the corpse-world beneath the Necrosun.</p>
+                  <h3>Class Changes</h3>
+                  <p>Eveything is different now, even how you function.</p>
               </div>
           </a>
         </section>
@@ -107,16 +98,16 @@
     <!-- === RANDOMIZED QUOTE + GLITCH/Flicker SCRIPT === -->
     <script>
         const heroQuotes = [
-            "“The sun is watching — and it is hungry.”",
-            "“Faith rots slower than flesh.”",
-            "“Nothing dies. Everything mutates.”",
-            "“Lathander does not answer.”",
-            "“We are echoes of something that forgot itself.”",
-            "“Beneath the Necrosun, even shadows burn.”",
+            "“The sun is watching.”",
+            "“Faith rots faster than flesh.”",
+            "“Forget.”",
+            "“He does not answer.”",
+            "“We are echoes of something lost.”",
+            "“Beneath the sun, even memories burn.”",
             "“To remember is to suffer.”",
-            "“Light is just another form of decay.”",
+            "“The cycle of life and death continues.”",
             "“Do not pray. It remembers your voice.”",
-            "“Every sunrise is a lie.”"
+            "“What is my name?”"
         ];
 
         const recoveredEntries = [

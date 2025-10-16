@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coming Soon // Outworld Archive</title>
+
+  <!-- === FONT IMPORTS === -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+Great+Primer+SC&family=Quintessential&display=swap" rel="stylesheet">
+
+  <!-- === STYLESHEET === -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- === FAVICON === -->
+  <link rel="icon" type="image/png" href="../assets/images/favicon.png">
+</head>
+
+<body>
+  <div class="grain"></div>
+
+  <header class="site-header">
+    <h1>OUTWORLD ARCHIVE</h1>
+
+    <!-- Mobile Pie Menu Button -->
+    <div class="menu-toggle" id="menuToggle">
+      <span></span><span></span><span></span>
+    </div>
+
+    <!-- Main Navigation -->
+    <nav id="mainNav">
+      <a href="index.html">Home</a>
+      <a href="records/index.html">Records</a>
+      <a href="guides/index.html">Guides</a>
+      <a href="systems/index.html">Systems</a>
+      <a href="gameplay/index.html">Gameplay</a>
+    </nav>
+  </header>
+
+  <main class="comingsoon-container">
+    <!--    <img src="assets/images/scorn-icon.png" class="comingsoon-logo" alt="Outworld Archive Logo"> -->
+
+    <div class="glitch-lines">
+      <h2>ERROR // DATA LOST</h2>
+      <h2 data-text="COMING // SOON">COMING // SOON</h2>
+    </div>
+  </main>
+
+  <footer>
+    <p>Recovered by GRAVETALE Studios // Cycle AF 400</p>
+  </footer>
+
+  <script>
+    const menuToggle = document.getElementById('menuToggle');
+    const mainNav = document.getElementById('mainNav');
+    menuToggle.addEventListener('click', () => {
+      mainNav.classList.toggle('open');
+      menuToggle.classList.toggle('open');
+    });
+  </script>
+</body>
+</html>
