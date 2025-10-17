@@ -1670,3 +1670,14 @@ footer {
   border-radius: 4px;
   margin: 2px 0;
 }
+
+.site-title-link {
+  color: var(--accent);
+  text-decoration: none;
+  display: inline-block;
+}
+
+.site-title-link:hover {
+  color: var(--accent-bright);
+  text-shadow: 0 0 8px rgba(227, 70, 70, 0.7);
+}
