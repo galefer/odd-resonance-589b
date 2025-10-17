@@ -95,49 +95,34 @@
         <p>Recovered by GRAVETALE Studios // Cycle AF 400</p>
     </footer>
 
-    <!-- === RANDOMIZED QUOTE + GLITCH/Flicker SCRIPT === -->
+    <!-- === RANDOMIZED QUOTE + MATCHED ENTRY SCRIPT === -->
     <script>
-        const heroQuotes = [
-            "“The sun is watching.”",
-            "“Faith rots faster than flesh.”",
-            "“Forget.”",
-            "“He does not answer.”",
-            "“We are echoes of something lost.”",
-            "“Beneath the sun, even memories burn.”",
-            "“To remember is to suffer.”",
-            "“The cycle of life and death continues.”",
-            "“Do not pray. It remembers your voice.”",
-            "“What is my name?”"
+        const heroData = [
+            { quote: "“The sun is always watching.”", entry: "Recovered entry // AF 400" },
+            { quote: "“Faith rots faster than flesh.”", entry: "Recovered transcript // The Dretches Sector" },
+            { quote: "“Forget, it is safer than remembering.”", entry: "Recovered memory // The Tower’s Root Chamber" },
+            { quote: "“He does not answer. Why?”", entry: "Recovered scripture // Hollow Sun Hierophant" },
+            { quote: "“I'm sick, I'm tired, and I just want to go home.”", entry: "Recovered log // Genesis Wall breach" },
+            { quote: "“She burns the flesh into something new.”", entry: "Recovered fragment // Necrosun Anomaly" },
+            { quote: "“Who you were is best left forgotten.”", entry: "Recovered distortion // Unknown Channel" },
+            { quote: "“The cycle never ended. It only forgot how to circle.”", entry: "Recovered thoughtform // Groth Resonance" },
+            { quote: "“Do not pray. Something is listening. Do not feed it.”", entry: "Recovered confession // The Blighted Choir" },
+            { quote: "“Names serve a purpose, but to the flesh, they are worthless.”", entry: "Recovered residue // The Flesh Engine" }
         ];
 
-        const recoveredEntries = [
-            "Recovered entry // AF 400",
-            "Recovered transcript // The Dretches Sector",
-            "Recovered memory // The Tower’s Root Chamber",
-            "Recovered scripture // Hollow Sun Hierophant",
-            "Recovered fragment // Necrosun Anomaly",
-            "Recovered log // Genesis Wall breach",
-            "Recovered distortion // Unknown Channel",
-            "Recovered thoughtform // Groth Resonance",
-            "Recovered confession // The Blighted Choir",
-            "Recovered residue // The Flesh Engine",
-            "Recovered prayer // No response detected",
-            "Recovered dream // Subject expired mid-transmission"
-        ];
-
-        const randomQuote = heroQuotes[Math.floor(Math.random() * heroQuotes.length)];
-        const finalEntry = recoveredEntries[Math.floor(Math.random() * recoveredEntries.length)];
-
-        const quoteEl = document.getElementById("hero-quote");
-        const entryEl = document.getElementById("recovered-entry");
+        const randomPair = heroData[Math.floor(Math.random() * heroData.length)];
 
         document.addEventListener("DOMContentLoaded", () => {
+            const quoteEl = document.getElementById("hero-quote");
+            const entryEl = document.getElementById("recovered-entry");
+
             if (quoteEl) {
-                quoteEl.textContent = randomQuote;
-                quoteEl.setAttribute("data-text", randomQuote);
+                quoteEl.textContent = randomPair.quote;
+                quoteEl.setAttribute("data-text", randomPair.quote);
             }
 
             if (!entryEl) return;
+            const finalEntry = randomPair.entry;
             const symbols = "!@#$%^&*()_+=-<>?/[]{}";
             let flickerCount = 0;
 
