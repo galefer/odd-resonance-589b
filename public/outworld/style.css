@@ -1288,3 +1288,13 @@ footer {
     line-height: 1.2;
   }
 }
+@media (max-width: 800px) {
+  #mainNav {
+    gap: 0;      /* kills inherited desktop gap */
+    padding: 0;  /* removes any inner padding */
+  }
+
+  #mainNav a {
+    margin: 0;   /* ensure no individual spacing */
+  }
+}
