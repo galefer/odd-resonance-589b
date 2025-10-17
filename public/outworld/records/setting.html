@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Setting // Outworld Archive</title>
+
+  <!-- === FONT IMPORTS === -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+Great+Primer+SC&family=Quintessential&display=swap" rel="stylesheet">
+
+  <!-- === STYLESHEET === -->
+  <link rel="stylesheet" href="../style.css">
+
+  <!-- === FAVICON === -->
+  <link rel="icon" type="image/png" href="../assets/images/favicon.png">
+</head>
+<body>
+  <div class="grain"></div>
+
+  <header class="site-header">
+    <h1>OUTWORLD ARCHIVE</h1>
+
+    <!-- Mobile Pie Menu Button -->
+    <div class="menu-toggle" id="menuToggle">
+      <span></span><span></span><span></span>
+    </div>
+
+    <!-- Main Navigation -->
+    <nav id="mainNav">
+      <a href="../index.html">Home</a>
+      <a href="../records/index.html">Records</a>
+      <a href="../guides/index.html">Guides</a>
+      <a href="../systems/index.html">Systems</a>
+      <a href="../gameplay/index.html">Gameplay</a>
+    </nav>
+  </header>
+
+  <div class="nav-banner-nopad">
+    <a href="../records/index.html" class="nav-link">RECORDS</a>
+    <span class="nav-divider">&raquo;</span>
+    <a href="./setting.html" class="nav-link active">SETTING</a>
+  </div>
+
+  <main class="records-main">
+
+    <!-- === INTRO BLOCKS === -->
+    <section class="panel">
+      <img src="../assets/images/scorn-passage.webp" alt="Ruins of Sanguis" class="record-img">
+      <div class="text">
+        <h2>Gone <span class="subtitle">// The Vanishing</span></h2>
+
+        <p>
+          No one <em>chooses</em> to come here.
+        </p>
+
+        <p>
+          You may have once wandered the <em>stars</em>, carved your name into the <em>weave of history</em>, or defied the pull of mortality itself.
+          None of that matters now.
+        </p>
+
+        <p>
+          This place is not marked on any chart.
+          No god speaks its name.
+          No spell recalls its coordinates.
+        </p>
+
+        <p>
+          What you walk now is a <em>scar on reality</em> — a wound left unhealed, or perhaps, <em>deliberately hidden</em>.
+          You are not the first to be stranded.
+        </p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <img src="../assets/images/polis.jpg" alt="Subterranean halls" class="record-img">
+      <div class="text">
+        <h2>Remember <span class="subtitle">// A Woeful Fate</span></h2>
+
+        <p>
+          Wherever your journey began — whatever <em>power</em>, <em>purpose</em>, or <em>identity</em> once defined you — it is <em>gone</em>.
+        </p>
+
+        <p>
+          You now stand within a world that was <em>never meant</em> to be found.
+          Life decays into <em>madness</em>, and the land itself recoils beneath your step.
+          The air hums with <em>ancient tension</em>; the ground beats like a <em>buried heart</em>.
+        </p>
+
+        <p>
+          You are not <em>safe</em>.
+          You are not <em>special</em>.
+          You are merely — <em>still alive</em>.
+        </p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <img src="../assets/images/setting.jpg" alt="Subterranean halls" class="record-img">
+      <div class="text">
+        <h2>Survive <span class="subtitle">// Or Assimilate</span></h2>
+
+        <p>
+          You walk a realm where <em>reality falters</em> — where the laws of nature bend like metal in heat.
+        </p>
+
+        <p>
+          What was once familiar will <em>betray</em> you.
+          What was once sacred will <em>twist</em>.
+          And what was once <em>you</em> may not remain.
+        </p>
+
+        <p>
+          This place will strip you to your core — <em>name</em>, <em>purpose</em>, <em>body</em>, <em>mind</em> — until only <em>will</em> endures.
+        </p>
+
+        <p>
+          If you survive, it will not be because you conquered.
+          It will be because you <em>refused to fall</em>.
+        </p>
+      </div>
+    </section>
+
+
+
+    <div class="nav-banner-nopad">
+      <a href="../records/index.html" class="nav-link">RECORDS</a>
+      <span class="nav-divider">&raquo;</span>
+      <a href="./setting.html" class="nav-link active">SETTING</a>
+    </div>
+
+    </section>
+
+  </main>
+
+  <footer>
+    <p>Recovered by GRAVETALE Studios // Cycle AF 400</p>
+  </footer>
+
+  <script>
+    const menuToggle = document.getElementById('menuToggle');
+    const mainNav = document.getElementById('mainNav');
+
+    menuToggle.addEventListener('click', () => {
+      mainNav.classList.toggle('open');
+      menuToggle.classList.toggle('open');
+    });
+  </script>
+</body>
+</html>

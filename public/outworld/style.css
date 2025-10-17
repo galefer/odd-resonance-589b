@@ -1298,3 +1298,375 @@ footer {
     margin: 0;   /* ensure no individual spacing */
   }
 }
+
+/* === INFO PAGE TEMPLATE === */
+.info-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  color: var(--text-light);
+}
+
+/* Header / Intro Section */
+.info-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.info-header h1 {
+  font-family: "IM Fell Great Primer SC", serif;
+  color: var(--accent);
+  font-size: 2rem;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(163,32,0,0.6);
+}
+
+.info-header p {
+  font-family: 'Roboto Mono', monospace;
+  color: #aaa;
+  margin-top: 0.6rem;
+  line-height: 1.6;
+}
+
+/* Section Structure */
+.info-section {
+  margin-bottom: 2.5rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid rgba(163,32,0,0.15);
+}
+
+.info-section:last-child {
+  border-bottom: none;
+}
+
+.info-section h2 {
+  color: var(--accent);
+  font-family: var(--header-font);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-size: 1.3rem;
+  margin-bottom: 0.75rem;
+  text-shadow: 0 0 8px rgba(163,32,0,0.3);
+}
+
+.info-section h3 {
+  color: #c44;
+  font-size: 1.1rem;
+  margin: 1rem 0 0.5rem;
+  font-family: 'Roboto Mono', monospace;
+}
+
+.info-section p {
+  line-height: 1.7;
+  color: #ccc;
+  margin-bottom: 0.75rem;
+}
+
+.info-section ul {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.info-section li {
+  margin-bottom: 0.4rem;
+}
+
+/* === Highlight / Note Boxes === */
+.info-box {
+  background: rgba(40,0,0,0.6);
+  border: 1px solid rgba(163,32,0,0.4);
+  padding: 0.9rem 1rem;
+  border-radius: 6px;
+  font-family: 'Roboto Mono', monospace;
+  margin-top: 1rem;
+  box-shadow: 0 0 12px rgba(0,0,0,0.4);
+  color: #ddd;
+}
+
+.info-box.warning {
+  border-color: rgba(227,70,70,0.6);
+  background: rgba(60,0,0,0.7);
+}
+
+.link-accent {
+  color: var(--accent-bright);
+  text-decoration: none;
+}
+
+.link-accent:hover {
+  text-shadow: 0 0 6px rgba(227,70,70,0.8);
+}
+
+/* === Generic Info List (Reusable for races, classes, items, etc.) === */
+.info-list ul {
+  columns: 2;
+  column-gap: 2rem;
+  list-style: none;
+  padding-left: 0;
+  margin: 1rem 0;
+}
+
+.info-list li {
+  padding: 0.25rem 0;
+  border-bottom: 1px dotted rgba(100,0,0,0.3);
+}
+
+/* === Responsive === */
+@media (max-width: 700px) {
+  .info-list ul { columns: 1; }
+  .info-header h1 { font-size: 1.6rem; }
+}
+
+/* === INFO PAGE CONTAINER (MOBILE-FIRST) === */
+.info-page {
+  max-width: 900px;
+  margin: 3rem auto 4rem;
+  padding: 2rem 2.5rem;
+  position: relative;
+  color: var(--text-light);
+  z-index: 1;
+
+  /* mobile: no texture, no border, clean look */
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+/* remove pseudo-elements by default */
+.info-page::before,
+.info-page::after {
+  content: none;
+}
+
+/* === DESKTOP ENHANCEMENT === */
+@media (min-width: 900px) {
+  .info-page {
+    background:
+      rgba(10, 0, 0, 0.35)
+      url('../assets/images/texture-tile.png')
+      repeat;
+    background-size: 512px 512px;
+    border: 1px solid rgba(163, 32, 0, 0.35);
+    box-shadow: 0 0 25px rgba(163, 32, 0, 0.15);
+    border-radius: 6px;
+  }
+
+  .info-page::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 1px solid rgba(163, 32, 0, 0.25);
+    box-shadow: inset 0 0 20px rgba(163, 32, 0, 0.15);
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .info-page::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(3px);
+    border-radius: 6px;
+    z-index: -1;
+  }
+}
+@media (max-width: 899px) {
+  .info-page {
+    margin-top: 0.0rem; /* was 3rem */
+  }
+
+  .info-header h1 {
+    margin-top: 0.0rem; /* pull "Character Creation" up tighter */
+  }
+
+  .info-header p {
+    margin-top: 0.75rem;
+  }
+}
+
+/* === INFO LIST REWORK === */
+.info-list {
+  margin: 1.5rem 0;
+}
+
+.info-list ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 0.25rem 2rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.info-list li {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px dotted rgba(255, 60, 60, 0.1);
+  font-size: 1rem;
+  line-height: 1.5;
+  letter-spacing: 0.3px;
+  color: var(--text-light);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.info-list li:hover {
+  background: rgba(255, 60, 60, 0.05);
+}
+
+/* mobile: single column, clean spacing */
+@media (max-width: 700px) {
+  .info-list ul {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
+  }
+
+  .info-list li {
+    padding: 0.35rem 0.25rem;
+    border-bottom: 1px dotted rgba(255, 60, 60, 0.1);
+  }
+}
+
+.info-list li {
+  padding: 0.6rem 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 60, 60, 0.08);
+  border-radius: 4px;
+  transition: background 0.2s ease, border 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.info-list li:hover {
+  background: rgba(255, 60, 60, 0.05);
+  border-color: rgba(255, 60, 60, 0.15);
+}
+
+/* Race name (main label) */
+.info-list .race {
+  font-size: 1rem;
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+/* Subrace text (secondary label) */
+.info-list .subrace {
+  font-size: 0.85rem;
+  color: rgba(255, 120, 120, 0.65);
+  margin-top: 0.2rem;
+  font-weight: 400;
+  letter-spacing: 0.3px;
+}
+
+.faq {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.faq-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 60, 60, 0.08);
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  transition: background 0.25s ease, border 0.25s ease;
+}
+
+.faq-item:hover {
+  background: rgba(255, 60, 60, 0.05);
+  border-color: rgba(255, 60, 60, 0.15);
+}
+
+.faq-item h3 {
+  color: rgba(255, 90, 60, 0.95);
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.6rem;
+}
+
+.faq-item p {
+  margin: 0.25rem 0;
+  color: var(--text-light);
+  line-height: 1.6;
+}
+
+.faq-item ul {
+  margin-top: 0.5rem;
+  margin-left: 1.25rem;
+}
+
+.faq-item li {
+  margin: 0.4rem 0;
+  color: var(--text-light);
+  line-height: 1.5;
+}
+
+/* === COMING SOON CARDS (FIXED OVERLAY POSITION) === */
+.content-card.coming-soon {
+  position: relative;
+  filter: grayscale(70%) brightness(0.85);
+  cursor: default;
+  pointer-events: none;
+}
+
+.content-card.coming-soon:hover {
+  transform: none;
+  border-color: rgba(255, 0, 0, 0.2);
+  box-shadow: none;
+}
+
+/* Ensure the image container defines positioning */
+.content-card.coming-soon .card-img {
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+/* Overlay sits directly over the image only */
+.content-card.coming-soon .card-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 2;
+  pointer-events: none;
+  user-select: none;
+}
+
+.content-card.coming-soon .card-overlay span {
+  font-family: var(--header-font);
+  color: #ff2b2b;
+  text-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+  letter-spacing: 2px;
+  line-height: 1.3;
+  font-size: clamp(0.9rem, 3vw, 1.2rem);
+}
+
+.card-img-container {
+  position: relative;
+}
+
+.content-card.coming-soon .card-overlay span {
+  font-family: var(--header-font);
+  color: #ff2b2b;
+  text-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+  letter-spacing: 2px;
+  line-height: 1.3;
+  font-size: clamp(0.9rem, 3vw, 1.2rem);
+  background: rgba(0, 0, 0, 0.5);  /* translucent black block */
+  padding: 4px 10px;
+  border-radius: 4px;
+  margin: 2px 0;
+}
