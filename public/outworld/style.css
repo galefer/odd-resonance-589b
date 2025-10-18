@@ -1681,3 +1681,85 @@ footer {
   color: var(--accent-bright);
   text-shadow: 0 0 8px rgba(227, 70, 70, 0.7);
 }
+
+.grain {
+  position: fixed;
+}
+
+/* === GUIDE NAVIGATION SYSTEM === */
+.guide-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.guide-slide {
+  opacity: 0;
+  transform: translateX(40px);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  pointer-events: none;
+}
+.guide-slide.active {
+  opacity: 1;
+  transform: translateX(0);
+  position: relative;
+  pointer-events: all;
+}
+
+.guide-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1.5rem;
+  gap: 1.2rem;
+}
+
+.guide-btn {
+  background: none;
+  border: 1px solid rgba(194,53,53,0.4);
+  color: var(--accent);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+.guide-btn:hover {
+  border-color: var(--accent-bright);
+  color: var(--accent-bright);
+  background: rgba(255, 0, 0, 0.05);
+}
+
+.guide-dots {
+  display: flex;
+  gap: 0.5rem;
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.dot.active {
+  background: var(--accent);
+}
+
+/* === TOP NAV === */
+.guide-nav-top {
+  margin-bottom: 1.5rem;
+  margin-top: 0.5rem;
+}
+
+.guide-nav-top .guide-btn {
+  font-size: 1.3rem;
+  padding: 0.2rem 0.6rem;
+}
+
+.guide-nav-top .guide-dots {
+  gap: 0.4rem;
+}
