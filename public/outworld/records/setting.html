@@ -1,40 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Setting</title>
 
   <!-- === FONT IMPORTS === -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+Great+Primer+SC&family=Quintessential&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IM+Fell+Great+Primer+SC&family=Quintessential&display=swap"
+    rel="stylesheet"
+  />
 
   <!-- === STYLESHEET === -->
-  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../style.css" />
 
   <!-- === FAVICON === -->
-  <link rel="icon" type="image/png" href="../assets/images/favicon.png">
+  <link rel="icon" type="image/png" href="../assets/images/favicon.png" />
 </head>
 <body>
   <div class="grain"></div>
 
   <header class="site-header">
-    <h1><a href="../index.html" class="site-title-link">OUTWORLD ARCHIVE</a></h1>
-
-    <!-- Mobile Pie Menu Button -->
-    <div class="menu-toggle" id="menuToggle">
-      <span></span><span></span><span></span>
+    <div class="header-left">
+      <h1><a href="index.html" class="site-title-link">OUTWORLD ARCHIVE</a></h1>
     </div>
 
-    <!-- Main Navigation -->
-    <nav id="mainNav">
-      <a href="../index.html">Home</a>
-      <a href="../records/index.html">Records</a>
-      <a href="../guides/index.html">Guides</a>
-      <a href="../systems/index.html">Systems</a>
-      <a href="../gameplay/index.html">Gameplay</a>
-    </nav>
+    <div class="header-right">
+      <nav id="mainNav">
+        <a href="../index.html">Home</a>
+        <a href="../records/index.html">Records</a>
+        <a href="../guides/index.html">Guides</a>
+        <a href="../systems/index.html">Systems</a>
+        <a href="../gameplay/index.html">Gameplay</a>
+      </nav>
+
+      <div class="social-icons">
+        <a href="https://discord.gg/tvBBqW7gFv" target="_blank" aria-label="Discord">
+          <img src="../assets/images/discord.png" alt="Discord">
+        </a>
+      </div>
+
+      <div class="menu-toggle" id="menuToggle">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
   </header>
 
   <div class="nav-banner-nopad">
@@ -44,94 +55,86 @@
   </div>
 
   <main class="records-main">
-
-    <!-- === INTRO BLOCKS === -->
-    <section class="panel">
-      <img src="../assets/images/scorn-passage.webp" alt="Ruins of Sanguis" class="record-img">
-      <div class="text">
-        <h2>Gone <span class="subtitle">// The Vanishing</span></h2>
-
-        <p>
-          No one <em>chooses</em> to come here.
-        </p>
-
-        <p>
-          You may have once wandered the <em>stars</em>, carved your name into the <em>weave of history</em>, or defied the pull of mortality itself.
-          None of that matters now.
-        </p>
-
-        <p>
-          This place is not marked on any chart.
-          No god speaks its name.
-          No spell recalls its coordinates.
-        </p>
-
-        <p>
-          What you walk now is a <em>scar on reality</em> — a wound left unhealed, or perhaps, <em>deliberately hidden</em>.
-          You are not the first to be stranded.
-        </p>
+    <div class="guide-container">
+      <!-- === SLIDE 1 === -->
+      <div class="guide-slide active">
+        <section class="panel">
+          <img src="../assets/images/scorn-passage.webp" alt="Ruins of Sanguis" class="record-img" />
+          <div class="text">
+            <h2>Gone <span class="subtitle">// The Vanishing</span></h2>
+            <p>No one <em>chooses</em> to come here.</p>
+            <p>
+              You may have once wandered the <em>stars</em>, carved your name into the <em>weave of history</em>, or defied the pull of mortality itself.
+              None of that matters now.
+            </p>
+            <p>
+              This place is not marked on any chart.
+              No god speaks its name.
+              No spell recalls its coordinates.
+            </p>
+            <p>
+              What you walk now is a <em>scar on reality</em> — a wound left unhealed, or perhaps, <em>deliberately hidden</em>.
+              You are not the first to be stranded.
+            </p>
+          </div>
+        </section>
       </div>
-    </section>
 
-    <section class="panel">
-      <img src="../assets/images/polis.jpg" alt="Subterranean halls" class="record-img">
-      <div class="text">
-        <h2>Remember <span class="subtitle">// A Woeful Fate</span></h2>
-
-        <p>
-          Wherever your journey began — whatever <em>power</em>, <em>purpose</em>, or <em>identity</em> once defined you — it is <em>gone</em>.
-        </p>
-
-        <p>
-          You now stand within a world that was <em>never meant</em> to be found.
-          Life decays into <em>madness</em>, and the land itself recoils beneath your step.
-          The air hums with <em>ancient tension</em>; the ground beats like a <em>buried heart</em>.
-        </p>
-
-        <p>
-          You are not <em>safe</em>.
-          You are not <em>special</em>.
-          You are merely — <em>still alive</em>.
-        </p>
+      <!-- === SLIDE 2 === -->
+      <div class="guide-slide">
+        <section class="panel">
+          <img src="../assets/images/polis.jpg" alt="Subterranean halls" class="record-img" />
+          <div class="text">
+            <h2>Remember <span class="subtitle">// A Woeful Fate</span></h2>
+            <p>
+              Wherever your journey began — whatever <em>power</em>, <em>purpose</em>, or <em>identity</em> once defined you — it is <em>gone</em>.
+            </p>
+            <p>
+              You now stand within a world that was <em>never meant</em> to be found.
+              Life decays into <em>madness</em>, and the land itself recoils beneath your step.
+              The air hums with <em>ancient tension</em>; the ground beats like a <em>buried heart</em>.
+            </p>
+            <p>
+              You are not <em>safe</em>.
+              You are not <em>special</em>.
+              You are merely — <em>still alive</em>.
+            </p>
+          </div>
+        </section>
       </div>
-    </section>
 
-    <section class="panel">
-      <img src="../assets/images/setting.jpg" alt="Subterranean halls" class="record-img">
-      <div class="text">
-        <h2>Survive <span class="subtitle">// Or Assimilate</span></h2>
-
-        <p>
-          You walk a realm where <em>reality falters</em> — where the laws of nature bend like metal in heat.
-        </p>
-
-        <p>
-          What was once familiar will <em>betray</em> you.
-          What was once sacred will <em>twist</em>.
-          And what was once <em>you</em> may not remain.
-        </p>
-
-        <p>
-          This place will strip you to your core — <em>name</em>, <em>purpose</em>, <em>body</em>, <em>mind</em> — until only <em>will</em> endures.
-        </p>
-
-        <p>
-          If you survive, it will not be because you conquered.
-          It will be because you <em>refused to fall</em>.
-        </p>
+      <!-- === SLIDE 3 === -->
+      <div class="guide-slide">
+        <section class="panel">
+          <img src="../assets/images/setting.jpg" alt="Subterranean halls" class="record-img" />
+          <div class="text">
+            <h2>Survive <span class="subtitle">// Or Assimilate</span></h2>
+            <p>
+              You walk a realm where <em>reality falters</em> — where the laws of nature bend like metal in heat.
+            </p>
+            <p>
+              What was once familiar will <em>betray</em> you.
+              What was once sacred will <em>twist</em>.
+              And what was once <em>you</em> may not remain.
+            </p>
+            <p>
+              This place will strip you to your core — <em>name</em>, <em>purpose</em>, <em>body</em>, <em>mind</em> — until only <em>will</em> endures.
+            </p>
+            <p>
+              If you survive, it will not be because you conquered.
+              It will be because you <em>refused to fall</em>.
+            </p>
+          </div>
+        </section>
       </div>
-    </section>
 
-
-
-    <div class="nav-banner-nopad">
-      <a href="../records/index.html" class="nav-link">RECORDS</a>
-      <span class="nav-divider">&raquo;</span>
-      <a href="./setting.html" class="nav-link active">SETTING</a>
+      <!-- === GLOBAL NAV (TOP) === -->
+      <div class="guide-nav inside-panel top">
+        <button class="guide-btn prev">&#10094;</button>
+        <div class="guide-dots"></div>
+        <button class="guide-btn next">&#10095;</button>
+      </div>
     </div>
-
-    </section>
-
   </main>
 
   <footer>
@@ -139,13 +142,181 @@
   </footer>
 
   <script>
-    const menuToggle = document.getElementById('menuToggle');
-    const mainNav = document.getElementById('mainNav');
+  document.addEventListener("DOMContentLoaded", () => {
+    // ===== Mobile Menu =====
+    const menuToggle = document.getElementById("menuToggle");
+    const mainNav = document.getElementById("mainNav");
+    if (menuToggle && mainNav) {
+      menuToggle.addEventListener("click", () => {
+        mainNav.classList.toggle("open");
+        menuToggle.classList.toggle("open");
+      });
+    }
 
-    menuToggle.addEventListener('click', () => {
-      mainNav.classList.toggle('open');
-      menuToggle.classList.toggle('open');
+    // ===== Slides / Dots / Buttons =====
+    const container = document.querySelector(".guide-container");
+    if (!container) return;
+
+    const slides = Array.from(container.querySelectorAll(".guide-slide"));
+    const nextBtns = container.querySelectorAll(".guide-btn.next");
+    const prevBtns = container.querySelectorAll(".guide-btn.prev");
+    const dotsContainers = container.querySelectorAll(".guide-dots");
+
+    const rail = document.createElement("div");
+    rail.className = "slides-rail";
+    const style = document.createElement("style");
+    style.textContent = `
+      .guide-container { position: relative; overflow: hidden; }
+      .slides-rail { display: flex; width: 100%; height: 100%; will-change: transform; }
+      .slides-rail.anim { transition: transform 350ms ease; }
+      .slides-rail.no-trans { transition: none !important; }
+    `;
+    document.head.appendChild(style);
+
+    container.insertBefore(rail, slides[0]);
+    slides.forEach(s => {
+      s.style.position = "relative";
+      s.style.opacity = "1";
+      s.style.transform = "none";
+      s.style.pointerEvents = "auto";
+      s.style.minWidth = "100%";
+      s.style.flex = "0 0 100%";
+      s.classList.add("rail-child");
+      rail.appendChild(s);
     });
+
+    let current = 0;
+    let vw = container.clientWidth;
+    let baseX = 0, dragDX = 0, dragging = false;
+    let startX = 0, startY = 0;
+    let lockedH = false, abortV = false;
+
+    const dotsSets = [];
+    dotsContainers.forEach(dc => {
+      dc.innerHTML = "";
+      const dots = slides.map((_, i) => {
+        const d = document.createElement("span");
+        d.className = "dot" + (i === 0 ? " active" : "");
+        d.addEventListener("click", () => goTo(i));
+        dc.appendChild(d);
+        return d;
+      });
+      dotsSets.push(dots);
+    });
+
+    const updateDots = (idx) => {
+      dotsSets.forEach(ds => ds.forEach((d,i) => d.classList.toggle("active", i === idx)));
+    };
+
+    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+    const railX = () => -current * vw;
+    const setRail = (x, withAnim = false) => {
+      rail.classList.toggle("anim", !!withAnim);
+      rail.style.transform = `translate3d(${x}px,0,0)`;
+    };
+
+    const resize = () => {
+      vw = container.clientWidth || window.innerWidth;
+      setRail(railX(), true);
+    };
+    window.addEventListener("resize", resize);
+
+    const goTo = (idx, withAnim = true) => {
+      current = ((idx % slides.length) + slides.length) % slides.length;
+      updateDots(current);
+      setRail(railX(), withAnim);
+    };
+    const next = () => goTo(current + 1);
+    const prev = () => goTo(current - 1);
+
+    nextBtns.forEach(b => b.addEventListener("click", next));
+    prevBtns.forEach(b => b.addEventListener("click", prev));
+
+    const thresholdPx = () => {
+      const t = Math.floor(vw * 0.18);
+      return clamp(t, 80, 140);
+    };
+
+    const startDrag = (x, y) => {
+      dragging = true;
+      startX = x; startY = y;
+      baseX = railX();
+      dragDX = 0;
+      lockedH = false; abortV = false;
+      rail.classList.add("no-trans");
+    };
+
+    const moveDrag = (x, y, e) => {
+      if (!dragging) return;
+      const dx = x - startX;
+      const dy = y - startY;
+
+      if (!lockedH) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        lockedH = Math.abs(dx) > Math.abs(dy) * 1.2;
+        abortV = !lockedH;
+      }
+      if (abortV) return;
+      if (e && e.cancelable) e.preventDefault();
+
+      const atFirst = current === 0 && dx > 0;
+      const atLast = current === slides.length - 1 && dx < 0;
+      let appliedDX = dx;
+      if (atFirst || atLast) appliedDX *= 0.35;
+
+      dragDX = appliedDX;
+      setRail(baseX + appliedDX, false);
+    };
+
+    const endDrag = () => {
+      if (!dragging) return;
+      dragging = false;
+      rail.classList.remove("no-trans");
+
+      if (Math.abs(dragDX) >= thresholdPx()) {
+        if (dragDX < 0 && current < slides.length - 1) next();
+        else if (dragDX > 0 && current > 0) prev();
+        else goTo(current);
+      } else {
+        goTo(current);
+      }
+    };
+
+    container.addEventListener("touchstart", e => {
+      if (!e.touches || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      startDrag(t.clientX, t.clientY);
+    }, { passive: true });
+
+    container.addEventListener("touchmove", e => {
+      if (!e.touches || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      moveDrag(t.clientX, t.clientY, e);
+    }, { passive: false });
+
+    container.addEventListener("touchend", endDrag, { passive: true });
+    container.addEventListener("touchcancel", endDrag, { passive: true });
+
+    if ("ontouchstart" in window || navigator.maxTouchPoints > 0) {
+      let mouseDown = false;
+      container.addEventListener("mousedown", e => {
+        mouseDown = true;
+        startDrag(e.clientX, e.clientY);
+      });
+      window.addEventListener("mousemove", e => {
+        if (!mouseDown) return;
+        moveDrag(e.clientX, e.clientY, e);
+      });
+      window.addEventListener("mouseup", () => {
+        if (!mouseDown) return;
+        mouseDown = false;
+        endDrag();
+      });
+    }
+
+    resize();
+    goTo(0, false);
+  });
   </script>
 </body>
 </html>

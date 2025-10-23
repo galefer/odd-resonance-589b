@@ -1,40 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Introduction</title>
 
   <!-- === FONT IMPORTS === -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+Great+Primer+SC&family=Quintessential&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IM+Fell+Great+Primer+SC&family=Quintessential&display=swap"
+    rel="stylesheet"
+  />
 
   <!-- === STYLESHEET === -->
-  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../style.css" />
 
   <!-- === FAVICON === -->
-  <link rel="icon" type="image/png" href="../assets/images/favicon.png">
+  <link rel="icon" type="image/png" href="../assets/images/favicon.png" />
 </head>
 <body>
   <div class="grain"></div>
 
   <header class="site-header">
-    <h1><a href="../index.html" class="site-title-link">OUTWORLD ARCHIVE</a></h1>
-
-    <!-- Mobile Pie Menu Button -->
-    <div class="menu-toggle" id="menuToggle">
-      <span></span><span></span><span></span>
+    <div class="header-left">
+      <h1><a href="index.html" class="site-title-link">OUTWORLD ARCHIVE</a></h1>
     </div>
 
-    <!-- Main Navigation -->
-    <nav id="mainNav">
-      <a href="../index.html">Home</a>
-      <a href="../records/index.html">Records</a>
-      <a href="../guides/index.html">Guides</a>
-      <a href="../systems/index.html">Systems</a>
-      <a href="../gameplay/index.html">Gameplay</a>
-    </nav>
+    <div class="header-right">
+      <nav id="mainNav">
+        <a href="../index.html">Home</a>
+        <a href="../records/index.html">Records</a>
+        <a href="../guides/index.html">Guides</a>
+        <a href="../systems/index.html">Systems</a>
+        <a href="../gameplay/index.html">Gameplay</a>
+      </nav>
+
+      <div class="social-icons">
+        <a href="https://discord.gg/tvBBqW7gFv" target="_blank" aria-label="Discord">
+          <img src="../assets/images/discord.png" alt="Discord">
+        </a>
+      </div>
+
+      <div class="menu-toggle" id="menuToggle">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
   </header>
 
   <div class="nav-banner-nopad">
@@ -44,64 +55,85 @@
   </div>
 
   <main class="records-main">
-
-    <!-- === INTRO BLOCKS === -->
-    <section class="panel">
-      <img src="../assets/images/record-1.png" alt="Ruins of Sanguis" class="record-img">
-      <div class="text">
-        <h2>Birth <span class="subtitle">// Origin Fragment</span></h2>
-
-        <p>
-          Once, perhaps, you lived an <em>ordinary life</em> — warm lights, familiar skies.
-          Those memories mean <em>nothing</em> here.
-        </p>
-
-        <p>
-          You awaken in a world <em>unrecognizable</em> — a <em>corpse of creation</em> where stone and sinew have merged,
-          and the soil itself hums with the residue of a <em>forgotten age</em>.
-          The air stinks of rusted blood and the quiet persistence of things that should not be.
-        </p>
-
-        <p>
-          Each ruin you pass whispers of the civilizations that came before —
-          their monuments now overgrown with <em>living metal</em> and <em>parasitic growth</em>.
-          Nothing stands still. Nothing remains pure.
-          Gather what survivors you can, and press forward — not for <em>salvation</em>, but for <em>understanding</em>.
-        </p>
+    <div class="guide-container">
+      <!-- === SLIDE 1 === -->
+      <div class="guide-slide active">
+        <section class="panel">
+          <img
+            src="../assets/images/record-1.png"
+            alt="Ruins of Sanguis"
+            class="record-img"
+          />
+          <div class="text">
+            <h2>Birth <span class="subtitle">// Origin Fragment</span></h2>
+            <p>
+              Once, perhaps, you lived an <em>ordinary life</em> — warm lights,
+              familiar skies. Those memories mean <em>nothing</em> here.
+            </p>
+            <p>
+              You awaken in a world <em>unrecognizable</em> — a
+              <em>corpse of creation</em> where stone and sinew have merged, and
+              the soil itself hums with the residue of a
+              <em>forgotten age</em>. The air stinks of rusted blood and the
+              quiet persistence of things that should not be.
+            </p>
+            <p>
+              Each ruin you pass whispers of the civilizations that came before —
+              their monuments now overgrown with <em>living metal</em> and
+              <em>parasitic growth</em>. Nothing stands still. Nothing remains
+              pure. Gather what survivors you can, and press forward — not for
+              <em>salvation</em>, but for <em>understanding</em>.
+            </p>
+          </div>
+        </section>
       </div>
-    </section>
 
-    <section class="panel">
-      <img src="../assets/images/record-2.png" alt="Subterranean halls" class="record-img">
-      <div class="text">
-        <h2>Loss <span class="subtitle">// The Descent</span></h2>
-
-        <p>
-          This is no tale of heroes — no march toward glory.
-          You are not <em>chosen</em>; merely caught in the gravity of something vast and <em>indifferent</em>.
-        </p>
-
-        <p>
-          <em>Outworld</em> is a living wound — a place where <em>entropy took root</em> and learned to grow.
-          Here, faith fractures, flesh mutates, and the will to survive becomes both <em>burden</em> and <em>blessing</em>.
-        </p>
-
-        <p>
-          You cannot conquer what you do not understand.
-          You can only <em>endure</em> — and in the enduring, uncover fragments of meaning buried beneath <em>decay</em>.
-        </p>
+      <!-- === SLIDE 2 === -->
+      <div class="guide-slide">
+        <section class="panel">
+          <img
+            src="../assets/images/record-2.png"
+            alt="Subterranean halls"
+            class="record-img"
+          />
+          <div class="text">
+            <h2>Loss <span class="subtitle">// The Descent</span></h2>
+            <p>
+              This is no tale of heroes — no march toward glory. You are not
+              <em>chosen</em>; merely caught in the gravity of something vast and
+              <em>indifferent</em>.
+            </p>
+            <p>
+              <em>Outworld</em> is a living wound — a place where
+              <em>entropy took root</em> and learned to grow. Here, faith
+              fractures, flesh mutates, and the will to survive becomes both
+              <em>burden</em> and <em>blessing</em>.
+            </p>
+            <p>
+              You cannot conquer what you do not understand. You can only
+              <em>endure</em> — and in the enduring, uncover fragments of meaning
+              buried beneath <em>decay</em>.
+            </p>
+          </div>
+        </section>
       </div>
-    </section>
 
+      <!-- === GLOBAL NAV (TOP) === -->
+      <div class="guide-nav inside-panel top">
+        <button class="guide-btn prev">&#10094;</button>
+        <div class="guide-dots"></div>
+        <button class="guide-btn next">&#10095;</button>
+      </div>
 
-    <div class="nav-banner-nopad">
-      <a href="../records/index.html" class="nav-link">RECORDS</a>
-      <span class="nav-divider">&raquo;</span>
-      <a href="./introduction.html" class="nav-link active">INTRODUCTION</a>
+      <!-- === GLOBAL NAV (BOTTOM) === -->
+      <!--
+      <div class="guide-nav inside-panel bottom">
+        <button class="guide-btn prev">&#10094;</button>
+        <div class="guide-dots"></div>
+        <button class="guide-btn next">&#10095;</button>
+      </div>
+     -->
     </div>
-
-    </section>
-
   </main>
 
   <footer>
@@ -109,13 +141,200 @@
   </footer>
 
   <script>
-    const menuToggle = document.getElementById('menuToggle');
-    const mainNav = document.getElementById('mainNav');
+  document.addEventListener("DOMContentLoaded", () => {
+    // ===== Mobile Menu =====
+    const menuToggle = document.getElementById("menuToggle");
+    const mainNav = document.getElementById("mainNav");
+    if (menuToggle && mainNav) {
+      menuToggle.addEventListener("click", () => {
+        mainNav.classList.toggle("open");
+        menuToggle.classList.toggle("open");
+      });
+    }
 
-    menuToggle.addEventListener('click', () => {
-      mainNav.classList.toggle('open');
-      menuToggle.classList.toggle('open');
+    // ===== Slides / Dots / Buttons =====
+    const container = document.querySelector(".guide-container");
+    if (!container) return;
+
+    const slides = Array.from(container.querySelectorAll(".guide-slide"));
+    const nextBtns = container.querySelectorAll(".guide-btn.next");
+    const prevBtns = container.querySelectorAll(".guide-btn.prev");
+    const dotsContainers = container.querySelectorAll(".guide-dots");
+
+    // ---- Build a horizontal rail and move slides into it ----
+    const rail = document.createElement("div");
+    rail.className = "slides-rail";
+    // Inject minimal CSS so we don't have to touch your stylesheet file
+    const style = document.createElement("style");
+    style.textContent = `
+      .guide-container { position: relative; overflow: hidden; }
+      .slides-rail { display: flex; width: 100%; height: 100%; will-change: transform; }
+      .slides-rail.anim { transition: transform 350ms ease; }
+      .slides-rail.no-trans { transition: none !important; }
+    `;
+    document.head.appendChild(style);
+
+    // Insert rail before the first slide and move slides into it
+    container.insertBefore(rail, slides[0]);
+    slides.forEach(s => {
+      // Kill conflicting CSS from .guide-slide (absolute/opacity/etc.)
+      s.style.position = "relative";
+      s.style.opacity = "1";
+      s.style.transform = "none";
+      s.style.pointerEvents = "auto";
+      s.style.minWidth = "100%";
+      s.style.flex = "0 0 100%";
+      s.classList.add("rail-child");
+      rail.appendChild(s);
     });
+
+    // Keep the nav blocks where they are (they won’t move with the rail)
+    let current = 0;
+    let vw = container.clientWidth;
+    let baseX = 0;     // translateX when gesture starts
+    let dragDX = 0;    // live delta during drag
+    let dragging = false;
+    let startX = 0, startY = 0;
+    let lockedH = false, abortV = false;
+
+    // Dots
+    const dotsSets = [];
+    dotsContainers.forEach(dc => {
+      dc.innerHTML = "";
+      const dots = slides.map((_, i) => {
+        const d = document.createElement("span");
+        d.className = "dot" + (i === 0 ? " active" : "");
+        d.addEventListener("click", () => goTo(i));
+        dc.appendChild(d);
+        return d;
+      });
+      dotsSets.push(dots);
+    });
+    const updateDots = (idx) => {
+      dotsSets.forEach(ds => ds.forEach((d,i) => d.classList.toggle("active", i === idx)));
+    };
+
+    // Helpers
+    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+    const railX = () => -current * vw;
+    const setRail = (x, withAnim = false) => {
+      rail.classList.toggle("anim", !!withAnim);
+      rail.style.transform = `translate3d(${x}px,0,0)`;
+    };
+
+    const resize = () => {
+      vw = container.clientWidth || window.innerWidth;
+      // snap to current slide after resize
+      setRail(railX(), true);
+    };
+    window.addEventListener("resize", resize);
+
+    const goTo = (idx, withAnim = true) => {
+      current = ((idx % slides.length) + slides.length) % slides.length;
+      updateDots(current);
+      setRail(railX(), withAnim);
+    };
+    const next = () => goTo(current + 1);
+    const prev = () => goTo(current - 1);
+
+    nextBtns.forEach(b => b.addEventListener("click", next));
+    prevBtns.forEach(b => b.addEventListener("click", prev));
+
+    // ===== Drag logic on rail (touch + mouse) =====
+    const thresholdPx = () => {
+      const t = Math.floor(vw * 0.18);
+      return clamp(t, 80, 140); // sane range
+    };
+
+    const startDrag = (x, y) => {
+      dragging = true;
+      startX = x; startY = y;
+      baseX = railX();
+      dragDX = 0;
+      lockedH = false; abortV = false;
+      rail.classList.add("no-trans"); // kill transitions during drag
+    };
+
+    const moveDrag = (x, y, e) => {
+      if (!dragging) return;
+
+      const dx = x - startX;
+      const dy = y - startY;
+
+      if (!lockedH) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; // jitter
+        lockedH = Math.abs(dx) > Math.abs(dy) * 1.2;
+        abortV = !lockedH;
+      }
+      if (abortV) return; // let page scroll vertically
+      if (e && e.cancelable) e.preventDefault();
+
+      // Rubber-band at edges
+      const atFirst = current === 0 && dx > 0;
+      const atLast = current === slides.length - 1 && dx < 0;
+      let appliedDX = dx;
+      if (atFirst || atLast) appliedDX *= 0.35;
+
+      dragDX = appliedDX;
+      setRail(baseX + appliedDX, false);
+    };
+
+    const endDrag = () => {
+      if (!dragging) return;
+      dragging = false;
+      rail.classList.remove("no-trans");
+
+      if (Math.abs(dragDX) >= thresholdPx()) {
+        if (dragDX < 0 && current < slides.length - 1) next();
+        else if (dragDX > 0 && current > 0) prev();
+        else goTo(current); // edge with rubber-band
+      } else {
+        goTo(current); // snap back
+      }
+    };
+
+    // Touch
+    container.addEventListener("touchstart", (e) => {
+      if (!e.touches || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      startDrag(t.clientX, t.clientY);
+    }, { passive: true });
+
+    container.addEventListener("touchmove", (e) => {
+      if (!e.touches || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      moveDrag(t.clientX, t.clientY, e);
+    }, { passive: false });
+
+    container.addEventListener("touchend", endDrag, { passive: true });
+    container.addEventListener("touchcancel", endDrag, { passive: true });
+
+    // Enable mouse drag ONLY on touch-capable devices (for mobile/tablet testing)
+    if ("ontouchstart" in window || navigator.maxTouchPoints > 0) {
+      let mouseDown = false;
+      container.addEventListener("mousedown", (e) => {
+        mouseDown = true;
+        startDrag(e.clientX, e.clientY);
+      });
+      window.addEventListener("mousemove", (e) => {
+        if (!mouseDown) return;
+        moveDrag(e.clientX, e.clientY, e);
+      });
+      window.addEventListener("mouseup", () => {
+        if (!mouseDown) return;
+        mouseDown = false;
+        endDrag();
+      });
+    }
+
+
+    // Init
+    resize();
+    goTo(0, false);
+  });
   </script>
+
+
+
 </body>
 </html>

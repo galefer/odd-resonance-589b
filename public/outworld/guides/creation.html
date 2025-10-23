@@ -20,19 +20,29 @@
   <div class="grain"></div>
 
   <header class="site-header">
-    <h1><a href="../index.html" class="site-title-link">OUTWORLD ARCHIVE</a></h1>
-
-    <div class="menu-toggle" id="menuToggle">
-      <span></span><span></span><span></span>
+    <div class="header-left">
+      <h1><a href="index.html" class="site-title-link">OUTWORLD ARCHIVE</a></h1>
     </div>
 
-    <nav id="mainNav">
-      <a href="../index.html">Home</a>
-      <a href="../records/index.html">Records</a>
-      <a href="../guides/index.html">Guides</a>
-      <a href="../systems/index.html">Systems</a>
-      <a href="../gameplay/index.html">Gameplay</a>
-    </nav>
+    <div class="header-right">
+      <nav id="mainNav">
+        <a href="../index.html">Home</a>
+        <a href="../records/index.html">Records</a>
+        <a href="../guides/index.html">Guides</a>
+        <a href="../systems/index.html">Systems</a>
+        <a href="../gameplay/index.html">Gameplay</a>
+      </nav>
+
+      <div class="social-icons">
+        <a href="https://discord.gg/tvBBqW7gFv" target="_blank" aria-label="Discord">
+          <img src="../assets/images/discord.png" alt="Discord">
+        </a>
+      </div>
+
+      <div class="menu-toggle" id="menuToggle">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
   </header>
 
   <!-- Breadcrumb -->
@@ -151,6 +161,58 @@
         </section>
       </div>
 
+      <!-- === CHARACTER OUTLINE TEMPLATE === -->
+      <div class="guide-slide">
+        <section class="info-section">
+          <h2>Character Outline Template</h2>
+          <p>Type directly into the fields. When done, click “Copy Outline” to copy your full formatted profile.</p>
+
+          <div class="character-template">
+
+            <!-- BASIC INFO -->
+            <h3>IDENTITY</h3>
+            <div class="template-grid">
+              <label><strong>Name:</strong><textarea></textarea></label>
+              <label><strong>Race / Species:</strong><textarea></textarea></label>
+              <label><strong>Class / Role:</strong><textarea></textarea></label>
+              <label><strong>Age:</strong><textarea></textarea></label>
+              <label><strong>Gender / Pronouns:</strong><textarea></textarea></label>
+              <label><strong>Appearance:</strong><textarea placeholder="Build, posture, clothing, distinguishing features"></textarea></label>
+            </div>
+
+            <h3>PERSONALITY CORE</h3>
+            <div class="template-grid">
+              <label><strong>Tagline:</strong><textarea placeholder="One-sentence mantra or defining quote"></textarea></label>
+              <label><strong>Flaw(s):</strong><textarea placeholder="Their greatest personal weakness"></textarea></label>
+              <label><strong>Virtue(s):</strong><textarea placeholder="Their redeeming qualities"></textarea></label>
+              <label><strong>Ideals:</strong><textarea placeholder="Values that drive them — justice, freedom, chaos, etc."></textarea></label>
+              <label><strong>Motives:</strong><textarea placeholder="Why they act — fears, goals, drives"></textarea></label>
+              <label><strong>Beliefs:</strong><textarea placeholder="Religious, moral, or philosophical convictions"></textarea></label>
+              <label><strong>Bonds:</strong><textarea placeholder="People, causes, or memories that define them"></textarea></label>
+              <label><strong>Fears:</strong><textarea placeholder="The thing that truly unravels them"></textarea></label>
+              <label><strong>Guilt / Regret:</strong><textarea placeholder="What haunts or motivates them"></textarea></label>
+            </div>
+
+            <h3>HISTORY SNAPSHOT</h3>
+            <div class="template-grid">
+              <label><strong>Origin*:</strong><textarea placeholder="Where they came from, how they were raised"></textarea></label>
+              <label><strong>Turning Point:</strong><textarea placeholder="The event that shaped them"></textarea></label>
+              <label><strong>Current Purpose:</strong><textarea placeholder="What they’re chasing right now"></textarea></label>
+            </div>
+
+            <h3>ROLEPLAY PRESENCE</h3>
+            <div class="template-grid">
+              <label><strong>Demeanor:</strong><textarea placeholder="How they carry themselves and speak"></textarea></label>
+              <label><strong>Combat Temperament:</strong><textarea placeholder="How they fight — reckless, cold, tactical, emotional"></textarea></label>
+              <label><strong>Catchphrase / Habit:</strong><textarea placeholder="A line, ritual, or motion they’re known for"></textarea></label>
+            </div>
+
+            <button id="copyOutline" class="copy-btn">Copy Outline</button>
+            <div id="copyMsg" class="copy-msg">Copied to clipboard.</div>
+          </div>
+        </section>
+      </div>
+
       <!-- === BOTTOM NAV === -->
       <div class="guide-nav">
         <button id="prevBtn" class="guide-btn">&#10094;</button>
@@ -223,29 +285,68 @@
       document.getElementById('nextBtnTop').addEventListener('click', nextSlide);
       document.getElementById('prevBtnTop').addEventListener('click', prevSlide);
 
-      // === Touch Swipe Support ===
+      // === Touch Swipe Support (less sensitive) ===
       let touchStartX = 0;
       let touchEndX = 0;
+      let touchStartY = 0;
+      let touchEndY = 0;
 
       guideContainer.addEventListener('touchstart', e => {
         touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
       });
 
       guideContainer.addEventListener('touchend', e => {
         touchEndX = e.changedTouches[0].screenX;
+        touchEndY = e.changedTouches[0].screenY;
         handleSwipe();
       });
 
       function handleSwipe() {
         const swipeDistance = touchEndX - touchStartX;
-        const threshold = 50; // minimum px swipe to count
-        if (Math.abs(swipeDistance) > threshold) {
-          if (swipeDistance < 0) nextSlide();  // swipe left → next
-          else prevSlide();                    // swipe right → prev
+        const verticalDistance = Math.abs(touchEndY - touchStartY);
+        const threshold = 120; // minimum px swipe to count (was 50)
+        const verticalTolerance = 80; // ignore if mostly vertical scroll
+
+        if (Math.abs(swipeDistance) > threshold && verticalDistance < verticalTolerance) {
+          if (swipeDistance < 0) nextSlide(); // swipe left → next
+          else prevSlide();                   // swipe right → prev
         }
       }
     });
+
+    // === COPY OUTLINE FUNCTIONALITY ===
+    const copyBtn = document.getElementById('copyOutline');
+    const copyMsg = document.getElementById('copyMsg');
+
+    if (copyBtn) {
+      copyBtn.addEventListener('click', () => {
+        let output = '';
+
+        const headers = document.querySelectorAll('.character-template h3');
+        headers.forEach((header) => {
+          output += `${header.textContent.toUpperCase()}\n`;
+          output += `----------------------------------\n`;
+
+          const labels = header.nextElementSibling?.querySelectorAll('label');
+          if (labels) {
+            labels.forEach((label) => {
+              const title = label.querySelector('strong')?.textContent?.trim() || '';
+              const value = label.querySelector('textarea')?.value.trim() || '';
+              if (value) output += `${title}\n${value}\n\n`;
+            });
+          }
+          output += '\n';
+        });
+
+        navigator.clipboard.writeText(output).then(() => {
+          copyMsg.classList.add('show');
+          setTimeout(() => copyMsg.classList.remove('show'), 2000);
+        });
+      });
+    }
   </script>
+
 
 
 </body>
