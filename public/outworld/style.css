@@ -1187,3 +1187,19 @@ footer{
     pointer-events: auto;                 /* re-enable interaction */
   }
 }
+
+@media (max-width: 800px) {
+  .site-header {
+    flex-wrap: nowrap !important;
+    overflow: visible !important; /* let the dropdown escape */
+  }
+
+  .header-left h1 {
+    font-size: 1rem !important;     /* shrink text */
+    white-space: nowrap;
+  }
+
+  .header-right {
+    flex-shrink: 0;                 /* keep icons + burger visible */
+  }
+}
