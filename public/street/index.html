@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BACKROOMS: THE STREETS</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            width: 100vw; 
+            height: 100vh;
+            background-color: #050505; 
+            font-family: 'Courier New', Courier, monospace; 
+            user-select: none;
+        }
+
+        /* LAYER 1: The 3D World */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        /* LAYER 2: The HUD (Text) */
+        #ui-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* LAYER 3: STAMINA BAR (Extracted to guarantee visibility) */
+        #stamina-wrapper {
+            position: fixed; /* Fixed relative to viewport */
+            bottom: 40px;
+            left: 40px;
+            width: 300px;
+            height: 25px;
+            background-color: rgba(0, 0, 0, 0.9);
+            border: 2px solid lime; /* Changed to lime to verify visibility */
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+            z-index: 10000; /* Maximum Z-Index */
+            display: block;
+        }
+        
+        #stamina-fill {
+            width: 100%;
+            height: 100%;
+            background-color: lime;
+            transition: width 0.05s linear;
+        }
+
+        #stamina-label {
+            position: absolute;
+            top: -25px;
+            left: 0;
+            color: lime;
+            font-weight: bold;
+            font-size: 20px;
+            text-shadow: 2px 2px 0 #000;
+            letter-spacing: 2px;
+        }
+
+        /* Meme Text (Centered) */
+        #meme-text {
+            position: absolute;
+            top: 20%;
+            width: 100%;
+            text-align: center;
+            font-size: 3rem;
+            color: red;
+            font-weight: bold;
+            text-shadow: 4px 4px 0px black;
+            display: none;
+        }
+
+        /* LAYER 4: The Overlay (Menus) */
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            flex-direction: column;
+            pointer-events: auto;
+            cursor: default;
+            z-index: 20000; /* Overlay covers stamina */
+        }
+
+        #loading-text {
+            color: yellow;
+            font-size: 2rem;
+            animation: blink 0.5s infinite;
+        }
+
+        #start-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        #game-over-msg {
+            display: none;
+            color: red;
+            font-size: 5rem;
+            font-weight: 900;
+            text-shadow: 0 0 20px red;
+            margin-top: 20px;
+            animation: shake 0.5s infinite;
+        }
+
+        .shaking {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both infinite;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <!-- 1. Container for Three.js Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- 2. UI Layer (HUD Text) -->
+    <div id="ui-layer">
+        <div id="meme-text">YOU TOUCHED THE ASPHALT!</div>
+    </div>
+
+    <!-- 3. STAMINA BAR (Extracted to Root Level) -->
+    <div id="stamina-wrapper">
+        <div id="stamina-label">STAMINA</div>
+        <div id="stamina-fill"></div>
+    </div>
+
+    <!-- 4. Overlay Layer (Menus) -->
+    <div id="overlay">
+        <div id="loading-text">GENERATING STREETS...</div>
+        
+        <div id="start-screen">
+            <h1 style="color: lime; text-shadow: 0 0 10px lime; font-size: 4rem; margin-bottom: 0;">THE STREETS</h1>
+            <p style="margin-top: 5px; color: #666;">DEKU IS HUNTING.</p>
+            <br>
+            <p style="font-size: 24px; border: 2px solid lime; padding: 10px 30px;">CLICK TO START</p>
+            <br>
+            <p style="font-size: 14px; color: #aaa;">WASD to Move | SHIFT to Run | SPACE to Jump</p>
+        </div>
+        
+        <div id="game-over-msg">STAT CHECKED</div>
+    </div>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+    // --- GAME STATE ---
+    let camera, scene, renderer, controls;
+    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+    // Updated Player Object with Physics
+    let player = { 
+        speed: 10.0, 
+        runSpeed: 25.0, 
+        height: 1.8, 
+        stamina: 100, 
+        shift: false, 
+        radius: 0.5,
+        y: 0, // Vertical position of feet
+        velocityY: 0,
+        gravity: 50.0,
+        jumpStrength: 18.0,
+        isGrounded: true
+    };
+    let deki = null;
+    let walls = []; 
+    let isGameActive = false;
+    let isLoaded = false;
+    let lastTime = performance.now();
+    let memeTimer = 0;
+    let explosionSound;
+    
+    // --- AUDIO ---
+    const synth = window.speechSynthesis;
+    const voiceLines = [
+        "STREET TIER SMASH!",
+        "DOMAIN EXPANSION: UNLIMITED STREET!",
+        "GET OFF MY STREET!",
+        "YOU'RE ONLY STREET TIER!",
+        "YOU'RE ON THE STREET... AREN'T YOU?",
+        "THESE ARE MY STREETS!"
+    ];
+
+    function speak(text) {
+        if (synth.speaking || !deki) return;
+        
+        const dist = Math.hypot(camera.position.x - deki.position.x, camera.position.z - deki.position.z);
+        const minDist = 15;
+        const maxDist = 90;
+        const range = maxDist - minDist;
+        
+        let volume = 1;
+        if (dist > minDist) {
+            volume = 1 - ((dist - minDist) / range);
+        }
+        volume = Math.max(0, Math.min(1, volume));
+        
+        if (volume <= 0) return; 
+
+        const utterThis = new SpeechSynthesisUtterance(text);
+        utterThis.rate = 1.2;
+        utterThis.pitch = 1.5;
+        utterThis.volume = volume; 
+        
+        const voices = synth.getVoices();
+        const annoyingVoice = voices.find(v => v.name.includes('Google US English')) || voices[0];
+        if (annoyingVoice) utterThis.voice = annoyingVoice;
+        synth.speak(utterThis);
+        
+        const memeEl = document.getElementById('meme-text');
+        memeEl.innerText = text;
+        memeEl.style.display = 'block';
+        memeEl.classList.add('shaking');
+        setTimeout(() => {
+            memeEl.style.display = 'none';
+            memeEl.classList.remove('shaking');
+        }, 1500);
+    }
+
+    // --- INIT ---
+    init();
+
+    function init() {
+        scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050505, 0.025); 
+
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, player.height, 0); 
+
+        const listener = new THREE.AudioListener();
+        camera.add(listener);
+        explosionSound = new THREE.Audio(listener);
+        const audioLoader = new THREE.AudioLoader();
+        audioLoader.load('https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3', function(buffer) {
+            explosionSound.setBuffer(buffer);
+            explosionSound.setLoop(false);
+            explosionSound.setVolume(0.5);
+        });
+
+        renderer = new THREE.WebGLRenderer({ antialias: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.BasicShadowMap;
+        
+        // FIX: Attach canvas to specific container
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0x222233, 0.6); 
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xaaccff, 0.5);
+        dirLight.position.set(50, 100, 50);
+        scene.add(dirLight);
+        const playerLight = new THREE.SpotLight(0xffffff, 200, 40, Math.PI/4, 0.5, 1);
+        playerLight.position.set(0, 0, 0);
+        playerLight.target.position.set(0, 0, -1);
+        camera.add(playerLight);
+        camera.add(playerLight.target);
+        scene.add(camera);
+
+        controls = new PointerLockControls(camera, document.body);
+        scene.add(controls.getObject());
+
+        setTimeout(() => {
+            loadGameAssets();
+        }, 100);
+
+        const startScreen = document.getElementById('start-screen');
+        startScreen.addEventListener('click', () => { 
+            if (isLoaded && !isGameActive) controls.lock(); 
+        });
+
+        controls.addEventListener('lock', () => {
+            isGameActive = true;
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('game-over-msg').style.display = 'none';
+            resetGame();
+        });
+        controls.addEventListener('unlock', () => {
+            isGameActive = false;
+            document.getElementById('overlay').style.display = 'flex';
+        });
+
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keyup', onKeyUp);
+        window.addEventListener('resize', onWindowResize);
+    }
+
+    function loadGameAssets() {
+        generateCity();
+        createDeki();
+
+        let warmupCount = 0;
+        const totalWarmupFrames = 10;
+
+        function warmup() {
+            renderer.render(scene, camera);
+            warmupCount++;
+            if (warmupCount < totalWarmupFrames) {
+                requestAnimationFrame(warmup);
+            } else {
+                isLoaded = true;
+                document.getElementById('loading-text').style.display = 'none';
+                document.getElementById('start-screen').style.display = 'flex';
+                animate();
+            }
+        }
+        warmup();
+    }
+
+    // --- ASSETS ---
+    function createBuildingTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256; canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#2a2a2a'; ctx.fillRect(0,0,256,256);
+        ctx.fillStyle = '#111';
+        const winW = 30, winH = 40, gap = 20;
+        for(let y=20; y<256; y+=winH+gap) {
+            for(let x=20; x<256; x+=winW+gap) {
+                if (Math.random() > 0.8) ctx.fillStyle = '#ffffaa'; 
+                else ctx.fillStyle = '#050510'; 
+                ctx.fillRect(x,y,winW,winH);
+            }
+        }
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.magFilter = THREE.NearestFilter;
+        tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+        return tex;
+    }
+
+    function createRoadTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512; canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0,0,512,512);
+        for(let i=0; i<5000; i++) {
+            ctx.fillStyle = Math.random()>0.5 ? '#222' : '#111';
+            ctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
+        }
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(250, 50, 12, 150);
+        ctx.fillRect(250, 312, 12, 150);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+        tex.magFilter = THREE.NearestFilter;
+        return tex;
+    }
+
+    function generateCity() {
+        const buildingTex = createBuildingTexture();
+        const roadTex = createRoadTexture();
+        const blockSize = 30; 
+        const streetWidth = 12; 
+        const mapSize = 6; 
+
+        const groundGeo = new THREE.PlaneGeometry(500, 500);
+        roadTex.repeat.set(50, 50);
+        const groundMat = new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.9 });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
+
+        for (let x = -mapSize; x <= mapSize; x++) {
+            for (let z = -mapSize; z <= mapSize; z++) {
+                if (Math.abs(x) < 2 && Math.abs(z) < 2) continue;
+
+                const posX = x * (blockSize + streetWidth);
+                const posZ = z * (blockSize + streetWidth);
+
+                const height = 20 + Math.random() * 40;
+                const bGeo = new THREE.BoxGeometry(blockSize, height, blockSize);
+                const bMat = new THREE.MeshStandardMaterial({ map: buildingTex });
+                const building = new THREE.Mesh(bGeo, bMat);
+                building.position.set(posX, height/2, posZ);
+                scene.add(building);
+                
+                const box = new THREE.Box3().setFromObject(building);
+                walls.push(box);
+
+                createStreetLamp(posX + blockSize/2 + 2, 0, posZ + blockSize/2 + 2);
+
+                if (Math.random() > 0.7) {
+                    const carX = posX + (blockSize/2 + streetWidth/2);
+                    const carZ = posZ; 
+                    createCar(carX, carZ, Math.random() > 0.5);
+                }
+            }
+        }
+    }
+
+    function createCar(x, z, rotated) {
+        const group = new THREE.Group();
+        const bodyColor = Math.random() > 0.5 ? 0xcc3333 : (Math.random() > 0.5 ? 0x3333cc : 0xeeeeee);
+        const mat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.2 });
+        const bodyGeo = new THREE.BoxGeometry(4, 1.5, 2);
+        const body = new THREE.Mesh(bodyGeo, mat);
+        body.position.y = 1.0; group.add(body);
+
+        const cabinGeo = new THREE.BoxGeometry(2.5, 1, 1.8);
+        const cabinMat = new THREE.MeshStandardMaterial({ color: 0x111111 }); 
+        const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+        cabin.position.y = 2.0; group.add(cabin);
+
+        const wheelGeo = new THREE.BoxGeometry(0.8, 0.8, 0.2);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+        const w1 = new THREE.Mesh(wheelGeo, wheelMat); w1.position.set(1.2, 0.4, 1); group.add(w1);
+        const w2 = new THREE.Mesh(wheelGeo, wheelMat); w2.position.set(-1.2, 0.4, 1); group.add(w2);
+        const w3 = new THREE.Mesh(wheelGeo, wheelMat); w3.position.set(1.2, 0.4, -1); group.add(w3);
+        const w4 = new THREE.Mesh(wheelGeo, wheelMat); w4.position.set(-1.2, 0.4, -1); group.add(w4);
+
+        group.position.set(x, 0, z);
+        if (rotated) group.rotation.y = Math.PI / 2;
+        scene.add(group);
+        const box = new THREE.Box3().setFromObject(group);
+        walls.push(box);
+    }
+
+    function createStreetLamp(x, y, z) {
+        const poleGeo = new THREE.CylinderGeometry(0.2, 0.2, 8);
+        const poleMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const pole = new THREE.Mesh(poleGeo, poleMat);
+        pole.position.set(x, 4, z); scene.add(pole);
+
+        const armGeo = new THREE.BoxGeometry(2, 0.2, 0.2);
+        const arm = new THREE.Mesh(armGeo, poleMat);
+        arm.position.set(x - 0.8, 7.8, z); scene.add(arm);
+
+        const bulbGeo = new THREE.BoxGeometry(0.5, 0.2, 0.5);
+        const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffffee }); 
+        const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+        bulb.position.set(x - 1.5, 7.6, z); scene.add(bulb);
+
+        const light = new THREE.PointLight(0xffaa00, 2, 15);
+        light.position.set(x - 1.5, 7.0, z); scene.add(light);
+        
+        const box = new THREE.Box3();
+        box.setFromCenterAndSize(new THREE.Vector3(x, 4, z), new THREE.Vector3(0.5, 8, 0.5));
+        walls.push(box);
+    }
+
+    function createRobloxStudTexture(colorHex) {
+        const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = colorHex; ctx.fillRect(0, 0, 64, 64);
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.beginPath(); ctx.arc(32, 32, 12, 0, Math.PI*2); ctx.fill(); 
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.beginPath(); ctx.arc(28, 28, 6, 0, Math.PI*2); ctx.fill(); 
+        ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 2; ctx.strokeRect(0,0,64,64);
+        const tex = new THREE.CanvasTexture(canvas); tex.magFilter = THREE.NearestFilter;
+        return tex;
+    }
+
+    function createScaryManFace() {
+        const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(0,0,0,0)'; ctx.fillRect(0,0,128,128);
+        ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.strokeStyle = '#000';
+        ctx.beginPath(); ctx.moveTo(30, 45); ctx.lineTo(55, 50); ctx.stroke(); 
+        ctx.beginPath(); ctx.moveTo(75, 50); ctx.lineTo(100, 40); ctx.stroke(); 
+        ctx.beginPath(); ctx.moveTo(30, 60); ctx.quadraticCurveTo(42, 55, 55, 60); ctx.stroke(); 
+        ctx.beginPath(); ctx.moveTo(75, 60); ctx.quadraticCurveTo(87, 55, 100, 60); ctx.stroke(); 
+        ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(40, 85); ctx.quadraticCurveTo(64, 100, 90, 80); ctx.stroke(); 
+        ctx.fillStyle = 'red'; ctx.fillRect(35, 65, 5, 5); ctx.fillRect(85, 62, 5, 5); 
+        const tex = new THREE.CanvasTexture(canvas); tex.magFilter = THREE.NearestFilter;
+        return tex;
+    }
+
+    function createDeki() {
+        const group = new THREE.Group();
+        const greenStuds = createRobloxStudTexture('#00aa00');
+        const tealStuds = createRobloxStudTexture('#008080');
+        const skinStuds = createRobloxStudTexture('#ffccaa');
+        const blueStuds = createRobloxStudTexture('#000044');
+        const manFaceTex = createScaryManFace();
+
+        const headMat = new THREE.MeshStandardMaterial({ map: greenStuds });
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), headMat);
+        head.position.y = 1.7; group.add(head);
+
+        const faceMat = new THREE.MeshBasicMaterial({ map: manFaceTex, transparent: true });
+        const face = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), faceMat);
+        face.position.set(0, 1.7, 0.26); group.add(face);
+        
+        const earGeo = new THREE.BoxGeometry(0.1, 0.4, 0.1);
+        const ear1 = new THREE.Mesh(earGeo, headMat); ear1.position.set(0.2, 2.1, 0); ear1.rotation.z = -0.2; group.add(ear1);
+        const ear2 = new THREE.Mesh(earGeo, headMat); ear2.position.set(-0.2, 2.1, 0); ear2.rotation.z = 0.2; group.add(ear2);
+        
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.3), new THREE.MeshStandardMaterial({ map: tealStuds }));
+        body.position.y = 1.0; group.add(body);
+        
+        const arms = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.2, 0.2), new THREE.MeshStandardMaterial({ map: skinStuds }));
+        arms.position.y = 1.3; group.add(arms);
+        
+        const legGeo = new THREE.BoxGeometry(0.25, 0.8, 0.25);
+        const legMat = new THREE.MeshStandardMaterial({ map: blueStuds });
+        const leg1 = new THREE.Mesh(legGeo, legMat); leg1.position.set(0.15, 0.4, 0); group.add(leg1);
+        const leg2 = new THREE.Mesh(legGeo, legMat); leg2.position.set(-0.15, 0.4, 0); group.add(leg2);
+        
+        const glow = new THREE.PointLight(0x00ff00, 1, 15);
+        glow.position.y = 1.5;
+        group.add(glow);
+
+        deki = group;
+        scene.add(deki);
+        resetDeki();
+    }
+
+    function onKeyDown(e) {
+        switch(e.code) {
+            case 'KeyW': moveForward = true; break;
+            case 'KeyS': moveBackward = true; break;
+            case 'KeyA': moveLeft = true; break;
+            case 'KeyD': moveRight = true; break;
+            case 'ShiftLeft': player.shift = true; break;
+            case 'Space': 
+                if (player.isGrounded && player.stamina > 10) {
+                    player.velocityY = player.jumpStrength;
+                    player.isGrounded = false;
+                    player.stamina -= 10;
+                }
+                break;
+        }
+    }
+    function onKeyUp(e) {
+        switch(e.code) {
+            case 'KeyW': moveForward = false; break;
+            case 'KeyS': moveBackward = false; break;
+            case 'KeyA': moveLeft = false; break;
+            case 'KeyD': moveRight = false; break;
+            case 'ShiftLeft': player.shift = false; break;
+        }
+    }
+
+    function resetGame() {
+        player.stamina = 100;
+        player.y = 0;
+        player.velocityY = 0;
+        player.isGrounded = true;
+        camera.position.set(0, player.height, 0);
+        resetDeki();
+    }
+
+    function resetDeki() {
+        const angle = Math.random() * Math.PI * 2;
+        deki.position.set(Math.cos(angle) * 40, 0, Math.sin(angle) * 40);
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function checkCollision(pos, radius) {
+        const entityBox = new THREE.Box3();
+        entityBox.min.set(pos.x - radius, 0, pos.z - radius);
+        entityBox.max.set(pos.x + radius, 3, pos.z + radius);
+        for (const wall of walls) {
+            if (entityBox.intersectsBox(wall)) return true;
+        }
+        return false;
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const time = performance.now();
+        const delta = (time - lastTime) / 1000;
+        lastTime = time;
+
+        if (!isGameActive) return;
+
+        const currentSpeed = player.shift && player.stamina > 0 ? player.runSpeed : player.speed;
+        
+        if (player.shift && (moveForward || moveBackward || moveLeft || moveRight)) {
+            player.stamina = Math.max(0, player.stamina - delta * 20);
+        } else {
+            player.stamina = Math.min(100, player.stamina + delta * 10);
+        }
+        document.getElementById('stamina-fill').style.width = player.stamina + '%';
+        // Change color based on stamina
+        document.getElementById('stamina-fill').style.backgroundColor = player.stamina < 30 ? 'red' : 'lime';
+
+        // --- GRAVITY ---
+        player.velocityY -= player.gravity * delta;
+        player.y += player.velocityY * delta;
+        
+        // Ground Check
+        if (player.y <= 0) {
+            player.y = 0;
+            player.velocityY = 0;
+            player.isGrounded = true;
+        } else {
+            player.isGrounded = false;
+        }
+
+        const originalPos = camera.position.clone();
+        
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        forward.y = 0; forward.normalize();
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+        right.y = 0; right.normalize();
+        
+        const moveVec = new THREE.Vector3();
+        if (moveForward) moveVec.add(forward);
+        if (moveBackward) moveVec.sub(forward);
+        if (moveRight) moveVec.add(right);
+        if (moveLeft) moveVec.sub(right);
+        
+        moveVec.normalize().multiplyScalar(currentSpeed * delta);
+
+        camera.position.x += moveVec.x;
+        if (checkCollision(camera.position, 0.5)) camera.position.x = originalPos.x;
+        camera.position.z += moveVec.z;
+        if (checkCollision(camera.position, 0.5)) camera.position.z = originalPos.z;
+
+        if (camera.position.x > 200 || camera.position.x < -200 || camera.position.z > 200 || camera.position.z < -200) {
+             camera.position.copy(originalPos);
+        }
+
+        // Apply Vertical Height (Feet + Height + HeadBob)
+        let headBob = 0;
+        if (player.isGrounded && moveVec.length() > 0) {
+            // FIX: Convert time to seconds (time / 1000) for smooth sine wave
+            // Reduced amplitude from 0.15 to 0.1 for less motion sickness
+            headBob = Math.sin((time / 1000) * (player.shift ? 18 : 10)) * 0.1;
+        }
+        camera.position.y = player.y + player.height + headBob;
+
+
+        const dx = camera.position.x - deki.position.x;
+        const dz = camera.position.z - deki.position.z;
+        deki.rotation.y = Math.atan2(dx, dz);
+        deki.rotation.x = 0; deki.rotation.z = 0; 
+
+        const dekiDir = new THREE.Vector3(dx, 0, dz).normalize();
+        let dekiSpeed = 9.0; 
+        if (player.stamina < 30) dekiSpeed = 14.0;
+        
+        const dekiMove = dekiDir.multiplyScalar(dekiSpeed * delta);
+        const dekiOldPos = deki.position.clone();
+
+        deki.position.x += dekiMove.x;
+        if (checkCollision(deki.position, 0.4)) deki.position.x = dekiOldPos.x;
+        deki.position.z += dekiMove.z;
+        if (checkCollision(deki.position, 0.4)) deki.position.z = dekiOldPos.z;
+        
+        deki.position.y = 0; 
+        deki.rotation.z = (Math.random() - 0.5) * 0.2;
+        deki.rotation.x = (Math.random() - 0.5) * 0.1; 
+        
+        memeTimer += delta;
+        const dist = Math.hypot(camera.position.x - deki.position.x, camera.position.z - deki.position.z);
+        if (dist < 80 && memeTimer > 3) {
+             const line = voiceLines[Math.floor(Math.random() * voiceLines.length)];
+             speak(line);
+             memeTimer = 0;
+        }
+
+        if (dist < 2.0) {
+            controls.unlock();
+            document.getElementById('game-over-msg').style.display = 'block';
+            if (explosionSound && !explosionSound.isPlaying) explosionSound.play();
+            speak("THE STREETS ARE CLEAN NOW");
+        }
+
+        renderer.render(scene, camera);
+    }
+</script>
+</body>
+</html>
