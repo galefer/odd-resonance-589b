@@ -47,257 +47,287 @@
   </div>
 
   <main class="info-page systems-page">
-    <section class="systems-header">
-      <!--<span class="systems-kicker">Systems // Player Guide</span>-->
-      <h1>Survival Resources</h1>
-      <p>
-        The pillars of survival are <strong>Vitality</strong>, <strong>Integrity</strong>, and <strong>Sanity</strong>.
-        These are long-term condition bars that reflect how well your character is holding together.
-        What matters is what they mean, how they affect you, and what happens when you let them slip.
-      </p>
-    </section>
+<section class="systems-header">
+  <h1>Survival Resources</h1>
+  <p>
+    The pillars of survival are <strong>Vitality</strong>, <strong>Integrity</strong>, and
+    <strong>Sanity</strong>. These are long term condition bars that reflect how well your
+    character is holding together. What matters is what they represent, how they affect you,
+    and what happens when you let them fall.
+  </p>
+</section>
 
-    <section class="systems-section">
-      <h2>Core Summary</h2>
-      <p class="systems-lead">
-        Survival resources sit on a <strong>0 to 100</strong> scale and are always active while you are playing normally.
-        High values keep you strong. Low values start dragging your character down. Left unchecked, they can turn a stable situation into a collapse.
-      </p>
+<section class="systems-section">
+  <h2>Core Summary</h2>
+  <p class="systems-lead">
+    Survival resources run on a <strong>0 to 100</strong> scale and are always active during
+    normal play. High values support your stats, saves, and general resilience. Low values
+    begin weakening your character, and if multiple resources slip together, the system
+    becomes much more dangerous.
+  </p>
 
-      <div class="systems-grid">
-        <article class="systems-card systems-card--vitality">
-          <h3>Vitality</h3>
-          <ul>
-            <li>Your basic physical well-being.</li>
-            <li>Represents things like hunger, thirst, fatigue, and bodily endurance.</li>
-            <li>If Vitality fully bottoms out, you start taking direct damage over time.</li>
-          </ul>
-        </article>
-
-        <article class="systems-card systems-card--integrity">
-          <h3>Integrity</h3>
-          <ul>
-            <li>Your body's resistance to exposure, corruption, and physical destabilisation.</li>
-            <li>This is the resource most likely to be pressured while spending time outside while the sun is up.</li>
-            <li>Being indoors, or outside during the night, is safe for Integrity.</li>
-          </ul>
-        </article>
-
-        <article class="systems-card systems-card--sanity">
-          <h3>Sanity</h3>
-          <ul>
-            <li>Your mental stability.</li>
-            <li>Sanity reflects how well you are coping with stress, fear, and the state of your body.</li>
-            <li>If your physical condition starts failing, Sanity is usually not far behind.</li>
-          </ul>
-        </article>
-      </div>
-
-      <div class="systems-callout">
-        <strong>Important:</strong> these resources are not just flavor bars. They directly affect your stats, your resilience, and your chances of getting back up after being knocked down.
-      </div>
-    </section>
-
-    <section class="systems-section">
-      <h2>What Players Should Actually Care About</h2>
-      <div class="systems-split">
-        <div>
-          <p>
-            The system is meant to be felt through pressure.
-            If you spend too long exposed to daylight, travel while already run down, or keep pushing without recovery, your bars start slipping.
-          </p>
-          <p>
-            Once they slip far enough, your character stops feeling reliable. Saves get worse. Core stats begin to suffer. You become easier to put down, and harder to recover.
-          </p>
-          <p>
-            The key thing to understand is simple: <strong>healthy resources support each other, neglected resources drag each other down</strong>.
-            You are safest when all three are being maintained together, not when one is being ignored because the others still look fine.
-          </p>
-        </div>
-
-        <aside class="systems-facts">
-          <h3>In plain terms</h3>
-          <ul>
-            <li>High resources mean a stronger, steadier character.</li>
-            <li>Low resources mean worse saves and weaker stats.</li>
-            <li>Integrity is pressured by daylight exposure, not by being indoors or travelling outside at night.</li>
-            <li>Vitality hitting 0 starts causing real HP loss.</li>
-            <li>Bad physical condition also hurts your mental condition.</li>
-            <li>The system becomes much more dangerous once multiple bars are low at once.</li>
-          </ul>
-        </aside>
-      </div>
-    </section>
-
-    <section class="systems-section">
-      <h2>Thresholds & Stat Effects</h2>
-      <p>
-        Each resource has four bands. You do not need to know the internals, but you should know the feel of them.
-        Above 75 is strong. Above 50 is stable. Below 50 is the point where weakness starts showing. Below 25 is severe.
-      </p>
-
-      <div class="systems-table-wrap">
-        <table class="systems-table">
-          <thead>
-            <tr>
-              <th>Resource</th>
-              <th>75+</th>
-              <th>50–74</th>
-              <th>25–49</th>
-              <th>0–24</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Vitality</strong></td>
-              <td>+2 Constitution, +2 Strength</td>
-              <td>+1 Fortitude save</td>
-              <td>-1 Fortitude save</td>
-              <td>-2 Constitution, -2 Strength</td>
-            </tr>
-            <tr>
-              <td><strong>Integrity</strong></td>
-              <td>+2 Dexterity, +2 Intelligence</td>
-              <td>+1 Reflex save</td>
-              <td>-1 Reflex save</td>
-              <td>-2 Dexterity, -2 Intelligence</td>
-            </tr>
-            <tr>
-              <td><strong>Sanity</strong></td>
-              <td>+2 Wisdom, +2 Charisma</td>
-              <td>+1 Will save</td>
-              <td>-1 Will save</td>
-              <td>-2 Wisdom, -2 Charisma</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="systems-callout warning">
-        <strong>Real warning line:</strong> treat <strong>50</strong> as the danger point, not 25. Once a bar drops below 50, you are no longer in a comfortable range. Once it drops below 25, the system stops being forgiving.
-      </div>
-    </section>
-
-    <section class="systems-section">
-      <h2>Death Save Relation</h2>
-      <p>
-        Survival resources are also tied to your death saves. The healthier your resources are, the easier it is for your character to fight their way back up after being knocked down.
-        The worse your condition is, the less likely you are to recover cleanly.
-      </p>
-      <p>
-        This page is not the full death save breakdown, but you should treat resource management as part of staying alive in combat, not just staying alive between combats. For the dedicated breakdown, see <a href="dying.html">Dying</a>.
-      </p>
-    </section>
-
-    <section class="systems-section">
-      <h2>Restoring Resources</h2>
-      <p>
-        <strong>Food is one of the main ways to raise or lower these resources.</strong> Different foods affect <strong>Vitality</strong>, <strong>Integrity</strong>, and <strong>Sanity</strong> in different ways.
-      </p>
-      <p>
-        That means sustenance is not just about eating anything available. What you choose to consume matters. Some foods are better for physical recovery, some support mental stability, and some help keep your body together against exposure. Others may come with tradeoffs.
-      </p>
-      <p>
-        If you want the full breakdown of how food and consumables interact with these systems, read <a href="../comingsoon.html">Sustenance</a>.
-      </p>
-
-      <div class="systems-callout">
-        <strong>Simple rule:</strong> if your resources are slipping, look at what you are eating. Recovery is part planning, not just survival.
-      </div>
-    </section>
-
-    <section class="systems-section">
-      <h2>How To Survive The System</h2>
-      <p>
-        This system is punishing on purpose, but it is not meant to be unfair. Its job is to <strong>pace you</strong>, pressure your decisions, and force you to stay mindful of your condition.
-      </p>
-      <p>
-        The best way to survive is to stay <strong>above the curve</strong>. Do not wait until all three bars are crashing before you react. Once you fall into a major deficit, the system starts compounding against you, and dragging yourself back out can be slow, expensive, or require help from other players.
-      </p>
-      <p>
-        Take breaks from combat. Make sure you are grinding or carrying the right food and cure items. Respect your limits instead of constantly pushing through them. Staying stable is fair, intended, and much easier than trying to recover from a full spiral.
-      </p>
-
-      <div class="systems-callout warning">
-        <strong>Survival mindset:</strong> this is not a system you brute force forever. Good players manage pressure early, keep supplies on hand, and avoid turning a manageable problem into a collapse.
-      </div>
-    </section>
-
-    <section class="systems-section">
-      <h2>The HUD</h2>
-      <p>
-        The survival HUD shows your three resources as bars: Vitality, Integrity, and Sanity.
-        The fuller and greener a bar is, the healthier that resource is. As it drops, the bar shifts toward red.
-      </p>
-      <p>
-        The HUD appears during normal in-character play and disappears in places or states where the system is not relevant.
-        It exists to give you a quick read on your condition, not bury you in numbers.
-      </p>
-
-      <div class="systems-grid">
-        <article class="systems-card">
-          <h3>Vitality tooltip</h3>
-          <p>Physical well-being: hunger, thirst, fatigue, and survival needs.</p>
-        </article>
-        <article class="systems-card">
-          <h3>Integrity tooltip</h3>
-          <p>Physical stability against warp exposure and bodily degradation.</p>
-        </article>
-        <article class="systems-card">
-          <h3>Sanity tooltip</h3>
-          <p>Mental stability against fear, stress, and anomalous influence.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="systems-section">
-      <h2>What This Feels Like In Play</h2>
-      <div class="systems-example-grid">
-        <article class="systems-example">
-          <h3>Well maintained</h3>
-          <p>
-            When your resources are healthy, your character feels solid. Your stats are supported, your saves are cleaner, and being knocked down is less likely to turn into a disaster.
-          </p>
-        </article>
-
-        <article class="systems-example">
-          <h3>Worn down</h3>
-          <p>
-            When one bar starts slipping, you may still function, but you are no longer at your best. Once multiple bars are low together, the system starts compounding against you.
-          </p>
-        </article>
-
-        <article class="systems-example">
-          <h3>Exposure pressure</h3>
-          <p>
-            Daylight exposure is not free. When the sun is up, spending time outside puts pressure on Integrity first and can start pulling the rest of your condition down with it. Being indoors, or outside during the night, is safe for Integrity.
-          </p>
-        </article>
-
-        <article class="systems-example">
-          <h3>Vitality collapse</h3>
-          <p>
-            If Vitality reaches 0, the danger becomes immediate. You begin taking <strong>1 damage</strong> over time until the situation is corrected.
-          </p>
-        </article>
-      </div>
-
-      <div class="systems-callout">
-        <strong>Best habit:</strong> do not wait until a bar is nearly empty. By the time things look disastrous, the penalties are already biting.
-      </div>
-    </section>
-
-    <section class="systems-section">
-      <h2>Quick Answers</h2>
-      <ul class="systems-bullets">
-        <li><strong>Can these resources go over 100?</strong> No. They are capped between 0 and 100.</li>
-        <li><strong>Can they drop below 0?</strong> No. They floor at 0.</li>
-        <li><strong>Do I instantly die at 0?</strong> No. Hitting 0 is dangerous, but it is not instant death by itself under the current rules.</li>
-        <li><strong>What happens at 0 Vitality?</strong> You begin taking 1 damage over time.</li>
-        <li><strong>How do I recover these resources?</strong> Mainly through food and consumables. Different foods can raise or lower different resources. See <a href="../comingsoon.html">Sustenance</a>.</li>
-        <li><strong>What should I watch most closely?</strong> Any bar dropping below 50, especially if more than one is slipping at once.</li>
+  <div class="systems-grid">
+    <article class="systems-card systems-card--vitality">
+      <h3>Vitality</h3>
+      <ul>
+        <li>Your basic physical well-being.</li>
+        <li>Represents hunger, thirst, fatigue, and bodily endurance.</li>
+        <li>If Vitality reaches 0, you begin taking direct damage over time.</li>
       </ul>
-    </section>
+    </article>
+
+    <article class="systems-card systems-card--integrity">
+      <h3>Integrity</h3>
+      <ul>
+        <li>Your body's resistance to exposure, corruption, and physical destabilisation.</li>
+        <li>This is the resource most pressured by daylight exposure while outside.</li>
+        <li>Indoors, or outdoors at night, is safe for Integrity.</li>
+      </ul>
+    </article>
+
+    <article class="systems-card systems-card--sanity">
+      <h3>Sanity</h3>
+      <ul>
+        <li>Your mental stability.</li>
+        <li>Reflects how well you are coping with fear, stress, and bodily decline.</li>
+        <li>When physical condition worsens, Sanity often follows.</li>
+      </ul>
+    </article>
+  </div>
+
+  <div class="systems-callout">
+    <strong>Important:</strong> these are not flavor bars. They directly affect your stats,
+    your saving throws, and your ability to survive pressure.
+  </div>
+</section>
+
+<section class="systems-section">
+  <h2>What Players Should Actually Care About</h2>
+  <div class="systems-split">
+    <div>
+      <p>
+        This system is meant to be felt through pressure. Travel while run down, stay exposed
+        too long, or keep pushing without recovery, and your condition starts slipping.
+      </p>
+      <p>
+        Once it slips far enough, your character stops feeling reliable. Saves worsen, core
+        stats begin to suffer, and recovery becomes harder when things go wrong.
+      </p>
+      <p>
+        The key rule is simple:
+        <strong>healthy resources support each other, neglected resources compound against you</strong>.
+        You are safest when all three are being maintained together.
+      </p>
+    </div>
+
+    <aside class="systems-facts">
+      <h3>In plain terms</h3>
+      <ul>
+        <li>High resources mean a stronger, steadier character.</li>
+        <li>Low resources mean worse saves and weaker stats.</li>
+        <li>Integrity is mainly pressured by daylight exposure outdoors.</li>
+        <li>Vitality at 0 causes real HP loss.</li>
+        <li>Poor physical condition often drags Sanity down with it.</li>
+        <li>The system gets much worse when multiple bars are low at once.</li>
+      </ul>
+    </aside>
+  </div>
+</section>
+
+<section class="systems-section">
+  <h2>Thresholds &amp; Stat Effects</h2>
+  <p>
+    Each resource has four bands. You do not need to memorize them, but you should understand
+    their feel. Above <strong>75</strong> is strong. Above <strong>50</strong> is stable.
+    Below <strong>50</strong> is where weakness starts showing. Below <strong>25</strong> is severe.
+  </p>
+
+  <div class="systems-table-wrap">
+    <table class="systems-table">
+      <thead>
+        <tr>
+          <th>Resource</th>
+          <th>75+</th>
+          <th>50–74</th>
+          <th>25–49</th>
+          <th>0–24</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Vitality</strong></td>
+          <td>+2 Constitution, +2 Strength</td>
+          <td>+1 Fortitude save</td>
+          <td>-1 Fortitude save</td>
+          <td>-2 Constitution, -2 Strength</td>
+        </tr>
+        <tr>
+          <td><strong>Integrity</strong></td>
+          <td>+2 Dexterity, +2 Intelligence</td>
+          <td>+1 Reflex save</td>
+          <td>-1 Reflex save</td>
+          <td>-2 Dexterity, -2 Intelligence</td>
+        </tr>
+        <tr>
+          <td><strong>Sanity</strong></td>
+          <td>+2 Wisdom, +2 Charisma</td>
+          <td>+1 Will save</td>
+          <td>-1 Will save</td>
+          <td>-2 Wisdom, -2 Charisma</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="systems-callout warning">
+    <strong>Important threshold:</strong> treat <strong>50</strong> as the real warning point.
+    Once a bar falls below that, you are no longer in a comfortable range. Below <strong>25</strong>,
+    the system becomes far less forgiving.
+  </div>
+</section>
+
+<section class="systems-section">
+  <h2>Death Save Relation</h2>
+  <p>
+    Survival resources also affect your death saves. The healthier your condition is, the easier
+    it is to stabilize after being knocked down. The worse your condition is, the less likely you
+    are to recover cleanly.
+  </p>
+  <p>
+    In other words, these resources matter in combat as much as they do outside it. For the full
+    death save breakdown, see <a href="dying.html">Dying</a>.
+  </p>
+</section>
+
+<section class="systems-section">
+  <h2>Restoring Resources</h2>
+  <p>
+    <strong>Food is one of the main ways to raise or lower these resources.</strong>
+    Different foods affect <strong>Vitality</strong>, <strong>Integrity</strong>, and
+    <strong>Sanity</strong> in different ways.
+  </p>
+  <p>
+    That means sustenance is not just about eating anything available. What you consume matters.
+    Some foods support physical recovery, some help mental stability, and some strengthen your
+    body against exposure. Others may come with tradeoffs.
+  </p>
+  <p>
+    For the full breakdown of how food and consumables interact with these systems, read
+    <a href="../comingsoon.html">Sustenance</a>.
+  </p>
+
+  <div class="systems-callout">
+    <strong>Simple rule:</strong> if your resources are slipping, look at what you are eating.
+    Recovery is partly preparation.
+  </div>
+</section>
+
+<section class="systems-section">
+  <h2>How To Survive The System</h2>
+  <p>
+    This system is punishing on purpose, but it is not meant to be unfair. Its job is to pace you,
+    pressure your decisions, and make your condition something you actively respect.
+  </p>
+  <p>
+    The safest approach is to stay <strong>above the curve</strong>. Do not wait until all three
+    bars are collapsing before you react. Once you fall into a serious deficit, recovery can become
+    slow, expensive, or dependent on help from others.
+  </p>
+  <p>
+    Take breaks from pressure. Carry the right food and cure items. Respect your limits instead of
+    constantly trying to push through them. Staying stable is easier than dragging yourself back
+    from a full spiral.
+  </p>
+
+  <div class="systems-callout warning">
+    <strong>Survival mindset:</strong> this is not a system you brute force forever. Good players
+    manage pressure early, keep supplies on hand, and prevent manageable problems from becoming collapse.
+  </div>
+</section>
+
+<section class="systems-section">
+  <h2>The HUD</h2>
+  <p>
+    The survival HUD shows your three resources as bars: Vitality, Integrity, and Sanity.
+    The fuller and greener a bar is, the healthier that resource is. As it falls, the bar
+    shifts toward red.
+  </p>
+  <p>
+    The HUD appears during normal in-character play and disappears in places or states where
+    the system is not relevant. It exists to give you a quick read on your condition, not bury
+    you in numbers.
+  </p>
+
+  <div class="systems-grid">
+    <article class="systems-card">
+      <h3>Vitality tooltip</h3>
+      <p>Physical well-being: hunger, thirst, fatigue, and survival needs.</p>
+    </article>
+    <article class="systems-card">
+      <h3>Integrity tooltip</h3>
+      <p>Physical stability against warp exposure and bodily degradation.</p>
+    </article>
+    <article class="systems-card">
+      <h3>Sanity tooltip</h3>
+      <p>Mental stability against fear, stress, and anomalous influence.</p>
+    </article>
+  </div>
+</section>
+
+<section class="systems-section">
+  <h2>What This Feels Like In Play</h2>
+  <div class="systems-example-grid">
+    <article class="systems-example">
+      <h3>Well maintained</h3>
+      <p>
+        When your resources are healthy, your character feels steady. Your stats are supported,
+        your saves are cleaner, and being knocked down is less likely to turn into disaster.
+      </p>
+    </article>
+
+    <article class="systems-example">
+      <h3>Worn down</h3>
+      <p>
+        When one bar slips, you may still function, but you are no longer at your best.
+        Once multiple bars are low together, the system starts compounding against you.
+      </p>
+    </article>
+
+    <article class="systems-example">
+      <h3>Exposure pressure</h3>
+      <p>
+        Daylight exposure is not free. When the sun is up, spending time outside pressures
+        Integrity first and can start dragging the rest of your condition with it.
+        Indoors, or outdoors at night, is safe for Integrity.
+      </p>
+    </article>
+
+    <article class="systems-example">
+      <h3>Vitality collapse</h3>
+      <p>
+        If Vitality reaches 0, the danger becomes immediate. You begin taking
+        <strong>1 damage</strong> over time until the problem is corrected.
+      </p>
+    </article>
+  </div>
+
+  <div class="systems-callout">
+    <strong>Best habit:</strong> do not wait until a bar is nearly empty. By the time it looks
+    disastrous, the penalties are already affecting you.
+  </div>
+</section>
+
+<section class="systems-section">
+  <h2>Quick Answers</h2>
+  <ul class="systems-bullets">
+    <li><strong>Can these resources go over 100?</strong> No. They are capped between 0 and 100.</li>
+    <li><strong>Can they drop below 0?</strong> No. They floor at 0.</li>
+    <li><strong>Do I instantly die at 0?</strong> No. Hitting 0 is dangerous, but not instant death by itself.</li>
+    <li><strong>What happens at 0 Vitality?</strong> You begin taking 1 damage over time.</li>
+    <li><strong>How do I recover these resources?</strong> Mainly through food and consumables. Different foods affect different resources. See <a href="../comingsoon.html">Sustenance</a>.</li>
+    <li><strong>What should I watch most closely?</strong> Any bar dropping below 50, especially if more than one is slipping.</li>
+  </ul>
+</section>
   </main>
 
   <footer>
@@ -311,7 +341,7 @@
     if (menuToggle && mainNav) {
       menuToggle.addEventListener('click', () => {
         mainNav.classList.toggle('open');
-        menuToggle.classList.toggle('open');
+        menuToggle.classList.toggle('open'); 
       });
     }
   </script>
