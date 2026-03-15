@@ -5,47 +5,299 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Coming Soon</title>
 
-  <!-- === FONT IMPORTS === -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IM+Fell+Great+Primer+SC&family=Quintessential&display=swap" rel="stylesheet">
 
-  <!-- === STYLESHEET === -->
   <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="assets/images/favicon.png">
 
-  <!-- === FAVICON === -->
-  <link rel="icon" type="image/png" href="../assets/images/favicon.png">
+  <style>
+    .comingsoon-shell {
+      position: relative;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 1.5rem;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at center, rgba(163,32,0,.12) 0%, rgba(163,32,0,.04) 22%, rgba(0,0,0,0) 55%),
+        linear-gradient(180deg, rgba(25,0,0,.35) 0%, rgba(0,0,0,.9) 100%);
+    }
+
+    .comingsoon-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          0deg,
+          rgba(255,255,255,.03) 0,
+          rgba(255,255,255,.03) 1px,
+          transparent 2px,
+          transparent 4px
+        );
+      opacity: .28;
+      pointer-events: none;
+      mix-blend-mode: overlay;
+    }
+
+    .comingsoon-panel {
+      position: relative;
+      z-index: 1;
+      width: min(760px, 100%);
+      text-align: center;
+      padding: 2.5rem 2rem;
+      background: rgba(10, 10, 10, .72);
+      border: 1px solid rgba(var(--accent-rgba), .3);
+      border-radius: 10px;
+      box-shadow:
+        0 0 30px rgba(0,0,0,.55),
+        0 0 30px rgba(var(--accent-rgba), .12),
+        inset 0 0 25px rgba(163,32,0,.08);
+      backdrop-filter: blur(4px);
+      overflow: hidden;
+    }
+
+    .comingsoon-panel::before,
+    .comingsoon-panel::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(227,70,70,.55), transparent);
+      animation: scanMove 6s linear infinite;
+      opacity: .6;
+      pointer-events: none;
+    }
+
+    .comingsoon-panel::before { top: 18%; }
+    .comingsoon-panel::after {
+      top: 72%;
+      animation-duration: 8s;
+      animation-direction: reverse;
+    }
+
+    .comingsoon-kicker {
+      display: inline-block;
+      margin-bottom: 1rem;
+      padding: .35rem .75rem;
+      font-family: var(--header-font);
+      font-size: .78rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent-bright);
+      background: rgba(163,32,0,.12);
+      border: 1px solid rgba(var(--accent-rgba), .28);
+      border-radius: 999px;
+    }
+
+    .comingsoon-sub {
+      font-family: var(--header-font);
+      color: #9d9d9d;
+      font-size: .95rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: .75rem;
+    }
+
+    .comingsoon-title {
+      position: relative;
+      display: inline-block;
+      font-family: "IM Fell Great Primer SC", serif;
+      color: var(--accent);
+      font-size: clamp(2.4rem, 7vw, 5rem);
+      letter-spacing: 4px;
+      line-height: 1.05;
+      text-shadow: 0 0 12px rgba(var(--accent-rgba), .4);
+      margin-bottom: 1rem;
+      animation: flickerBase 4.5s infinite ease-in-out;
+    }
+
+    .comingsoon-title::before,
+    .comingsoon-title::after {
+      content: attr(data-text);
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: .5;
+    }
+
+    .comingsoon-title::before {
+      color: rgba(227,70,70,.7);
+      transform: translate(-2px, 0);
+      clip-path: inset(0 0 55% 0);
+      animation: titleGlitchA 2.6s infinite linear alternate-reverse;
+    }
+
+    .comingsoon-title::after {
+      color: rgba(255,255,255,.2);
+      transform: translate(2px, 0);
+      clip-path: inset(58% 0 0 0);
+      animation: titleGlitchB 3.2s infinite linear alternate-reverse;
+    }
+
+    .comingsoon-copy {
+      max-width: 560px;
+      margin: 0 auto;
+      color: #c8c8c8;
+      line-height: 1.8;
+      font-size: 1rem;
+    }
+
+    .comingsoon-status {
+      margin-top: 1.5rem;
+      font-family: 'Roboto Mono', monospace;
+      color: #8f8f8f;
+      font-size: .9rem;
+      letter-spacing: .5px;
+    }
+
+    .comingsoon-links {
+      margin-top: 2rem;
+      display: flex;
+      justify-content: center;
+      gap: .9rem;
+      flex-wrap: wrap;
+    }
+
+    .comingsoon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 170px;
+      padding: .8rem 1.15rem;
+      text-decoration: none;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-family: var(--header-font);
+      font-size: .88rem;
+      border-radius: 6px;
+      transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, color .2s ease, background .2s ease;
+    }
+
+    .comingsoon-btn.primary {
+      color: #f0d8d8;
+      background: rgba(163,32,0,.16);
+      border: 1px solid rgba(var(--accent-rgba), .38);
+      box-shadow: 0 0 14px rgba(var(--accent-rgba), .12);
+    }
+
+    .comingsoon-btn.secondary {
+      color: #bdbdbd;
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.12);
+    }
+
+    .comingsoon-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .comingsoon-btn.primary:hover {
+      color: #fff;
+      border-color: rgba(227,70,70,.65);
+      box-shadow: 0 0 16px rgba(227,70,70,.22);
+      background: rgba(163,32,0,.24);
+    }
+
+    .comingsoon-btn.secondary:hover {
+      color: #fff;
+      border-color: rgba(255,255,255,.2);
+      background: rgba(255,255,255,.06);
+    }
+
+    @keyframes scanMove {
+      0% { transform: translateY(-20px); opacity: 0; }
+      10% { opacity: .55; }
+      50% { opacity: .7; }
+      100% { transform: translateY(420px); opacity: 0; }
+    }
+
+    @keyframes titleGlitchA {
+      0%, 100% { transform: translate(-2px, 0); }
+      20% { transform: translate(-4px, -1px); }
+      40% { transform: translate(1px, 1px); }
+      60% { transform: translate(-3px, 1px); }
+      80% { transform: translate(0, -1px); }
+    }
+
+    @keyframes titleGlitchB {
+      0%, 100% { transform: translate(2px, 0); }
+      25% { transform: translate(4px, 1px); }
+      50% { transform: translate(-1px, -1px); }
+      75% { transform: translate(3px, -1px); }
+    }
+
+    @media (max-width: 800px) {
+      .comingsoon-shell {
+        padding: 2rem 1rem;
+      }
+
+      .comingsoon-panel {
+        padding: 2rem 1.1rem;
+      }
+
+      .comingsoon-copy {
+        font-size: .95rem;
+      }
+
+      .comingsoon-links {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .comingsoon-btn {
+        min-width: 0;
+        width: 100%;
+      }
+    }
+  </style>
 </head>
 
 <body>
   <div class="grain"></div>
 
   <header class="site-header">
-    <h1><a href="../index.html" class="site-title-link">OUTWORLD ARCHIVE</a></h1>
-
-    <!-- Mobile Pie Menu Button -->
-    <div class="menu-toggle" id="menuToggle">
-      <span></span><span></span><span></span>
+    <div class="header-left">
+	  <h1><a href="index.html" class="site-title-link">OUTWORLD ARCHIVE</a></h1>
     </div>
 
-    <!-- Main Navigation -->
-    <nav id="mainNav">
-      <a href="index.html">Home</a>
-      <a href="records/index.html">Records</a>
-      <a href="guides/index.html">Guides</a>
-      <a href="systems/index.html">Systems</a>
-      <a href="gameplay/index.html">Gameplay</a>
-    </nav>
+    <div class="header-right">
+      <nav id="mainNav">
+        <a href="index.html">Home</a>
+        <a href="records/index.html">Records</a>
+        <a href="guides/index.html">Guides</a>
+        <a href="systems/index.html">Systems</a>
+        <a href="gameplay/index.html">Gameplay</a>
+      </nav>
+
+      <div class="social-icons">
+        <a href="https://discord.gg/tvBBqW7gFv" target="_blank" rel="noopener noreferrer" aria-label="Discord">
+          <img src="assets/images/discord.png" alt="Discord">
+        </a>
+      </div>
+
+      <div class="menu-toggle" id="menuToggle">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
   </header>
 
-  <main class="comingsoon-container">
-    <!--    <img src="assets/images/scorn-icon.png" class="comingsoon-logo" alt="Outworld Archive Logo"> -->
+  <main class="comingsoon-shell">
+    <section class="comingsoon-panel" aria-label="Coming soon notice">
+      <p class="comingsoon-sub">Error // data incomplete</p>
+      <h2 class="comingsoon-title" data-text="COMING // SOON">COMING // SOON</h2>
+      <p class="comingsoon-copy">
+        This section has not been fully recovered yet.
+      </p>
+      <p class="comingsoon-status">Signal status // pending restoration</p>
 
-    <div class="glitch-lines">
-      <h2>ERROR // DATA LOST</h2>
-      <h2 data-text="COMING // SOON">COMING // SOON</h2>
-    </div>
-
+      <div class="comingsoon-links">
+        <a class="comingsoon-btn primary" href="index.html">Return Home</a>
+      </div>
+    </section>
   </main>
 
   <footer>
@@ -55,10 +307,13 @@
   <script>
     const menuToggle = document.getElementById('menuToggle');
     const mainNav = document.getElementById('mainNav');
-    menuToggle.addEventListener('click', () => {
-      mainNav.classList.toggle('open');
-      menuToggle.classList.toggle('open');
-    });
+
+    if (menuToggle && mainNav) {
+      menuToggle.addEventListener('click', () => {
+        mainNav.classList.toggle('open');
+        menuToggle.classList.toggle('open');
+      });
+    }
   </script>
 </body>
 </html>

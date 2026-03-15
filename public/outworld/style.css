@@ -1797,3 +1797,24 @@ footer{
 .systems-callout {
   margin-bottom: 1.6rem;
 }	
+
+/* GLOBAL LINK COLORS (fix unreadable blue/purple on dark background) */
+
+a {
+  color: var(--accent-bright);
+  text-decoration: none;
+}
+
+a:visited {
+  color: var(--accent-bright);
+}
+
+a:hover {
+  color: var(--accent);
+  text-shadow: 0 0 6px rgba(var(--accent-rgba), .6);
+}
+
+a:active {
+  color: var(--accent);
+}
+
