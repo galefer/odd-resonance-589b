@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dying</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+Great+Primer+SC&family=Roboto+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="icon" type="image/png" href="../assets/images/favicon.png">
+</head>
+<body>
+  <div class="grain"></div>
+
+  <header class="site-header">
+    <div class="header-left">
+      <h1><a href="index.html" class="site-title-link">OUTWORLD ARCHIVE</a></h1>
+    </div>
+
+    <div class="header-right">
+      <nav id="mainNav">
+        <a href="index.html">Home</a>
+        <a href="../records/index.html">Records</a>
+        <a href="../guides/index.html">Guides</a>
+        <a href="../systems/index.html">Systems</a>
+        <a href="../gameplay/index.html">Gameplay</a>
+      </nav>
+
+      <div class="social-icons">
+        <a href="https://discord.gg/tvBBqW7gFv" target="_blank" aria-label="Discord">
+          <img src="../assets/images/discord.png" alt="Discord">
+        </a>
+      </div>
+
+      <div class="menu-toggle" id="menuToggle">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </header>
+
+  <div class="nav-banner-nopad">
+    <a href="../systems/index.html" class="nav-link">SYSTEMS</a>
+    <span class="nav-divider">&raquo;</span>
+    <a href="dying.html" class="nav-link active">DYING</a>
+  </div>
+
+  <main class="info-page systems-page">
+    <section class="systems-header">
+      <h1>Dying</h1>
+      <p>
+        In Outworld, dropping to the ground is not the same as being gone forever.
+        Most of the time, when you reach 0 HP or lower, you enter a critical state known as
+        <strong>bleedout</strong>. From there, you still have a chance to recover, be saved,
+        or stabilize before death finally claims you.
+      </p>
+    </section>
+
+    <section class="systems-section">
+      <h2>Core Summary</h2>
+      <p class="systems-lead">
+        When you fall below 0 HP, you begin bleeding out. From that moment on,
+        you repeatedly roll death saves until one of two things happens:
+        you stabilize and recover, or your condition collapses and you die at <strong>-9</strong>.
+      </p>
+
+      <div class="systems-grid">
+        <article class="systems-card systems-card--downed">
+          <h3>Bleedout</h3>
+          <ul>
+            <li>Reaching 0 HP or lower usually puts you into bleedout instead of killing you instantly.</li>
+            <li>You make a death save every <strong>20 seconds</strong>.</li>
+            <li>Each failed save moves you deeper by <strong>-1</strong>.</li>
+          </ul>
+        </article>
+
+        <article class="systems-card systems-card--stabilized">
+          <h3>Stabilization</h3>
+          <ul>
+            <li>Passing a death save stabilizes you.</li>
+            <li>Once stabilized, your body slowly recovers.</li>
+            <li>When your HP rises above 0, you stand back up at <strong>1 HP</strong>.</li>
+          </ul>
+        </article>
+
+        <article class="systems-card systems-card--dead">
+          <h3>Death</h3>
+          <ul>
+            <li>If bleedout reaches <strong>-9</strong>, you die.</li>
+            <li>Whether that death is permanent depends on <a href="memory.html">Memory</a>.</li>
+            <li>If you have enough Memory, <a href="rebirth.html">Rebirth</a> may still be possible.</li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="systems-callout">
+        <strong>Important:</strong> you can enter bleedout multiple times. There is currently no penalty
+        simply for going down repeatedly. The real question is whether you can recover each time.
+      </div>
+    </section>
+
+    <section class="systems-section">
+      <h2>How Does Dying Work</h2>
+      <div class="systems-split">
+        <div>
+          <p>
+            Bleedout gives you a window to survive, but it is still extremely dangerous.
+            While you are down, you have no control over the situation and every failed save
+            pushes you closer to death.
+          </p>
+          <p>
+            Enemies will often lose interest once you fall, but not always.
+            If you are struck while down, things escalate quickly. A hit while bleeding out
+            effectively pushes you further toward death, and if you had stabilized,
+            it immediately breaks that stability.
+          </p>
+          <p>
+            This is why support and teamwork matter. A player on the ground can still be saved,
+            but only if someone is ready to help.
+          </p>
+        </div>
+
+        <aside class="systems-facts">
+          <h3>In plain terms</h3>
+          <ul>
+            <li>You roll a save every <strong>20 seconds</strong>.</li>
+            <li>Failing pushes you down by <strong>-1</strong>.</li>
+            <li>Passing stabilizes you.</li>
+            <li>At <strong>-9</strong>, you die.</li>
+            <li>Getting hit while down is extremely dangerous.</li>
+            <li>Healing above 0 ends bleedout immediately.</li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+
+    <section class="systems-section">
+      <h2>Death Saves &amp; Survival Resources</h2>
+      <p>
+        Death saves are not fixed. Your current <a href="survival.html">survival resources</a>
+        directly affect how hard they are.
+      </p>
+      <p>
+        The base death save DC is <strong>20</strong>. From there, <strong>Vitality</strong>,
+        <strong>Integrity</strong>, and <strong>Sanity</strong> each push that number up or down
+        depending on how healthy they are.
+      </p>
+      <p>
+        <strong>50</strong> is the neutral point. For every <strong>10 points above 50</strong>,
+        that resource makes the save <strong>1 easier</strong>. For every
+        <strong>10 points below 50</strong>, it makes the save <strong>1 harder</strong>.
+        All three resources are counted together.
+      </p>
+
+      <div class="systems-callout warning">
+        <strong>What this means in practice:</strong> if your condition is healthy, you are much more likely
+        to stabilize. If your resources are run down, bleedout becomes far more dangerous.
+      </div>
+
+      <div class="systems-split">
+        <div>
+          <p>
+            You do not need to obsess over the exact math while playing. The simple rule is:
+            <strong>healthy resources make recovery easier, neglected resources make death more likely</strong>.
+          </p>
+          <p>
+            This is why entering a fight already exhausted, exposed, or mentally frayed is so risky.
+            You are not just weaker while standing, you are also less likely to get back up once dropped.
+          </p>
+        </div>
+
+        <aside class="systems-facts">
+          <h3>Simple rule</h3>
+          <ul>
+            <li><strong>20</strong> is the base DC.</li>
+            <li><strong>50</strong> in a resource is neutral.</li>
+            <li>Every <strong>+10 above 50</strong> makes the save easier.</li>
+            <li>Every <strong>-10 below 50</strong> makes the save harder.</li>
+            <li>All three survival resources matter.</li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+
+    <section class="systems-section">
+      <h2>Recovery</h2>
+      <p>
+        Bleedout can end in more ways than your own death saves.
+        Any healing that brings you above 0 HP will immediately pull you out of bleedout.
+      </p>
+      <p>
+        Healing kits, spells, and prepared party members can bring you back before your
+        condition spirals toward death. This is why well-stocked groups survive far longer
+        than unprepared ones.
+      </p>
+      <p>
+        In practice, success is not only about dealing damage. It is about making sure
+        someone can pull you back up when things go wrong.
+      </p>
+
+      <div class="systems-callout">
+        <strong>Practical takeaway:</strong> when adventuring in dangerous areas,
+        assume someone will eventually hit the floor and plan accordingly.
+      </div>
+    </section>
+
+    <section class="systems-section">
+      <h2>Your Condition Matters</h2>
+      <p>
+        Your odds of surviving bleedout depend heavily on the state you were in before you fell.
+        The healthier your survival resources are, the easier it is to recover.
+      </p>
+      <p>
+        Entering a fight already exhausted, injured, or depleted makes dying far more dangerous.
+        See <a href="survival.html">Survival Resources</a> for more on those systems.
+      </p>
+    </section>
+
+    <section class="systems-section">
+      <h2>Where Memory Fits</h2>
+      <p>
+        This page explains what happens when you fall. What happens after death
+        is governed by <a href="memory.html">Memory</a>.
+      </p>
+      <p>
+        If bleedout collapses into death, Memory determines whether you still have
+        another chance through <a href="rebirth.html">Rebirth</a>.
+      </p>
+      <p>
+        In simple terms: bleedout decides whether you survive the moment.
+        Memory decides how many times you can afford not to.
+      </p>
+    </section>
+
+    <section class="systems-section">
+      <h2>Quick Answers</h2>
+      <ul class="systems-bullets">
+        <li><strong>Do I die immediately at 0 HP?</strong> Usually no. You enter bleedout.</li>
+        <li><strong>How often do death saves happen?</strong> Every 20 seconds.</li>
+        <li><strong>What is the base death save DC?</strong> 20.</li>
+        <li><strong>How do survival resources affect it?</strong> Healthy resources lower the DC. Poor resources raise it.</li>
+        <li><strong>What happens when I fail?</strong> You drop by -1.</li>
+        <li><strong>What happens when I pass?</strong> You stabilize and begin recovering.</li>
+        <li><strong>What ends bleedout instantly?</strong> Any healing that brings you above 0 HP.</li>
+        <li><strong>When do I actually die?</strong> At -9.</li>
+        <li><strong>What determines if I can come back?</strong> See <a href="memory.html">Memory</a> and <a href="rebirth.html">Rebirth</a>.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <p>Recovered by GRAVETALE Studios // Cycle AF 400</p>
+  </footer>
+
+  <script>
+    const menuToggle = document.getElementById('menuToggle');
+    const mainNav = document.getElementById('mainNav');
+
+    if (menuToggle && mainNav) {
+      menuToggle.addEventListener('click', () => {
+        mainNav.classList.toggle('open');
+        menuToggle.classList.toggle('open');
+      });
+    }
+  </script>
+</body>
+</html>

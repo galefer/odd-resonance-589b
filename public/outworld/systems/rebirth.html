@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rebirth & Memory</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+Great+Primer+SC&family=Roboto+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="icon" type="image/png" href="../assets/images/favicon.png">
+</head>
+<body>
+  <div class="grain"></div>
+
+  <header class="site-header">
+    <div class="header-left">
+      <h1><a href="index.html" class="site-title-link">OUTWORLD ARCHIVE</a></h1>
+    </div>
+
+    <div class="header-right">
+      <nav id="mainNav">
+        <a href="index.html">Home</a>
+        <a href="../records/index.html">Records</a>
+        <a href="../guides/index.html">Guides</a>
+        <a href="../systems/index.html">Systems</a>
+        <a href="../gameplay/index.html">Gameplay</a>
+      </nav>
+
+      <div class="social-icons">
+        <a href="https://discord.gg/tvBBqW7gFv" target="_blank" aria-label="Discord">
+          <img src="../assets/images/discord.png" alt="Discord">
+        </a>
+      </div>
+
+      <div class="menu-toggle" id="menuToggle">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </header>
+
+  <div class="nav-banner-nopad">
+    <a href="../systems/index.html" class="nav-link">SYSTEMS</a>
+    <span class="nav-divider">&raquo;</span>
+    <a href="rebirth.html" class="nav-link active">REBIRTH</a>
+  </div>
+
+  <main class="info-page systems-page">
+    <section class="systems-header">
+      <h1>Rebirth</h1>
+      <p>
+        Death is the result of failing your death saves. If that happens, and you still have enough
+        <a href="memory.html">Memory</a>, you may bargain with your identity for another chance at surviving.
+      </p>
+    </section>
+
+    <section class="systems-section">
+      <h2>Core Summary</h2>
+      <p class="systems-lead">
+        When you die, you may undergo rebirth by spending <strong>25 Memory</strong>. You reappear in an unknown place,
+        pulled back into the world diminished but alive.
+      </p>
+
+      <div class="systems-grid">
+        <article class="systems-card">
+          <h3>What Rebirth Is</h3>
+          <ul>
+            <li>Rebirth is how you return after death.</li>
+            <li>It costs <strong>25 Memory</strong>.</li>
+            <li>If you do not have enough Memory, you cannot come back.</li>
+          </ul>
+        </article>
+
+        <article class="systems-card">
+          <h3>What It Does</h3>
+          <ul>
+            <li>You are resurrected.</li>
+            <li>Your HP is fully restored.</li>
+            <li>Your death and bleedout state is cleared.</li>
+          </ul>
+        </article>
+
+        <article class="systems-card">
+          <h3>What You Return With</h3>
+          <ul>
+            <li>Vitality resets to <strong>45</strong>.</li>
+            <li>Integrity resets to <strong>45</strong>.</li>
+            <li>Sanity resets to <strong>45</strong>.</li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="systems-callout warning">
+        <strong>Permadeath exists:</strong> if you die without enough <a href="memory.html">Memory</a> to rebirth,
+        that death is final.
+      </div>
+    </section>
+
+    <section class="systems-section">
+      <h2>In Practice</h2>
+      <p>
+        Rebirth is simple. You die, you pay the cost, and you are pulled back in a damaged state.
+        Not safe. Not fresh. Just alive.
+      </p>
+      <p>
+        You appear slick in an unknown place, either lost to the world or barely clinging on,
+        having traded part of yourself for another chance to keep going.
+      </p>
+      <p>
+        For the meaning and long-term consequences of that cost, see <a href="memory.html">Memory</a>.
+      </p>
+    </section>
+
+    <section class="systems-section">
+      <h2>Quick Answers</h2>
+      <ul class="systems-bullets">
+        <li><strong>When does Rebirth happen?</strong> After death.</li>
+        <li><strong>How much does it cost?</strong> <strong>25 Memory</strong>.</li>
+        <li><strong>Do I come back at full HP?</strong> Yes.</li>
+        <li><strong>Do I come back with full survival resources?</strong> No. Vitality, Integrity, and Sanity return at <strong>45</strong>.</li>
+        <li><strong>What happens if I cannot afford Rebirth?</strong> Permanent death. See <a href="memory.html">Memory</a>.</li>
+      </ul>
+    </section>
+  </main></main></main>
+
+  <footer>
+    <p>Recovered by GRAVETALE Studios // Cycle AF 400</p>
+  </footer>
+
+  <script>
+    const menuToggle = document.getElementById('menuToggle');
+    const mainNav = document.getElementById('mainNav');
+
+    if (menuToggle && mainNav) {
+      menuToggle.addEventListener('click', () => {
+        mainNav.classList.toggle('open');
+        menuToggle.classList.toggle('open');
+      });
+    }
+  </script>
+</body>
+</html>
