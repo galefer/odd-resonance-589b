@@ -1818,14 +1818,3 @@ a:active {
   color: var(--accent);
 }
 
-@media (max-width: 768px) {
-  .systems-table {
-    min-width: 560px;
-  }
-
-  .systems-table th,
-  .systems-table td {
-    padding: 0.65rem 0.75rem;
-    font-size: 0.85rem;
-  }
-}
