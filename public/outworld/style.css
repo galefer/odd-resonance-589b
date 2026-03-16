@@ -1818,3 +1818,25 @@ a:active {
   color: var(--accent);
 }
 
+@media (max-width: 800px) {
+  .systems-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .systems-table {
+    min-width: 0;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .systems-table th,
+  .systems-table td {
+    padding: 0.7rem 0.75rem;
+    font-size: 0.85rem;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+}
