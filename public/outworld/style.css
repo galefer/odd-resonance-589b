@@ -1818,24 +1818,3 @@ a:active {
   color: var(--accent);
 }
 
-@media (max-width: 800px) {
-  .nav-banner,
-  .nav-banner-nopad {
-    flex-wrap: wrap;
-    padding-left: .75rem;
-    padding-right: .75rem;
-    text-align: center;
-    row-gap: .15rem;
-  }
-
-  .nav-link {
-    overflow-wrap: anywhere;
-  }
-
-  .systems-section h2 {
-    font-size: 1rem;
-    letter-spacing: .8px;
-    line-height: 1.35;
-    overflow-wrap: anywhere;
-  }
-}
