@@ -50,9 +50,9 @@
     <section class="systems-header">
       <h1>Experience</h1>
       <p>
-        Experience in Outworld comes from combat and active in-character play.
-        Weak content falls off. Staying close to your group matters. Progress comes from moving forward,
-        not farming the same safe area forever.
+        Experience in Outworld is tied to the world itself. Where an enemy comes from matters.
+        What kind of enemy it is matters. Stay in content you have already outgrown, and the reward dries up.
+        Progress comes from pressing forward, not sitting in safe ground forever.
       </p>
     </section>
 
@@ -60,26 +60,26 @@
       <h2>Core Summary</h2>
       <p class="systems-lead">
         There are two ways to gain XP: <strong>combat XP</strong> and <strong>RP XP</strong>.
-        Combat XP rewards kills that still match your stage of progression.
-        RP XP is a timed reward for being in active IC areas with other players.
+        Combat XP is driven by <strong>region</strong> and <strong>enemy type</strong>.
+        RP XP is a timed reward for being present in active IC areas with other players.
       </p>
 
       <div class="systems-grid">
         <article class="systems-card">
           <h3>Combat XP</h3>
           <ul>
-            <li>Killing relevant enemies gives XP.</li>
-            <li>Outlevel old content and its XP drops off.</li>
-            <li>To keep progressing, move into harder regions.</li>
+            <li>Regions set the baseline value of kills.</li>
+            <li>Stronger enemy types are worth more.</li>
+            <li>If you outgrow a region, its XP falls off hard.</li>
           </ul>
         </article>
 
         <article class="systems-card">
           <h3>Shared XP</h3>
           <ul>
-            <li>Party members can gain shared XP from kills.</li>
+            <li>Party members earn XP based on what <em>they</em> would get.</li>
             <li>You must be nearby, in the same area, and in the same faction.</li>
-            <li>Large level gaps reduce the value of shared XP.</li>
+            <li>Large level gaps reduce shared XP even further.</li>
           </ul>
         </article>
 
@@ -94,7 +94,7 @@
       </div>
 
       <div class="systems-callout warning">
-        <strong>Important:</strong> if content is too easy for you, expect little or no meaningful XP from it.
+        <strong>Important:</strong> if an area has stopped being dangerous, expect its XP to stop mattering.
       </div>
     </section>
 
@@ -110,6 +110,14 @@
           </thead>
           <tbody>
             <tr>
+              <td><strong>Region-based XP</strong></td>
+              <td>Every region has its own XP baseline. Moving deeper into the world means better returns.</td>
+            </tr>
+            <tr>
+              <td><strong>Enemy type matters</strong></td>
+              <td>Common, special, and rare enemies are not worth the same. Harder fights pay more.</td>
+            </tr>
+            <tr>
               <td><strong>20 meters</strong></td>
               <td>You must stay within 20 meters of the kill to qualify for shared XP.</td>
             </tr>
@@ -122,16 +130,16 @@
               <td>Shared XP only applies to faction members of the killer.</td>
             </tr>
             <tr>
+              <td><strong>Level gap penalty</strong></td>
+              <td>If you fall too far behind the killer, your shared XP drops even more.</td>
+            </tr>
+            <tr>
               <td><strong>5 minutes</strong></td>
               <td>RP XP pays out every 5 minutes, not continuously.</td>
             </tr>
             <tr>
               <td><strong>Up to 5 players</strong></td>
               <td>RP XP scales with nearby players in the area, capped at 5 for the multiplier.</td>
-            </tr>
-            <tr>
-              <td><strong>2 level gap</strong></td>
-              <td>Shared XP penalty starts when a party member is 2 or more levels below the killer.</td>
             </tr>
             <tr>
               <td><strong>IC only</strong></td>
@@ -145,42 +153,82 @@
     <section class="systems-section">
       <h2>Combat XP</h2>
       <p>
-        Combat XP is straightforward. Kill enemies that are still appropriate for your progression,
-        and you gain XP. Stay in content you have already outgrown, and the returns drop.
+        Combat XP now follows a simple world-facing logic.
+        The region sets the baseline. The enemy type raises or lowers the reward from there.
       </p>
       <p>
-        This means progression is region-based in practice.
-        If you want efficient XP, move into content that still fights back.
+        This means progression is tied to where you are fighting, and what you are choosing to fight.
+        Common enemies are the floor. Special and rare enemies push the payout higher.
+      </p>
+      <p>
+        Your own level still matters. If you outlevel the region you are farming, the reward is reduced directly.
+        Stay too long in old content, and it will eventually stop moving you forward.
       </p>
 
       <div class="systems-callout">
-        <strong>Rule of thumb:</strong> if an area feels trivial, it is probably no longer good XP.
+        <strong>Rule of thumb:</strong> if the region no longer threatens you, it is no longer rewarding you.
+      </div>
+    </section>
+
+    <section class="systems-section">
+      <h2>Enemy Strength Matters</h2>
+      <p>
+        Not every enemy in a region is equal.
+        Some are simply worth more because they are more dangerous.
+      </p>
+
+      <div class="systems-example-grid">
+        <article class="systems-example">
+          <h3>Common</h3>
+          <p>
+            Baseline enemies. Good for steady progress early, but the first to lose value once you outgrow the region.
+          </p>
+        </article>
+
+        <article class="systems-example">
+          <h3>Special</h3>
+          <p>
+            A stronger step up. These enemies reward more and hold value better than basic filler fights.
+          </p>
+        </article>
+
+        <article class="systems-example">
+          <h3>Rare</h3>
+          <p>
+            The most rewarding enemies in their bracket. Harder fights, better returns, and a stronger reason to take risks.
+          </p>
+        </article>
       </div>
     </section>
 
     <section class="systems-section">
       <h2>Shared XP</h2>
       <p>
-        Shared XP exists so groups can progress together, but it has clear limits.
-        You must be in the same faction, in the same area, and within 20 meters of the kill.
+        Shared XP is not copied blindly from the killer.
+        Each party member receives XP based on what <strong>they</strong> would have earned from that enemy,
+        then that value is reduced for party sharing.
       </p>
       <p>
-        Shared XP is also weaker than getting the kill yourself, and it gets worse when the level gap is too large.
-        The penalty begins once the party member is 2 or more levels below the killer.
+        If that party member is also falling behind the killer in level, shared XP drops further.
+        This keeps groups moving together without turning carries into free progression.
+      </p>
+      <p>
+        To qualify at all, you must still meet the basic requirements:
+        same faction, same area, and close enough to the kill.
       </p>
 
       <div class="systems-example-grid">
         <article class="systems-example">
           <h3>Good shared XP</h3>
           <p>
-            You are close to the fight, in the same area, fighting with people near your own level.
+            You are with the group, in the fight, in the same area, and close enough to the kill for the system to count you.
           </p>
         </article>
 
         <article class="systems-example">
           <h3>Bad shared XP</h3>
           <p>
-            You are trailing behind, far from the kill, or relying on much higher-level players to carry you.
+            You are lagging behind, standing too far out, or relying on much stronger players to drag you through content.
           </p>
         </article>
       </div>
@@ -189,11 +237,16 @@
     <section class="systems-section">
       <h2>RP XP</h2>
       <p>
-        RP XP ticks every 5 minutes. To receive it, you must be in an IC area with at least one other player present.
+        RP XP still works as a steady timed reward.
+        It ticks every 5 minutes, and only in active IC areas.
       </p>
       <p>
-        More players in the area increase the payout, up to a cap of 5 players for the multiplier.
-        Being alone does not qualify. Sitting in an OOC area does not qualify.
+        You must have other players in the area with you to qualify.
+        More players improve the payout, up to a cap of 5 players for the multiplier.
+      </p>
+      <p>
+        Being alone does not count.
+        Sitting in OOC space does not count.
       </p>
 
       <div class="systems-callout warning">
@@ -204,7 +257,8 @@
     <section class="systems-section">
       <h2>How To Level Efficiently</h2>
       <ul class="systems-bullets">
-        <li><strong>Move on</strong> when a region stops challenging you.</li>
+        <li><strong>Move forward</strong> when a region stops challenging you.</li>
+        <li><strong>Prioritise stronger enemy types</strong> when you want better XP.</li>
         <li><strong>Stay within 20 meters</strong> of your group if you want shared XP.</li>
         <li><strong>Do not expect carries</strong> to replace real progression.</li>
         <li><strong>Spend time in IC areas with other players</strong> for RP XP.</li>
@@ -215,11 +269,13 @@
     <section class="systems-section">
       <h2>Quick Answers</h2>
       <ul class="systems-bullets">
-        <li><strong>Do weak enemies keep giving good XP forever?</strong> No.</li>
+        <li><strong>What determines combat XP?</strong> Region + enemy type.</li>
+        <li><strong>Do weak enemies keep giving good XP forever?</strong> No. XP falls off once you outgrow the region.</li>
+        <li><strong>Do stronger enemies in the same region give more XP?</strong> Yes.</li>
         <li><strong>How close do I need to be for shared XP?</strong> Within <strong>20 meters</strong>.</li>
         <li><strong>Do I need to be in the same area?</strong> Yes.</li>
         <li><strong>Do I need to be in the same faction?</strong> Yes.</li>
-        <li><strong>When does the shared XP level-gap penalty start?</strong> At <strong>2 levels below the killer</strong>.</li>
+        <li><strong>What happens if I fall behind my group?</strong> Your shared XP is reduced further.</li>
         <li><strong>How often does RP XP tick?</strong> Every <strong>5 minutes</strong>.</li>
         <li><strong>Does RP XP work in OOC areas?</strong> No.</li>
         <li><strong>Does being around more players help RP XP?</strong> Yes, up to <strong>5 players</strong>.</li>
