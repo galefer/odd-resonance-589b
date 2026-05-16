@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>GRAVETALE Studios</title>
+  <meta
+    name="description"
+    content="GRAVETALE Studios is an independent UK game studio building dark interactive worlds shaped by atmosphere, pressure, and consequence."
+  />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&family=Roboto+Mono:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  >
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="grain"></div>
+  <div class="scanlines"></div>
+  <div class="red-vignette"></div>
+
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="GRAVETALE Studios home">
+      <div class="brand-sigil">G</div>
+      <div class="brand-text">
+        <strong>GRAVETALE Studios</strong>
+        <span>Independent game development</span>
+      </div>
+    </a>
+
+    <button class="nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <nav class="site-nav" aria-label="Primary navigation">
+      <a href="#projects">Projects</a>
+      <a href="/the-slip/">The Slip</a>
+      <a href="/galefer/">Galefer</a>
+      <a href="/outworld/">Outworld</a>
+      <a href="https://discord.gg/tvBBqW7gFv" target="_blank" rel="noreferrer">Discord</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" id="home">
+      <div class="hero-background">
+        <div class="hero-grid"></div>
+        <div class="hero-breach"></div>
+        <div class="hero-fog"></div>
+      </div>
+
+      <div class="hero-content">
+        <div class="classification">PUBLIC ACCESS // STUDIO FRONT</div>
+
+        <h1>GRAVETALE Studios</h1>
+
+        <p class="hero-lead">
+          Dark interactive worlds built around atmosphere, pressure, and consequence.
+        </p>
+
+        <p class="hero-copy">
+          GRAVETALE Studios is an independent UK game studio developing tense,
+          systems-driven experiences across horror, extraction, roleplay, and liminal spaces.
+        </p>
+
+        <div class="hero-actions">
+          <a class="button button-primary" href="/the-slip/">View The Slip</a>
+          <a class="button button-secondary" href="#projects">Explore Projects</a>
+        </div>
+
+        <div class="hero-tags">
+          <span>Atmospheric worlds</span>
+          <span>Systems-led design</span>
+          <span>Liminal horror</span>
+          <span>Player consequence</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-banner">
+      <span>ACTIVE DEVELOPMENT // FEATURED PROJECT</span>
+    </section>
+
+    <section class="featured-project" id="the-slip">
+      <div class="featured-visual">
+        <div class="visual-frame">
+          <div class="visual-label">PROJECT 01</div>
+          <div class="visual-title">THE SLIP</div>
+          <div class="visual-readout">
+            <span>STATUS: ACTIVE</span>
+            <span>GENRE: EXTRACTION HORROR</span>
+            <span>ENGINE: UNREAL</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="featured-copy">
+        <div class="eyebrow">Featured Project</div>
+        <h2>The Slip</h2>
+        <p>
+          A tactical extraction horror project set inside unstable liminal environments.
+          Enter compromised zones, recover assets, contain anomalies, and extract before
+          the world collapses around you.
+        </p>
+
+        <div class="feature-list">
+          <div>
+            <strong>Extract</strong>
+            <span>Enter hostile spaces, secure resources, and reach the exit before collapse.</span>
+          </div>
+
+          <div>
+            <strong>Contain</strong>
+            <span>Face anomalies that disrupt the rules and force adaptation.</span>
+          </div>
+
+          <div>
+            <strong>Descend</strong>
+            <span>Failure does not always mean death. Sometimes it means going deeper.</span>
+          </div>
+        </div>
+
+        <a class="button button-primary" href="/the-slip/">Open Project Page</a>
+      </div>
+    </section>
+
+    <section class="section-banner" id="projects">
+      <span>GRAVETALE ACCESS // PROJECTS & ARCHIVES</span>
+    </section>
+
+    <section class="project-grid">
+      <a class="project-card project-card-primary" href="/the-slip/">
+        <div class="card-image card-image-slip"></div>
+        <div class="card-body">
+          <span class="card-kicker">Commercial Project</span>
+          <h3>The Slip</h3>
+          <p>
+            The current focus of GRAVETALE Studios. Tactical extraction horror,
+            liminal environments, anomaly containment, and survival under pressure.
+          </p>
+        </div>
+      </a>
+
+      <a class="project-card" href="/galefer/">
+        <div class="card-image card-image-galefer"></div>
+        <div class="card-body">
+          <span class="card-kicker">Developer Portfolio</span>
+          <h3>Galefer</h3>
+          <p>
+            Portfolio, systems design work, development history, Unreal projects,
+            worldbuilding, and technical breakdowns.
+          </p>
+        </div>
+      </a>
+
+      <a class="project-card" href="/outworld/">
+        <div class="card-image card-image-outworld"></div>
+        <div class="card-body">
+          <span class="card-kicker">Legacy Archive</span>
+          <h3>Outworld Archive</h3>
+          <p>
+            A non-commercial hobby world project built in Neverwinter Nights:
+            Enhanced Edition. Preserved as a community archive and legacy project.
+          </p>
+        </div>
+      </a>
+    </section>
+
+    <section class="studio-doctrine">
+      <div class="doctrine-panel">
+        <div class="eyebrow">Studio Doctrine</div>
+        <h2>What We Build</h2>
+        <p>
+          GRAVETALE Studios creates dark interactive worlds where atmosphere,
+          mechanics, and pressure work together. The goal is not horror for spectacle.
+          The goal is spaces that feel hostile, systems that demand decisions,
+          and survival that feels earned.
+        </p>
+
+        <div class="doctrine-pillars">
+          <span>Dark worlds</span>
+          <span>Tactical pressure</span>
+          <span>Readable systems</span>
+          <span>Earned survival</span>
+          <span>Consequences</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="legacy-note" id="outworld">
+      <div class="legacy-copy">
+        <div class="eyebrow">Legacy / Hobby Project</div>
+        <h2>Outworld Archive</h2>
+        <p>
+          Outworld remains available as a non-commercial hobby archive and community
+          project. It is separate from GRAVETALE Studios' commercial development work.
+        </p>
+
+        <p class="disclaimer">
+          Outworld is a non-commercial hobby project. Third-party names, artwork,
+          trademarks, and intellectual property remain the property of their respective owners.
+        </p>
+      </div>
+
+      <a class="button button-secondary" href="/outworld/">Enter Archive</a>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div>
+      <strong>GRAVETALE Studios Ltd</strong>
+      <span>Independent game development studio based in the United Kingdom.</span>
+    </div>
+
+    <nav aria-label="Footer navigation">
+      <a href="/the-slip/">The Slip</a>
+      <a href="/galefer/">Galefer</a>
+      <a href="/outworld/">Outworld</a>
+      <a href="https://discord.gg/tvBBqW7gFv" target="_blank" rel="noreferrer">Discord</a>
+    </nav>
+  </footer>
+
+  <script>
+    const navToggle = document.querySelector(".nav-toggle");
+    const siteNav = document.querySelector(".site-nav");
+
+    if (navToggle && siteNav) {
+      navToggle.addEventListener("click", () => {
+        const isOpen = siteNav.classList.toggle("is-open");
+        navToggle.classList.toggle("is-open", isOpen);
+        navToggle.setAttribute("aria-expanded", String(isOpen));
+      });
+
+      siteNav.querySelectorAll("a").forEach((link) => {
+        link.addEventListener("click", () => {
+          siteNav.classList.remove("is-open");
+          navToggle.classList.remove("is-open");
+          navToggle.setAttribute("aria-expanded", "false");
+        });
+      });
+    }
+  </script>
+</body>
+</html>
