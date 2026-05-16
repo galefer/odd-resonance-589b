@@ -1,0 +1,165 @@
+Folder PATH listing for volume New Volume
+Volume serial number is 000000E8 803D:0839
+X:.
+|   .gitignore
+|   DirectoryTreeBuilder.bat
+|   directory_tree.txt
+|   
++---old_astro
+|   |   astro.config.mjs
+|   |   blog-placeholder-1.jpg
+|   |   blog-placeholder-2.jpg
+|   |   blog-placeholder-3.jpg
+|   |   blog-placeholder-4.jpg
+|   |   blog-placeholder-5.jpg
+|   |   blog-placeholder-about.jpg
+|   |   directory_tree.txt
+|   |   favicon.svg
+|   |   package-lock.json
+|   |   package.json
+|   |   README.md
+|   |   test.bat
+|   |   tsconfig.json
+|   |   worker-configuration.d.ts
+|   |   wrangler.json
+|   |   
+|   \---src
+|       |   consts.ts
+|       |   content.config.ts
+|       |   env.d.ts
+|       |   
+|       +---assets
+|       |       gravetale_logo.png
+|       |       
+|       +---components
+|       |       BaseHead.astro
+|       |       Footer.astro
+|       |       FormattedDate.astro
+|       |       Header.astro
+|       |       HeaderLink.astro
+|       |       
+|       +---content
+|       |   \---blog
+|       |           first-post.md
+|       |           markdown-style-guide.md
+|       |           second-post.md
+|       |           third-post.md
+|       |           using-mdx.mdx
+|       |           
+|       +---layouts
+|       |       BlogPost.astro
+|       |       
+|       +---pages
+|       |   |   about.astro
+|       |   |   oldindex.astro
+|       |   |   rss.xml.js
+|       |   |   
+|       |   \---blog
+|       |           index.astro
+|       |           [...slug].astro
+|       |           
+|       \---styles
+|               global.css
+|               
+\---public
+    |   .assetsignore
+    |   index.html
+    |   style.css
+    |   
+    +---fonts
+    |       atkinson-bold.woff
+    |       atkinson-regular.woff
+    |       
+    +---galefer
+    |   |   index.html
+    |   |   style.css
+    |   |   
+    |   \---assets
+    |       \---images
+    |               galefer-bugbreach.png
+    |               galefer-headshot.png
+    |               galefer-outworld.png
+    |               galefer-slip.png
+    |               
+    \---outworld
+        |   comingsoon.html
+        |   index.html
+        |   style.css
+        |   
+        +---assets
+        |   +---images
+        |   |       area-1.jpg
+        |   |       card-character.jpg
+        |   |       card-quickstart.jpg
+        |   |       card-setting.jpg
+        |   |       discord.png
+        |   |       dying.webp
+        |   |       equipment.jpg
+        |   |       experience.webp
+        |   |       favicon.png
+        |   |       fleshpile.jpg
+        |   |       heads.png
+        |   |       hero.png
+        |   |       introduction.jpg
+        |   |       memory.webp
+        |   |       panel.jpg
+        |   |       parasite.jpg
+        |   |       pillars.jpg
+        |   |       polis-art.webp
+        |   |       polis.jpg
+        |   |       queen.webp
+        |   |       rebirth.webp
+        |   |       record-1.png
+        |   |       record-2.png
+        |   |       red-sun-1.jpg
+        |   |       red-sun-2.png
+        |   |       resting.jpg
+        |   |       scorn-1.webp
+        |   |       scorn-2.webp
+        |   |       scorn-3.jpg
+        |   |       scorn-4.jpg
+        |   |       scorn-area-1.jpg
+        |   |       scorn-birth.jpg
+        |   |       scorn-borg.jpg
+        |   |       scorn-heads.jpg
+        |   |       scorn-heart.jpg
+        |   |       scorn-icon.png
+        |   |       scorn-looking.jpg
+        |   |       scorn-main.jpg
+        |   |       scorn-melt.jpg
+        |   |       scorn-nest.jpg
+        |   |       scorn-passage.webp
+        |   |       scorn-sleeping-2.jpg
+        |   |       scorn-sleeping.webp
+        |   |       scornguy.jpg
+        |   |       scornmerged.jpg
+        |   |       setting.jpg
+        |   |       thecrater.jpg
+        |   |       
+        |   \---video
+        |           scorn.mp4
+        |           
+        +---gameplay
+        |       index.html
+        |       
+        +---guides
+        |       creation.html
+        |       index.html
+        |       
+        +---oldstyle
+        |       style.css
+        |       
+        +---records
+        |       geography.html
+        |       index.html
+        |       introduction.html
+        |       setting.html
+        |       
+        \---systems
+                dying.html
+                experience.html
+                index.html
+                memory.html
+                rebirth.html
+                survival.html
+                
