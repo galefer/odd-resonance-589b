@@ -1,5 +1,5 @@
 Folder PATH listing for volume New Volume
-Volume serial number is 803D-0839
+Volume serial number is 00000068 803D:0839
 X:.
 |   .gitignore
 |   DirectoryTreeBuilder.bat
@@ -10,6 +10,11 @@ X:.
     |   index.html
     |   style.css
     |   
+    +---assets
+    |   \---images
+    |           favicon.png
+    |           home-bg.png
+    |           
     +---fonts
     |       atkinson-bold.woff
     |       atkinson-regular.woff
@@ -20,10 +25,12 @@ X:.
     |   |   
     |   \---assets
     |       \---images
+    |               favicon.png
     |               galefer-bugbreach.png
     |               galefer-headshot.png
     |               galefer-outworld.png
     |               galefer-slip.png
+    |               galefer-sos.png
     |               
     \---outworld
         |   comingsoon.html
