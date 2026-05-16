@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Slip | GRAVETALE Studios</title>
+  <meta name="description" content="The Slip is a PvPvE extraction horror shooter by GRAVETALE Studios, inspired by liminal spaces, SCP, and Backrooms horror.">
+
+  <link rel="icon" href="/assets/images/favicon.png" type="image/png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      background: #050505;
+      font-family: "Inter", system-ui, sans-serif;
+      color: #d8d8d8;
+      min-height: 100vh;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      position: relative;
+    }
+
+    /* TOP LEFT RETURN LINK */
+    .return-link {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      color: #d8d8d8;
+      font-family: "Roboto Mono", monospace;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-decoration: none;
+      text-transform: uppercase;
+      font-size: 0.9rem;
+    }
+
+    .return-link span {
+      color: #e34646;
+      margin-right: 0.3rem;
+    }
+
+    .grain, .scanlines, .vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .grain {
+      z-index: 60;
+      opacity: 0.036;
+      background-image: radial-gradient(rgba(255,255,255,0.22) 0.5px, transparent 0.5px);
+      background-size: 4px 4px;
+      mix-blend-mode: soft-light;
+    }
+
+    .scanlines {
+      z-index: 59;
+      opacity: 0.032;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255,255,255,0.045) 0,
+        rgba(255,255,255,0.045) 1px,
+        transparent 2px,
+        transparent 5px
+      );
+    }
+
+    .vignette {
+      z-index: 58;
+      background:
+        radial-gradient(circle at center, transparent 34%, rgba(0,0,0,0.72) 100%),
+        radial-gradient(circle at 50% 8%, rgba(163,32,0,0.14), transparent 34rem),
+        radial-gradient(circle at 86% 70%, rgba(163,32,0,0.08), transparent 22rem);
+    }
+
+    .main-image {
+      max-width: 90%;
+      height: auto;
+      border: 1px solid rgba(227,70,70,0.2);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.48);
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      font-family: "Rajdhani", sans-serif;
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      color: #fff1f1;
+      letter-spacing: 2px;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="grain"></div>
+  <div class="scanlines"></div>
+  <div class="vignette"></div>
+
+  <a class="return-link" href="/"><span>←</span>GRAVETALE STUDIOS</a>
+
+  <img class="main-image" src="assets/images/theslip_main.png" alt="The Slip – GRAVETALE Studios">
+
+  <h1>Coming Soon</h1>
+</body>
+</html>
