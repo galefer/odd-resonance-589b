@@ -1269,3 +1269,15 @@ a {
 .record-links a:hover {
   color: #ff4c4c; /* bright red hover to match The Slip hover */
 }
+
+.record-link-disabled {
+  display: inline-flex;
+  color: rgba(227, 70, 70, 0.52);
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: default;
+  opacity: 0.82;
+}

@@ -1,5 +1,5 @@
 Folder PATH listing for volume New Volume
-Volume serial number is 00000068 803D:0839
+Volume serial number is 000000A2 803D:0839
 X:.
 |   .gitignore
 |   DirectoryTreeBuilder.bat
@@ -14,6 +14,7 @@ X:.
     |   \---images
     |           favicon.png
     |           home-bg.png
+    |           logo.png
     |           
     +---fonts
     |       atkinson-bold.woff
