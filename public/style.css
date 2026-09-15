@@ -1006,3 +1006,24 @@ a {
     width: calc(100vw - 0.5rem);
   }
 }
+
+.features-grid {
+  display: grid;
+  grid-template-columns: 1fr auto; /* two columns on wide screens */
+  gap: 1rem;
+  align-items: start;
+}
+
+
+@media (max-width: 980px) {
+  .features-grid {
+    grid-template-columns: 1fr; /* stack vertically on smaller screens */
+  }
+
+  .archive-card {
+    position: relative;
+    width: 100%;
+    margin-top: 1rem;
+  }
+}
+
