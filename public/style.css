@@ -449,10 +449,10 @@ a {
 }
 
 /* ==========================================================================
-   THE SLIP FEATURE
+   NULL WARDENS FEATURE
    ========================================================================== */
 
-.slip-feature {
+.null-feature {
   position: relative;
   z-index: 1;
 
@@ -476,7 +476,7 @@ a {
     0 18px 48px rgba(0,0,0,0.28);
 }
 
-.slip-image {
+.null-image {
   position: relative;
   min-height: 210px;
   overflow: hidden;
@@ -485,7 +485,7 @@ a {
   background: #050505;
 }
 
-.slip-image::after {
+.null-image::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -495,7 +495,7 @@ a {
     radial-gradient(circle at center, transparent 42%, rgba(0,0,0,0.42) 100%);
 }
 
-.slip-image img {
+.null-image img {
   width: 100%;
   height: 100%;
   display: block;
@@ -506,12 +506,12 @@ a {
   transition: transform 0.32s ease, filter 0.32s ease;
 }
 
-.slip-feature:hover .slip-image img {
+.null-feature:hover .null-image img {
   transform: scale(1.055);
   filter: grayscale(10%) contrast(1.1) brightness(0.9);
 }
 
-.slip-copy {
+.null-copy {
   padding: 1.1rem 1.15rem 1.15rem;
   display: flex;
   flex-direction: column;
@@ -528,7 +528,7 @@ a {
   text-transform: uppercase;
 }
 
-.slip-copy h2 {
+.null-copy h2 {
   color: #f2eeee;
   font-family: var(--font-display);
   font-size: clamp(2rem, 4vw, 3.3rem);
@@ -538,20 +538,20 @@ a {
   margin-bottom: 0.55rem;
 }
 
-.slip-copy p:not(.feature-label) {
+.null-copy p:not(.feature-label) {
   color: #cfcfcf;
   font-size: 0.94rem;
   line-height: 1.62;
 }
 
-.slip-tags {
+.null-tags {
   margin-top: 0.85rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
 }
 
-.slip-tags span {
+.null-tags span {
   display: inline-flex;
   align-items: center;
 
@@ -567,7 +567,7 @@ a {
   background: rgba(255,255,255,0.035);
 }
 
-.slip-actions {
+.null-actions {
   margin-top: 1rem;
   display: flex;
   gap: 0.75rem;
@@ -863,11 +863,11 @@ a {
     margin-top: 1.5rem;
   }
 
-  .slip-feature {
+  .null-feature {
     grid-template-columns: 1fr;
   }
 
-  .slip-image {
+  .null-image {
     min-height: 230px;
     border-right: none;
     border-bottom: 1px solid rgba(227,70,70,0.14);
@@ -940,24 +940,24 @@ a {
     margin: 1.05rem auto;
   }
 
-  .slip-image {
+  .null-image {
     min-height: 180px;
   }
 
-  .slip-copy {
+  .null-copy {
     padding: 1rem;
   }
 
-  .slip-copy h2 {
+  .null-copy h2 {
     font-size: 2rem;
     letter-spacing: 3px;
   }
 
-  .slip-copy p:not(.feature-label) {
+  .null-copy p:not(.feature-label) {
     font-size: 0.88rem;
   }
 
-  .slip-actions {
+  .null-actions {
     flex-direction: column;
   }
 
@@ -965,7 +965,7 @@ a {
     width: 100%;
   }
 
-  .slip-tags span {
+  .null-tags span {
     font-size: 0.56rem;
     letter-spacing: 0.62px;
   }

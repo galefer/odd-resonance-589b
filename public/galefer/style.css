@@ -1256,7 +1256,7 @@ a {
 
 /* Uniform red Open Archive / Open Record styling */
 .record-links a {
-  color: var(--red-hot); /* same as The Slip Open Record */
+  color: var(--red-hot); /* same as the Null Wardens Open Record */
   font-family: var(--mono);
   font-size: 0.76rem;
   font-weight: 700;
@@ -1267,7 +1267,7 @@ a {
 }
 
 .record-links a:hover {
-  color: #ff4c4c; /* bright red hover to match The Slip hover */
+  color: #ff4c4c; /* bright red hover to match the Null Wardens hover */
 }
 
 .record-link-disabled {
