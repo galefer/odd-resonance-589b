@@ -225,7 +225,8 @@ const imageObjects = new Map();
 let imageFetches = 0;
 contextBase.env.GOG_IMAGES = {
   async get(key) { const body = imageObjects.get(key); return body ? { body } : null; },
-  async put(key, value) { imageObjects.set(key, value); }
+  async put(key, value) { imageObjects.set(key, value); },
+  async delete(key) { imageObjects.delete(key); }
 };
 const catalogueFetch = globalThis.fetch;
 globalThis.fetch = async (url) => {
@@ -233,9 +234,23 @@ globalThis.fetch = async (url) => {
   imageFetches += 1;
   return new Response(new Uint8Array([0xff,0xd8,0xff,0xd9]), { headers: { 'Content-Type':'image/jpeg' } });
 };
-assert.equal((await req('/cards/1111/image')).headers.get('content-type'),'image/jpeg');
-assert.equal((await req('/cards/1111/image')).headers.get('content-type'),'image/jpeg');
+const storedImage = await req('/cards/1111/image');
+assert.equal(storedImage.headers.get('content-type'),'image/jpeg');
+assert.equal(storedImage.headers.get('x-gog-image-cache'),'stored');
+const cachedImage = await req('/cards/1111/image');
+assert.equal(cachedImage.headers.get('content-type'),'image/jpeg');
+assert.equal(cachedImage.headers.get('x-gog-image-cache'),'hit');
 assert.equal(imageFetches,1);
+
+// The cache never writes beyond 5 GB; artwork still renders when storage is full.
+imageObjects.clear();
+db.prepare('DELETE FROM image_cache').run();
+db.prepare('INSERT INTO image_cache(card_id,size_bytes,cached_at) VALUES(9999,5000000000,?)').run(new Date().toISOString());
+const cappedImage = await req('/cards/1111/image');
+assert.equal(cappedImage.headers.get('content-type'),'image/jpeg');
+assert.equal(cappedImage.headers.get('x-gog-image-cache'),'bypass-limit');
+assert.equal(imageObjects.size,0);
+assert.equal(imageFetches,2);
 globalThis.fetch = catalogueFetch;
 delete contextBase.env.GOG_IMAGES;
 

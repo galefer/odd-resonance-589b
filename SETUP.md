@@ -113,6 +113,8 @@ Authentication deliberately uses PBKDF2-HMAC-SHA256 in the browser plus a server
 
 YGOPRODeck asks users **not to repeatedly hotlink card images**. The website uses a same-origin image endpoint, which fetches and stores a card image in your own Cloudflare R2 bucket on first request. Later requests use your own saved copy.
 
+The application enforces a **5 GB image-cache ceiling** in D1. When that ceiling is reached, it serves newly requested artwork without storing another R2 object. This leaves a substantial margin below R2's 10 GB free storage allowance; Cloudflare operation limits are separate from stored bytes.
+
 1. In Cloudflare **R2 Object Storage**, create a private bucket named `gog-card-images`.
 2. In your Pages project's **Settings → Bindings**, add an **R2 bucket** binding:
    - Variable name: **`GOG_IMAGES`**

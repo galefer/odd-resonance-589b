@@ -7,6 +7,9 @@ const CUTOFF = '2025-08-01';
 const ALLOWED = new Set(['forbidden', 'limited', 'semi_limited', 'unlimited']);
 const SESSION_SECONDS = 12 * 60 * 60;
 const LOGIN_WINDOW = 15 * 60 * 1000;
+// Leave a wide margin below R2's 10 GB monthly free storage allowance.
+const IMAGE_CACHE_LIMIT_BYTES = 5_000_000_000;
+const IMAGE_MAX_BYTES = 300_000;
 const loginEncoder = new TextEncoder();
 const HEADERS = {
   'Cache-Control': 'no-store',
@@ -295,12 +298,31 @@ async function imageFor(context, id) {
       const response = await fetch(`https://images.ygoprodeck.com/images/cards_small/${validId}.jpg`, { signal: AbortSignal.timeout(9000) });
       if (!response.ok || !response.headers.get('content-type')?.startsWith('image/')) return placeholderImage();
       const bytes = await response.arrayBuffer();
-      if (bytes.byteLength > 1_000_000) return placeholderImage();
-      await context.env.GOG_IMAGES.put(key, bytes, { httpMetadata: { contentType: 'image/jpeg' } });
-      return new Response(bytes, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=2592000', 'X-Content-Type-Options': 'nosniff' } });
+      if (bytes.byteLength > IMAGE_MAX_BYTES) return placeholderImage();
+      let cacheState = 'bypass-limit';
+      try {
+        // An object missing from R2 makes any old accounting row stale.
+        await db.prepare('DELETE FROM image_cache WHERE card_id=?').bind(validId).run();
+        const usage = await db.prepare('SELECT COALESCE(SUM(size_bytes),0) AS bytes FROM image_cache').first();
+        if (Number(usage?.bytes || 0) + bytes.byteLength <= IMAGE_CACHE_LIMIT_BYTES) {
+          await context.env.GOG_IMAGES.put(key, bytes, { httpMetadata: { contentType: 'image/jpeg' } });
+          try {
+            await db.prepare(`INSERT INTO image_cache(card_id,size_bytes,cached_at)
+              VALUES (?,?,?) ON CONFLICT(card_id) DO UPDATE SET size_bytes=excluded.size_bytes,cached_at=excluded.cached_at`)
+              .bind(validId, bytes.byteLength, nowIso()).run();
+            cacheState = 'stored';
+          } catch (error) {
+            await context.env.GOG_IMAGES.delete(key);
+            throw error;
+          }
+        }
+      } catch { cacheState = 'bypass-error'; }
+      return new Response(bytes, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=2592000',
+        'X-Content-Type-Options': 'nosniff', 'X-GOG-Image-Cache': cacheState } });
     } catch { return placeholderImage(); }
   }
-  return new Response(object.body, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=2592000', 'X-Content-Type-Options': 'nosniff' } });
+  return new Response(object.body, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=2592000',
+    'X-Content-Type-Options': 'nosniff', 'X-GOG-Image-Cache': 'hit' } });
 }
 function placeholderImage() {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 421 614"><rect width="421" height="614" fill="#182033"/><rect x="20" y="20" width="381" height="574" rx="16" fill="#222d45" stroke="#c8a85b" stroke-width="4"/><circle cx="210" cy="280" r="82" fill="none" stroke="#c8a85b" stroke-width="8" opacity=".75"/><path d="M210 192l24 64 68 4-53 43 17 66-56-37-56 37 17-66-53-43 68-4z" fill="#c8a85b" opacity=".7"/><text x="210" y="430" text-anchor="middle" font-family="system-ui" font-size="22" fill="#f3ead2">CARD IMAGE</text></svg>`;

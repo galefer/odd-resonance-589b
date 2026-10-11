@@ -68,3 +68,8 @@ CREATE TABLE IF NOT EXISTS search_cache (
  results_json TEXT NOT NULL,
  expires_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS image_cache (
+ card_id INTEGER PRIMARY KEY,
+ size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
+ cached_at TEXT NOT NULL
+);
