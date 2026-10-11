@@ -5,6 +5,7 @@ import { DeckFormatError, encodeYdk, encodeYdke, parseYdk, parseYdke } from '../
 import { DeckHistory, addIssue, groupedCards, instanceFromCard, newDeck, portableDeck, reduceDeck, unresolvedInstance } from '../../public/gog/deckbuilder/state.js';
 import { makeBackup, parseBackup, sanitiseDeck } from '../../public/gog/deckbuilder/persistence.js';
 import { atLeast, atLeastOne, atLeastOneFromBoth } from '../../public/gog/deckbuilder/probability.js';
+import { validationKey, remapValidation } from '../../public/gog/deckbuilder/validation.js';
 
 if (!globalThis.CustomEvent) globalThis.CustomEvent = class CustomEvent extends Event { constructor(type, options = {}) { super(type); this.detail = options.detail; } };
 
@@ -14,6 +15,34 @@ const card = (overrides = {}) => ({
   id: 1001, canonicalId: 1001, artworkId: 1001, name: 'Fixture Main Effect', category: 'Monster',
   subtype: 'Effect', cardType: 'Effect Monster', placement: 'main', copyLimitKey: '1001',
   status: 'unlimited', copies: 3, poolVerified: true, ...overrides
+});
+
+test('validation identity ignores order and presentation but includes quantities, sections and input IDs', () => {
+  const deck = newDeck();
+  deck.main = [instanceFromCard(card()), instanceFromCard(card({canonicalId:2002}))];
+  const reordered = structuredClone(deck);
+  reordered.main.reverse(); reordered.name='Renamed'; reordered.notes='Notes'; reordered.groups=[{name:'A'}];
+  assert.equal(validationKey(deck),validationKey(reordered));
+  const moved = structuredClone(deck); moved.side.push(moved.main.pop());
+  assert.notEqual(validationKey(deck),validationKey(moved));
+  const added = structuredClone(deck); added.main.push(instanceFromCard(card()));
+  assert.notEqual(validationKey(deck),validationKey(added));
+  const alternate = structuredClone(deck); alternate.main[0].originalImportId=9001;
+  assert.notEqual(validationKey(deck),validationKey(alternate));
+});
+
+test('validation warnings and card results follow reordered input IDs, including unresolved and duplicate cards', () => {
+  const source = newDeck();
+  source.main = [instanceFromCard(card()), unresolvedInstance(999), instanceFromCard(card())];
+  const target = structuredClone(source); target.main=[target.main[2],target.main[0],target.main[1]];
+  const result = {verified:true,legal:false,issues:[{zone:'main',index:1,code:'unknown_id'},{zone:'main',code:'deck_size'}],cards:source.main.map((_,index)=>({zone:'main',index}))};
+  const remapped = remapValidation(result,source,target);
+  assert.equal(remapped.issues[0].index,2);
+  assert.equal(remapped.issues[1].index,undefined);
+  assert.deepEqual(remapped.cards.map(item=>item.index),[0,2,1]);
+  assert.equal(result.issues[0].index,1);
+  target.main.pop();
+  assert.throws(()=>remapValidation(result,source,target),/contents changed/);
 });
 
 test('YDKE fixed vectors preserve endian, unsigned IDs, zones and duplicates', () => {
@@ -73,9 +102,14 @@ test('reordering a grouped stack keeps every copy together and undo restores int
   const deck = newDeck(); deck.main = [a, b, a2];
   const history = new DeckHistory(deck);
   history.dispatch({ type: 'REORDER_GROUP', zone: 'main', instanceIds: [a.instanceId, a2.instanceId], index: 1 });
+  const savedRevision = history.deck.revision;
   assert.deepEqual(history.deck.main.map(c => c.instanceId), [b.instanceId, a.instanceId, a2.instanceId]);
   assert(history.undo());
   assert.deepEqual(history.deck.main.map(c => c.instanceId), [a.instanceId, b.instanceId, a2.instanceId]);
+  assert.equal(history.deck.revision,savedRevision+1, 'Undo remains newer than an autosaved revision');
+  assert(history.redo());
+  assert.equal(history.deck.revision,savedRevision+2, 'Redo remains newer than its autosaved undo');
+  assert.equal(history.deck.id,deck.id);
 });
 
 test('unresolved imports remain visible and portable when their numeric ID is retained', () => {

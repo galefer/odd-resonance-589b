@@ -150,11 +150,15 @@ export class DeckHistory extends EventTarget {
   }
   undo() {
     if (!this.past.length) return false;
-    this.future.push(clone(this.deck)); this.deck = this.past.pop(); this.#change('UNDO'); return true;
+    const revision = Number(this.deck.revision || 0) + 1;
+    this.future.push(clone(this.deck)); this.deck = this.past.pop();
+    this.deck.revision = revision; this.deck.updatedAt = now(); this.#change('UNDO'); return true;
   }
   redo() {
     if (!this.future.length) return false;
-    this.past.push(clone(this.deck)); this.deck = this.future.pop(); this.#change('REDO'); return true;
+    const revision = Number(this.deck.revision || 0) + 1;
+    this.past.push(clone(this.deck)); this.deck = this.future.pop();
+    this.deck.revision = revision; this.deck.updatedAt = now(); this.#change('REDO'); return true;
   }
   #change(type) { this.dispatchEvent(new CustomEvent('change', { detail: { type, deck: this.deck } })); }
 }

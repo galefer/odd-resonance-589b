@@ -119,6 +119,16 @@ Then add the indexed partial-name search table. Run this after the catalogue imp
 npx wrangler d1 execute gog-house-format --remote --file=./database/migrations/0005_card_name_search.sql
 ```
 
+Apply the image storage counter before deploying the cache optimisation:
+
+```cmd
+npx wrangler d1 execute gog-house-format --remote --file=./database/migrations/0006_image_storage_counter.sql
+```
+
+This additive migration totals existing image records once. Triggers maintain the counter on every ledger change. Each new image atomically reserves its bytes before an R2 upload; concurrent uploads share the same 5 GB ceiling. Successful uploads transfer the reservation to the image ledger in a transaction. If an upload or final accounting has an uncertain outcome, its reservation stays counted conservatively. Do not remove such reservations without confirming the object is absent or already accounted for. No restriction, event, administrator or session records are changed.
+
+Deck validation reuses its current result when only card order or presentation changes, remapping warning positions to the displayed cards. Changes to IDs, copy counts or deck sections still validate on the server. Imports retain their independent server checks, and exports retain their draft warnings. Deck saves remain local to the browser; Undo/Redo advances the save revision so it does not create a false conflict copy.
+
 ## 3. Bind D1 to your existing Cloudflare Pages project
 
 In Cloudflare **Workers & Pages → your Pages project → Settings → Bindings**, add a **D1 database** binding:

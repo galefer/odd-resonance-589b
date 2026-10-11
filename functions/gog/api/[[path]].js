@@ -701,24 +701,29 @@ async function imageFor(context, id) {
       if (bytes.byteLength > IMAGE_MAX_BYTES[size]) return failure(502, 'image-too-large');
       let cacheState = 'bypass-limit';
       try {
-        // An object missing from R2 makes any old accounting row stale.
-        await db.prepare('DELETE FROM image_cache_v2 WHERE asset_key=?').bind(key).run();
-        const usage = await db.prepare(`SELECT
-          (SELECT COALESCE(SUM(size_bytes),0) FROM image_cache)+
-          (SELECT COALESCE(SUM(size_bytes),0) FROM image_cache_v2) AS bytes`).first();
-        if (Number(usage?.bytes || 0) + bytes.byteLength <= IMAGE_CACHE_LIMIT_BYTES) {
+        // The conditional insert and counter trigger are one atomic statement.
+        // Reserve bytes before touching R2, including concurrent cache misses.
+        const token = crypto.randomUUID();
+        const reserved = await db.prepare(`INSERT OR IGNORE INTO image_cache_reservations
+          (asset_key,size_bytes,token,created_at) SELECT ?,?,?,?
+          WHERE (SELECT size_bytes FROM image_storage_usage WHERE id=1) <= ?
+          RETURNING token`)
+          .bind(key, bytes.byteLength, token, nowIso(), IMAGE_CACHE_LIMIT_BYTES - bytes.byteLength).first();
+        if (reserved) {
           if (await reserveR2Operation(db, 'A')) {
             await context.env.GOG_IMAGES.put(key, bytes, { httpMetadata: { contentType: 'image/jpeg' } });
-            try {
-              await db.prepare(`INSERT INTO image_cache_v2(asset_key,card_id,variant,size_bytes,cached_at)
+            // A failed batch rolls back both statements, retaining the reservation
+            // for an object that may already exist. Never undercount uncertain writes.
+            await db.batch([
+              db.prepare('DELETE FROM image_cache_reservations WHERE asset_key=? AND token=?').bind(key, token),
+              db.prepare(`INSERT INTO image_cache_v2(asset_key,card_id,variant,size_bytes,cached_at)
                 VALUES (?,?,?,?,?) ON CONFLICT(asset_key) DO UPDATE SET size_bytes=excluded.size_bytes,cached_at=excluded.cached_at`)
-                .bind(key, validId, size, bytes.byteLength, nowIso()).run();
-              cacheState = 'stored';
-            } catch (error) {
-              await context.env.GOG_IMAGES.delete(key);
-              throw error;
-            }
+                .bind(key, validId, size, bytes.byteLength, nowIso())
+            ]);
+            cacheState = 'stored';
           } else {
+            // No upload was attempted, so these reserved bytes can safely be released.
+            await db.prepare('DELETE FROM image_cache_reservations WHERE asset_key=? AND token=?').bind(key, token).run();
             cacheState = 'bypass-operation-limit';
           }
         }

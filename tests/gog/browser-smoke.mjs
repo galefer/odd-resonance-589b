@@ -42,6 +42,8 @@ const pending = new Map();
 const events = [];
 const errors = [];
 const failedResponses = [];
+let validationRequests = 0;
+const validationBodies = [];
 let interceptedDrag = null;
 const send = (method, params = {}) => new Promise((resolvePromise, reject) => {
   const id = ++commandId; pending.set(id, { resolve: resolvePromise, reject }); socket.send(JSON.stringify({ id, method, params }));
@@ -54,6 +56,7 @@ socket.onmessage = (event) => {
     return;
   }
   events.push(message.method);
+  if (message.method === 'Network.requestWillBeSent' && new URL(message.params.request.url).pathname === '/gog/api/decks/validate') { validationRequests++; validationBodies.push(message.params.request.postData); }
   if (message.method === 'Input.dragIntercepted') interceptedDrag = message.params.data;
   if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails?.text || 'Runtime exception');
   if (message.method === 'Log.entryAdded' && ['error','warning'].includes(message.params.entry.level)) errors.push(message.params.entry.text);
@@ -206,6 +209,8 @@ try {
   const mainOrder = () => evaluate(`[...document.querySelectorAll('.deck-grid[data-zone="main"] .card-tile')].map(e=>e.dataset.instanceId)`);
   const originalOrder = await mainOrder();
   assert.equal(originalOrder.length, 10);
+  await waitFor(`document.querySelector('#validation-title').textContent!=='Checking published house rules'`, 'fixture validation');
+  const requestsBeforeReorder = validationRequests;
   await dragCard(`${mainTile(10)} img`, mainTile(3), 'move', { xFraction:.25, preview:async()=>{
     await checkInsertionLine(mainTile(2),mainTile(3));
     await sleep(650); // A pending server validation must not destroy the drag DOM.
@@ -225,13 +230,30 @@ try {
   assert.deepEqual(await mainOrder(), wrappedOrder, 'Leading line on the second row inserts before that row');
   await dragCard(`${mainTile(1)} img`, mainTile(3), 'move', { xFraction:.25, cancel:true, preview:()=>checkInsertionLine(mainTile(2),mainTile(3)) });
   assert.deepEqual(await mainOrder(), wrappedOrder, 'Cancelling a drag preserves order');
+  await sleep(700);
+  assert.equal(validationRequests, requestsBeforeReorder, 'Same-section reorders and cancellation must not revalidate');
+  await click('#undo'); await sleep(550);
+  await click('#redo'); await sleep(550);
+  assert.equal(validationRequests, requestsBeforeReorder, `Undo/redo of ordering changes must not revalidate: ${JSON.stringify(validationBodies)}`);
+  assert.deepEqual(await mainOrder(), wrappedOrder);
+  // Hold one actual server response while its deck is reordered. The response
+  // must be remapped and accepted, without leaving the banner stuck on checking.
+  await evaluate(`(() => {window.__originalFetch=window.fetch;window.fetch=async(...args)=>{const response=await window.__originalFetch(...args);if(String(args[0]).endsWith('/decks/validate')){await new Promise(resolve=>{window.__releaseValidation=resolve;window.__validationHeld=true;});}return response;};})()`);
   await dragCard('.library-card img', mainTile(2), 'copy', { xFraction:.25, preview:()=>checkInsertionLine(mainTile(1),mainTile(2)) });
   const withLibraryCopy = await mainOrder();
   assert.equal(withLibraryCopy.length, 11);
   assert.deepEqual(withLibraryCopy.filter((_,index)=>index!==1),wrappedOrder, 'Library card inserts at the marked gap');
+  await waitFor(`window.__validationHeld===true`, 'pending added-card validation');
+  assert(validationRequests>requestsBeforeReorder, 'A new copy must still trigger server validation');
+  const requestsBeforeGroupedReorder = validationRequests;
   await click('#grouped-view');
   await dragCard(`.card-tile[data-instance-id="${withLibraryCopy[1]}"] img`, mainTile(1), 'move', { xFraction:.25, preview:()=>checkInsertionLine(null,mainTile(1)) });
   assert.equal(await evaluate(`document.querySelector('.deck-grid[data-zone="main"] .card-tile .quantity')?.textContent`), '×2', 'Grouped reorder places the complete stack at the marked gap');
+  await sleep(550);
+  assert.equal(validationRequests, requestsBeforeGroupedReorder, 'Grouped stack reorder must not revalidate');
+  await evaluate(`window.fetch=window.__originalFetch;window.__releaseValidation();`);
+  await waitFor(`document.querySelector('#validation-title').textContent!=='Checking published house rules'`, 'reordered pending validation result');
+  evidence.checks.push('single/grouped reorders and their undo/redo make zero validation requests; new copies still validate and pending responses survive reordering');
   await click('#copies-view');
   await click('.zone[data-zone="main"] .zone-tools button:last-child');
   await waitFor(`document.querySelector('#count-main').textContent==='0'`, 'clear reorder fixture');

@@ -6,6 +6,24 @@ import { DatabaseSync } from 'node:sqlite';
 import { onRequest } from '../functions/gog/api/[[path]].js';
 
 const db = new DatabaseSync(':memory:');
+const schemaSql = readFileSync(new URL('../database/schema.sql', import.meta.url), 'utf8');
+const storageMigration = readFileSync(new URL('../database/migrations/0006_image_storage_counter.sql', import.meta.url), 'utf8');
+// Upgrade populated ledgers without losing their data, and safely rerun migration.
+const upgradeDb = new DatabaseSync(':memory:');
+upgradeDb.exec(schemaSql.split('-- Additive migration: count existing artwork once')[0]);
+upgradeDb.exec(`INSERT INTO image_cache VALUES(1,10,'fixture');
+  INSERT INTO image_cache_v2 VALUES('cards-small/2.jpg',2,'thumb',20,'fixture');`);
+upgradeDb.exec(storageMigration);
+assert.equal(upgradeDb.prepare('SELECT size_bytes FROM image_storage_usage').get().size_bytes,30);
+upgradeDb.exec(`UPDATE image_cache SET size_bytes=12 WHERE card_id=1;
+  INSERT INTO image_cache_reservations VALUES('cards-small/3.jpg',4,'fixture','fixture');`);
+upgradeDb.exec(storageMigration);
+assert.equal(upgradeDb.prepare('SELECT size_bytes FROM image_storage_usage').get().size_bytes,36);
+upgradeDb.exec(`DELETE FROM image_cache WHERE card_id=1;
+  UPDATE image_cache_v2 SET size_bytes=25;
+  DELETE FROM image_cache_reservations;`);
+assert.equal(upgradeDb.prepare('SELECT size_bytes FROM image_storage_usage').get().size_bytes,25);
+upgradeDb.close();
 db.exec(readFileSync(new URL('../database/schema.sql', import.meta.url), 'utf8'));
 db.exec(readFileSync(new URL('../database/seed.sql', import.meta.url), 'utf8'));
 
@@ -13,16 +31,19 @@ const wrapStmt = (sql, args = []) => ({
   bind(...params) { return wrapStmt(sql, params); },
   first() { return db.prepare(sql).get(...args) ?? null; },
   async all() { return { results: db.prepare(sql).all(...args) }; },
-  async run() {
+  run() {
+    if (failImageFinalisation && sql.includes('INSERT INTO image_cache_v2')) throw new Error('Injected accounting failure');
     const result = db.prepare(sql).run(...args);
     return { meta: { changes: result.changes, last_row_id: Number(result.lastInsertRowid) } };
   }
 });
+let failImageFinalisation = false;
+const preparedQueries = [];
 const D1 = {
-  prepare(sql) { return wrapStmt(sql); },
+  prepare(sql) { preparedQueries.push(sql); return wrapStmt(sql); },
   async batch(stmts) {
     db.exec('BEGIN');
-    try { const rows = []; for (const stmt of stmts) rows.push(await stmt.run()); db.exec('COMMIT'); return rows; }
+    try { const rows = []; for (const stmt of stmts) rows.push(stmt.run()); db.exec('COMMIT'); return rows; }
     catch(e) { db.exec('ROLLBACK'); throw e; }
   }
 };
@@ -393,6 +414,7 @@ assert.equal(imageFetches,3);
 operationUsage = db.prepare('SELECT class_a_operations,class_b_operations FROM r2_operation_usage WHERE usage_month=?').get(usageMonth);
 assert.equal(operationUsage.class_a_operations,100000);
 assert.equal(operationUsage.class_b_operations,4);
+assert.equal(db.prepare('SELECT COUNT(*) AS n FROM image_cache_reservations').get().n,0, 'Class A cap releases unused storage reservation');
 
 db.prepare('UPDATE r2_operation_usage SET class_b_operations=1000000 WHERE usage_month=?').run(usageMonth);
 const readsBeforeCap = imageReads;
@@ -424,6 +446,51 @@ assert.equal(edgeCachedImage.headers.get('x-gog-image-cache'),'edge');
 assert.equal(imageReads,readsBeforeEdge+1);
 if (originalCaches === undefined) delete globalThis.caches;
 else globalThis.caches = originalCaches;
+const resetImageCache = () => {
+  imageObjects.clear();
+  db.exec('DELETE FROM image_cache; DELETE FROM image_cache_v2; DELETE FROM image_cache_reservations; DELETE FROM r2_operation_usage;');
+  assert.equal(db.prepare('SELECT size_bytes FROM image_storage_usage').get().size_bytes,0);
+};
+const storageBytes = () => db.prepare('SELECT size_bytes FROM image_storage_usage').get().size_bytes;
+resetImageCache();
+db.prepare('INSERT INTO image_cache VALUES(9999,4999999996,?)').run(new Date().toISOString());
+const imageQueryStart = preparedQueries.length;
+const racingImages = await Promise.all([1111,2222,4444].map(id=>req(`/cards/${id}/image`)));
+assert(racingImages.every(response=>response.headers.get('content-type')==='image/jpeg'));
+assert.equal(imageObjects.size,1, 'Concurrent images reserve the final four bytes only once');
+assert.equal(storageBytes(),5000000000);
+assert.equal(db.prepare('SELECT class_a_operations FROM r2_operation_usage').get().class_a_operations,1);
+assert(!preparedQueries.slice(imageQueryStart).some(sql=>/SUM\s*\(size_bytes\)/i.test(sql)), 'Image requests never rescan the storage ledgers');
+
+resetImageCache();
+await Promise.all([req('/cards/1111/image'),req('/cards/1111/image')]);
+assert.equal(storageBytes(),4, 'Concurrent requests for the same key reserve and store it once');
+assert.equal(db.prepare('SELECT class_a_operations FROM r2_operation_usage').get().class_a_operations,1);
+assert.equal(db.prepare('SELECT COUNT(*) AS n FROM image_cache_reservations').get().n,0);
+
+resetImageCache();
+failImageFinalisation = true;
+const finalisationFailed = await req('/cards/1111/image');
+failImageFinalisation = false;
+assert.equal(finalisationFailed.headers.get('x-gog-image-cache'),'bypass-error');
+assert.equal(imageObjects.size,1);
+assert.equal(storageBytes(),4, 'A rolled-back accounting batch retains reserved bytes for the uploaded object');
+assert.equal(db.prepare('SELECT COUNT(*) AS n FROM image_cache_reservations').get().n,1);
+assert.equal((await req('/cards/1111/image')).headers.get('x-gog-image-cache'),'hit');
+assert.equal(storageBytes(),4);
+
+const workingPut = contextBase.env.GOG_IMAGES.put;
+for (const committed of [false,true]) {
+  resetImageCache();
+  contextBase.env.GOG_IMAGES.put = async (key,value) => {
+    if (committed) imageObjects.set(key,value);
+    throw new Error('Uncertain R2 upload outcome');
+  };
+  assert.equal((await req('/cards/1111/image')).headers.get('content-type'),'image/jpeg');
+  assert.equal(storageBytes(),4, 'Uncertain upload outcomes remain conservatively counted');
+}
+contextBase.env.GOG_IMAGES.put = workingPut;
+resetImageCache();
 globalThis.fetch = catalogueFetch;
 delete contextBase.env.GOG_IMAGES;
 

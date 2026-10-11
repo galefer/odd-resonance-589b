@@ -5,6 +5,7 @@ import {
 import { DeckDatabase, StorageConflictError, makeBackup, parseBackup, sanitiseDeck } from './persistence.js';
 import { MAX_FILE_BYTES, encodeYdk, encodeYdke, parseYdk, parseYdke } from './deck-codecs.js';
 import { atLeast } from './probability.js';
+import { validationKey, remapValidation } from './validation.js';
 
 const API = '/gog/api';
 const CARD_BACK = '/gog/deckbuilder/card-back.svg';
@@ -28,6 +29,8 @@ let saveTimer = 0;
 let validationTimer = 0;
 let validationSequence = 0;
 let validationResult = null;
+let validationSnapshot = null;
+let pendingValidationKey = null;
 let validationIssues = new Map();
 let catalogueCards = [];
 let cataloguePage = 0;
@@ -459,29 +462,46 @@ async function saveNow() {
 }
 
 function scheduleValidation() {
+  const key = `${history.deck.id}:${validationKey(history.deck)}`;
+  if (validationResult && validationSnapshot &&
+      key === `${validationSnapshot.id}:${validationKey(validationSnapshot)}`) {
+    applyValidation(validationResult, validationSnapshot);
+    return;
+  }
+  // Reordering during the debounce or request must not restart it or discard it.
+  if (key === pendingValidationKey) return;
   clearTimeout(validationTimer);
+  pendingValidationKey = key;
+  const sequence = ++validationSequence;
+  validationSnapshot = null;
   validationResult = null; validationIssues = new Map(); renderValidation('checking');
-  validationTimer = setTimeout(validateCurrentDeck, 420);
+  validationTimer = setTimeout(() => validateCurrentDeck(key, sequence), 420);
 }
 
-async function validateCurrentDeck() {
-  const sequence = ++validationSequence;
+function applyValidation(result, snapshot) {
+  validationResult = remapValidation(result, snapshot, history.deck);
+  validationSnapshot = clone(history.deck);
+  validationIssues = new Map();
+  for (const issue of validationResult.issues || []) if (issue.zone && Number.isInteger(issue.index)) {
+    const key = issueKey(issue.zone, issue.index);
+    const existing = validationIssues.get(key) || []; existing.push(issue); validationIssues.set(key, existing);
+  }
+  renderValidation(result.verified ? (result.legal ? 'legal' : 'invalid') : 'unverified');
+  renderDeck();
+  $('footer-version').textContent = result.version ? `${result.version.label} · published rules` : 'Published list unavailable';
+}
+
+async function validateCurrentDeck(key, sequence) {
   const snapshot = clone(history.deck);
   try {
     const body = Object.fromEntries(ZONES.map((zone) => [zone, snapshot[zone].map((item) => item.originalImportId || item.canonicalId)]));
     const result = await api('/decks/validate', { method: 'POST', body: JSON.stringify(body) });
-    if (sequence !== validationSequence || snapshot.id !== history.deck.id || snapshot.revision !== history.deck.revision) return;
-    validationResult = result;
-    validationIssues = new Map();
-    for (const issue of result.issues || []) if (issue.zone && Number.isInteger(issue.index)) {
-      const key = issueKey(issue.zone, issue.index);
-      const existing = validationIssues.get(key) || []; existing.push(issue); validationIssues.set(key, existing);
-    }
-    renderValidation(result.verified ? (result.legal ? 'legal' : 'invalid') : 'unverified');
-    renderDeck();
-    $('footer-version').textContent = result.version ? `${result.version.label} · published rules` : 'Published list unavailable';
+    if (sequence !== validationSequence || key !== `${history.deck.id}:${validationKey(history.deck)}`) return;
+    pendingValidationKey = null;
+    applyValidation(result, snapshot);
   } catch (error) {
     if (sequence !== validationSequence) return;
+    pendingValidationKey = null;
     validationResult = { verified: false, legal: false, issues: [{ code: 'service_unavailable', message: error.message }] };
     validationIssues = new Map(); renderValidation('unverified');
   }
