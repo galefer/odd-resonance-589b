@@ -4,7 +4,7 @@ This is a **Cloudflare Pages overlay** designed for your existing GRAVETALE Stud
 
 **Rules built into the site**
 
-- Card pool: Yu-Gi-Oh! **TCG first releases up to and including 1 August 2025**, the release of **Justice Hunters (JUSH)**.
+- Card pool: Yu-Gi-Oh! **first release in any TCG region, including North America, up to and including 1 August 2025**, the release of **Justice Hunters (JUSH)**. **BLMM is included**: its [North American release was 13 June 2025](https://www.yugioh-card.com/en/products/blmm/). Use the earliest TCG release, even when a European release came later. Later reprints remain eligible; OCG-only releases do not qualify.
 - Foundation banlist: official TCG Advanced Format **7 April 2025** restrictions, the list that was active on 1 August. There are **109 Forbidden, 82 Limited, 16 Semi-Limited** entries.
 - Cards in that pool that are not in your house restriction list may be used at **3 copies**.
 - Cards that first came out *after* JUSH are **not legal**, not 'Unlimited'. New cards cannot be added by an admin, including through a forged request; the server verifies against the TCG/date-filtered card API.
@@ -76,7 +76,7 @@ npx wrangler d1 execute gog-house-format --remote --file=./database/catalogue-im
 
 `sync-catalogue.mjs` downloads current metadata from YGOPRODeck, records evidence for known IDs, and writes only playable cards whose original TCG date is on or before the cutoff. The generated `database/catalogue-import.sql` is intentionally ignored by Git. Delete it after execution or regenerate it when a reviewed metadata refresh is needed.
 
-Do not add YGOPRODeck's `format=tcg` filter to this import or fallback lookup. That listing omits some historically released TCG cards, including Cyberdark Chimera. Fetch the full metadata catalogue and filter by the verified original `tcg_date` locally. Missing dates and first releases after 1 August 2025 remain excluded. The importer checks that it received the advertised number of unique cards before marking the catalogue complete. `node tests/gog/catalogue-import.mjs` covers this omission, the inclusive cutoff, later reprints, search/artwork indexes and restriction preservation.
+Do not add YGOPRODeck's `format=tcg` filter to this import or fallback lookup. That listing omits some historically released TCG cards, including Cyberdark Chimera. Fetch the full metadata catalogue and filter by the verified original `tcg_date` locally. The date is the original TCG release across regions, not a UK/European-only date; BLMM records correctly use 13 June 2025. Missing dates and first TCG releases after 1 August 2025 remain excluded, regardless of earlier OCG releases. The importer checks that it received the advertised number of unique cards before marking the catalogue complete. `node tests/gog/catalogue-import.mjs` covers this omission, the inclusive cutoff, later reprints, search/artwork indexes and restriction preservation.
 
 Verify that it worked:
 

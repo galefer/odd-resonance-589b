@@ -8,7 +8,7 @@
 
 A Guild of Games welcome page with upcoming events, a mobile-friendly house-format Forbidden & Limited List, and a full local deckbuilder. The event panel supports occurrence-specific recurring-event changes and one-off events. The card list includes admin login (browser PBKDF2 plus a private Cloudflare auth pepper), live card search, draft editing and version publishing. The deckbuilder provides Main/Extra/Side editing, published-list validation, named local saves, YDK/YDKE import and export, JSON backup, exact opening probabilities and a sample-hand tool.
 
-- **Card pool cutoff:** first TCG release no later than **1 August 2025** (Justice Hunters / JUSH).
+- **Card pool cutoff:** first TCG release in **any TCG region, including North America**, no later than **1 August 2025** (Justice Hunters / JUSH). **Battles of Legend: Monster Mayhem (BLMM) is included** through its [13 June 2025 North American release](https://www.yugioh-card.com/en/products/blmm/). Later regional releases and reprints do not disqualify an eligible card; an OCG-only release does not qualify.
 - **Starting restriction list:** 7 April 2025 TCG Advanced Format (109 Forbidden, 82 Limited, 16 Semi-Limited).
 - **Independent format:** the official list is just a historical starting point, not an ongoing overlay.
 - **House-tweak markers:** `NEW` always means the card's current status differs from the fixed April 2025/JUSH-era foundation, even after later house versions are published.

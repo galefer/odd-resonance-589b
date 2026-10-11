@@ -209,7 +209,9 @@ async function getDraft(db) {
 }
 
 // Defence in depth: the catalogue may filter on dates, but never trust it alone.
-// misc=yes provides the original TCG print date; fail closed when unavailable.
+// misc=yes provides the original TCG print date across regions (including
+// North America, e.g. BLMM on 2025-06-13). Later regional releases do not
+// disqualify a card. OCG dates alone never qualify; fail closed without TCG evidence.
 function isJushEligible(raw) {
   const tcgDate = tcgDateFor(raw);
   return playableType(raw?.type) && raw?.name !== '???' && /^\d{4}-\d{2}-\d{2}$/.test(tcgDate || '') && tcgDate <= CUTOFF;
@@ -859,7 +861,7 @@ async function handle(context) {
     ]);
     const settings = Object.fromEntries(settingsRes.results.map((row) => [row.key, row.value]));
     return json({ settings, adminConfigured: !!admin, setupTokenRequired: !admin,
-      cardPool: { cutoffDate: CUTOFF, setCode: 'JUSH', setName: 'Justice Hunters', releaseBasis: 'first TCG release' }, version: versionView(version) });
+      cardPool: { cutoffDate: CUTOFF, setCode: 'JUSH', setName: 'Justice Hunters', releaseBasis: 'first TCG release in any region, including North America' }, version: versionView(version) });
   }
   if (method === 'GET' && path === '/list') {
     const version = await currentVersion(db);

@@ -19,6 +19,8 @@ const normalise = (value = '') => String(value)
   .replace(/[’‘]/g, "'").replace(/[–—]/g, '-')
   .replace(/[^a-zA-Z0-9]+/g, ' ').trim().toLowerCase();
 const playable = (raw) => raw?.type && !['Skill Card', 'Token'].includes(raw.type) && raw.name !== '???';
+// Original TCG release in any region, including North America (BLMM: 2025-06-13).
+// Do not substitute a later European release or an earlier OCG-only release.
 const firstTcgDate = (raw) => raw?.misc_info?.find((item) => typeof item?.tcg_date === 'string')?.tcg_date || null;
 const treatedAs = (raw) => raw?.misc_info?.find((item) => typeof item?.treated_as === 'string')?.treated_as || null;
 const category = (type = '') => /spell/i.test(type) ? 'Spell' : /trap/i.test(type) ? 'Trap' : 'Monster';

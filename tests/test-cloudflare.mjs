@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { onRequest } from '../functions/gog/api/[[path]].js';
+import { blmmCards } from './gog/fixtures/blmm.mjs';
 
 const db = new DatabaseSync(':memory:');
 const schemaSql = readFileSync(new URL('../database/schema.sql', import.meta.url), 'utf8');
@@ -71,13 +72,14 @@ const D1 = {
   }
 };
 const eligible = {
+  ...Object.fromEntries(blmmCards.map(card=>[card.id,card])),
   1111: { id: 1111, name: 'Dracotail Lukias', type: 'Effect Monster', desc: 'Fusion material effect.', misc_info: [{tcg_date:'2025-08-01'}], card_images: [{ id:1111 }] },
   2222: { id: 2222, name: 'Ash Blossom & Joyous Spring', type: 'Tuner Monster', desc: 'Hand trap.', misc_info: [{tcg_date:'2017-05-04'}], card_images: [{ id:2222 }] },
   4444: { id: 4444, name: 'Pot of Greed', type: 'Spell Card', desc: 'Draw two cards.', misc_info: [{tcg_date:'2002-03-08'}], card_images: [{ id:4444 }] },
   5555: { id: 5555, name: 'Droll & Lock Bird', type: 'Effect Monster', desc: 'Draw lock.', misc_info: [{tcg_date:'2010-05-25'}], card_images: [{ id:5555 }] },
   5370235: { id:5370235, name:'Cyberdark Chimera', type:'Effect Monster', desc:'Fixture effect.', misc_info:[{tcg_date:'2021-10-14'}], card_images:[{id:5370235}] }
 };
-const afterCutoff = { id: 3333, name: 'Post JUSH 2026 Card', type: 'Effect Monster', desc: 'Not in pool.', misc_info: [{tcg_date:'2026-02-07'}] };
+const afterCutoff = { id: 3333, name: 'Post JUSH 2026 Card', type: 'Effect Monster', desc: 'Not in pool.', misc_info: [{tcg_date:'2026-02-07',ocg_date:'2024-01-01'}] };
 const fetchOriginal = globalThis.fetch;
 let fetchCount = 0;
 globalThis.fetch = async (url, opts) => {
@@ -131,6 +133,7 @@ async function get(path) {
 // Foundation: historical, exact and independent.
 const config = await get('/config');
 assert.equal(config.cardPool.cutoffDate, '2025-08-01');
+assert.match(config.cardPool.releaseBasis,/any region, including North America/);
 assert.equal(config.version.effectiveDate, '2025-04-07');
 assert.equal(config.adminConfigured, false);
 const starting = await get('/list');
@@ -254,6 +257,18 @@ assert.equal(chimeraSearch.results[0].tcgDate,'2021-10-14');
 assert.equal(chimeraSearch.results[0].status,'unlimited');
 assert.equal((await get('/catalogue?q=Chimera')).cards[0].id,5370235);
 assert.equal((await req('/cards/resolve','POST',{ids:[5370235]})).status,200);
+// BLMM's North American date qualifies in search, the editor and deck resolution.
+for (const card of blmmCards) {
+  const found=await get(`/cards/search?q=${encodeURIComponent(card.name)}`);
+  assert.equal(found.results[0].id,card.id);
+  assert.equal(found.results[0].tcgDate,'2025-06-13');
+  assert.equal(found.results[0].status,'unlimited');
+  assert.equal((await get(`/catalogue?q=${encodeURIComponent(card.name)}`)).cards[0].id,card.id);
+  const resolution=await req('/cards/resolve','POST',{ids:[card.id]});
+  assert.equal((await resolution.json()).results[0].outcome,'resolved');
+  assert.equal((await req('/admin/draft/entry','POST',{card:{id:card.id},status:'limited'})).status,200);
+  assert.equal((await req('/admin/draft/entry','POST',{card:{id:card.id},status:'unlimited'})).status,200);
+}
 const noBypass = await req('/admin/draft/entry', 'POST', {card:afterCutoff,status:'forbidden'});
 assert.equal(noBypass.status,422);
 const originalFetchForOffline = globalThis.fetch;

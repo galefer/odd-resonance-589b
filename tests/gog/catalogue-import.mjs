@@ -7,6 +7,7 @@ import {tmpdir} from 'node:os';
 import {join,resolve,sep} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {DatabaseSync} from 'node:sqlite';
+import {blmmCards} from './fixtures/blmm.mjs';
 
 const root=resolve(import.meta.dirname,'../..');
 const directory=await mkdtemp(join(tmpdir(),'gog-catalogue-regression-'));
@@ -21,10 +22,13 @@ try {
     raw(3333,'First released after JUSH','2025-08-02'),
     raw(4444,'No proven TCG release',null),
     raw(5555,'Skill fixture','2020-01-01','Skill Card'),
-    raw(6666,'Token fixture','2020-01-01','Token')
+    raw(6666,'Token fixture','2020-01-01','Token'),
+    ...blmmCards
   ];
   // A later printing must never replace the original TCG release as the cutoff.
   cards[2].card_sets=[{set_name:'2026 reprint'}];
+  cards[3].misc_info[0].ocg_date='2024-01-01';
+  cards[4].misc_info[0].ocg_date='2024-01-01';
   await writeFile(fixture,`const cards=${JSON.stringify(cards)};
     globalThis.fetch=async input=>{
       const url=new URL(input);
@@ -42,17 +46,22 @@ try {
   db.exec(generated);
   const chimera=db.prepare('SELECT * FROM cards_cache WHERE card_id=5370235').get();
   assert(chimera,'Eligible card omitted by format=tcg must still be imported');
+  for (const card of blmmCards) {
+    const imported=db.prepare('SELECT tcg_date,pool_verified FROM cards_cache WHERE card_id=?').get(card.id);
+    assert.equal(imported?.tcg_date,'2025-06-13',`${card.name}: North American BLMM release`);
+    assert.equal(imported.pool_verified,1);
+  }
   assert.equal(chimera.pool_verified,1);
   assert.equal(chimera.tcg_date,'2021-10-14');
   assert(db.prepare("SELECT 1 FROM card_name_search WHERE search_text='chimera' AND card_id=5370235").get());
   assert(db.prepare('SELECT 1 FROM card_artworks WHERE artwork_id=5370235').get());
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM cards_cache WHERE pool_verified=1').get().n,3);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM cards_cache WHERE pool_verified=1').get().n,6);
   assert.equal(db.prepare('SELECT reason FROM card_id_evidence WHERE input_id=3333').get().reason,'outside_pool');
   assert.equal(db.prepare('SELECT reason FROM card_id_evidence WHERE input_id=4444').get().reason,'missing_tcg_date');
-  assert.equal(db.prepare("SELECT value FROM catalogue_meta WHERE key='eligible_cards'").get().value,'3');
+  assert.equal(db.prepare("SELECT value FROM catalogue_meta WHERE key='eligible_cards'").get().value,'6');
   assert.equal(JSON.stringify(db.prepare('SELECT * FROM entries ORDER BY version_id,sort_name').all()),restrictions);
   db.exec(generated);
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM cards_cache WHERE pool_verified=1').get().n,3);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM cards_cache WHERE pool_verified=1').get().n,6);
   db.close();
   console.log('Passed: omitted historical TCG card, search/artwork indexes, inclusive cutoff, later reprints, unknown dates, non-playable exclusions, restriction preservation and repeat import.');
 } finally {
