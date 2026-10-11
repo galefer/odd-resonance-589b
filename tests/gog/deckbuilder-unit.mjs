@@ -68,6 +68,16 @@ test('wrong-section additions are blocked but Side accepts either placement', ()
   assert.equal(addIssue(deck, fusion, 'side'), null);
 });
 
+test('reordering a grouped stack keeps every copy together and undo restores interleaved order', () => {
+  const a = instanceFromCard(card()), b = instanceFromCard(card({ canonicalId: 2002 })), a2 = instanceFromCard(card());
+  const deck = newDeck(); deck.main = [a, b, a2];
+  const history = new DeckHistory(deck);
+  history.dispatch({ type: 'REORDER_GROUP', zone: 'main', instanceIds: [a.instanceId, a2.instanceId], index: 1 });
+  assert.deepEqual(history.deck.main.map(c => c.instanceId), [b.instanceId, a.instanceId, a2.instanceId]);
+  assert(history.undo());
+  assert.deepEqual(history.deck.main.map(c => c.instanceId), [a.instanceId, b.instanceId, a2.instanceId]);
+});
+
 test('unresolved imports remain visible and portable when their numeric ID is retained', () => {
   const deck = newDeck(); deck.main.push(unresolvedInstance(4_000_000_000, 'unknown_id'));
   assert.equal(deck.main.length, 1);

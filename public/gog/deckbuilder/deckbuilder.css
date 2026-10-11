@@ -144,6 +144,9 @@ textarea{background:#0f0f11;border-color:#60483c}
 .library-card>button.dragging{opacity:.45}
 .library-card .restriction-dot,.card-tile .limit-badge,.card-tile .quantity{pointer-events:none}
 .library-card img,.card-tile img{pointer-events:none;user-select:none;-webkit-user-drag:none}
+.deck-grid{position:relative}
+.drop-insertion-line{position:absolute;width:3px;border-radius:2px;transform:translateX(-50%);background:#ffdc55;box-shadow:0 0 7px #ffdc5580;z-index:5;pointer-events:none}
+.card-tile.drop-merge{outline:3px solid #ffdc55;outline-offset:3px}
 .canvas-footer{gap:16px;line-height:1.6;align-items:flex-start}
 .canvas-footer .text-button{flex-shrink:0}
 

@@ -85,12 +85,13 @@ const screenshot = async (name) => {
 const counts = () => evaluate(`({main:Number(document.querySelector('#count-main').textContent),extra:Number(document.querySelector('#count-extra').textContent),side:Number(document.querySelector('#count-side').textContent)})`);
 
 const point = (selector) => evaluate(`(() => { const e=document.querySelector(${JSON.stringify(selector)}); if(!e) throw new Error('Missing drag target'); const r=e.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2}; })()`);
-async function dragCard(source, target, operation) {
+async function dragCard(source, target, operation, { xFraction = .5, preview, cancel = false } = {}) {
   // Start a real mouse drag on the artwork, then deliver Chrome's native drag
   // data to the target. Synthetic DOM drops miss effectAllowed/dropEffect bugs.
   interceptedDrag = null;
   await send('Input.setInterceptDrags', { enabled: true });
-  const from = await point(source), to = await point(target);
+  const from = await point(source);
+  const to = await evaluate(`(() => {const r=document.querySelector(${JSON.stringify(target)}).getBoundingClientRect(); return {x:r.left+r.width*${xFraction},y:r.top+r.height/2};})()`);
   try {
     await send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...from });
     await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...from, button: 'left', buttons: 1, clickCount: 1 });
@@ -105,13 +106,31 @@ async function dragCard(source, target, operation) {
     }
     assert(interceptedDrag, 'Artwork should start a native card drag');
     assert.equal(interceptedDrag.dragOperationsMask, operation === 'copy' ? 1 : 16);
-    for (const type of ['dragEnter', 'dragOver', 'drop']) await send('Input.dispatchDragEvent', { type, ...to, data: interceptedDrag });
+    for (const type of ['dragEnter', 'dragOver']) await send('Input.dispatchDragEvent', { type, ...to, data: interceptedDrag });
+    if (preview) await preview();
+    await send('Input.dispatchDragEvent', { type: cancel ? 'dragCancel' : 'drop', ...to, data: interceptedDrag });
     await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...to, button: 'left', buttons: 0, clickCount: 1 });
   } finally {
     await send('Input.setInterceptDrags', { enabled: false });
   }
+  assert.equal(await evaluate(`document.querySelectorAll('.drop-insertion-line:not([hidden])').length`), 0, 'Insertion marker clears after drop or cancel');
+}
+
+async function checkInsertionLine(leftSelector, rightSelector) {
+  const result = await evaluate(`(() => {
+    const marker=document.querySelector('.drop-insertion-line:not([hidden])'); if(!marker) return null;
+    const l=${leftSelector ? `document.querySelector(${JSON.stringify(leftSelector)}).getBoundingClientRect()` : 'null'};
+    const r=${rightSelector ? `document.querySelector(${JSON.stringify(rightSelector)}).getBoundingClientRect()` : 'null'};
+    const m=marker.getBoundingClientRect(), anchor=r||l;
+    return {x:m.left+m.width/2,expectedX:l&&r?(l.right+r.left)/2:r?r.left-4:l.right+4,top:m.top,expectedTop:anchor.top,height:m.height,expectedHeight:anchor.height,color:getComputedStyle(marker).backgroundColor};
+  })()`);
+  assert(result, 'Valid drop should show a yellow insertion line');
+  assert(Math.abs(result.x-result.expectedX)<1, 'Line should match the exact gap or card edge');
+  assert(Math.abs(result.top-result.expectedTop)<1 && Math.abs(result.height-result.expectedHeight)<1, 'Line should follow the correct row and card height');
+  assert.equal(result.color, 'rgb(255, 220, 85)');
 }
 async function rightClick(selector, shift = false) {
+  await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'nearest',inline:'nearest'})`);
   const at = await point(selector);
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at });
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...at, button: 'right', buttons: 2, clickCount: 1, modifiers: shift ? 8 : 0 });
@@ -154,7 +173,7 @@ try {
   await click('#redo'); await waitFor(`document.querySelector('#count-main').textContent==='1'`, 'redo');
   await dragCard('.library-card img', '.deck-grid[data-zone="main"] .card-tile img', 'copy');
   await waitFor(`document.querySelector('#count-main').textContent==='2'`, 'library drop onto existing card');
-  await rightClick('.deck-grid[data-zone="main"] .card-tile img');
+  await rightClick('.deck-grid[data-zone="main"] .card-tile:not(.selected) img');
   await waitFor(`document.querySelector('#count-main').textContent==='1'`, 'right-click removes hovered copy');
   assert.equal(await evaluate(`document.querySelectorAll('.card-tile.selected').length`), 1, 'Removing an unselected copy preserves the other selection');
   await click('#undo'); await waitFor(`document.querySelector('#count-main').textContent==='2'`, 'undo right-click deletion');
@@ -179,6 +198,45 @@ try {
   assert.deepEqual(await counts(), { main: 2, extra: 0, side: 1 }, 'Right-click enforces the combined three-copy limit');
   await click('#undo'); await click('#undo');
   assert.deepEqual(await counts(), { main: 1, extra: 0, side: 0 });
+  // Use distinct cards across two rows to verify marker geometry and real order.
+  const mainFixtureCards = await evaluate(`[...document.querySelectorAll('.library-card')].map((e,i)=>({index:i+1,main:e.querySelector('button').title.includes('right-click: Main Deck'),forbidden:!!e.querySelector('.restriction-dot.forbidden')})).filter(e=>e.main&&!e.forbidden).slice(1,10).map(e=>e.index)`);
+  for (const n of mainFixtureCards) await rightClick(`.library-card:nth-child(${n}) img`);
+  await evaluate(`document.querySelector('.library-grid').scrollTop=0; window.scrollTo(0,0);`);
+  const mainTile = (n) => `.deck-grid[data-zone="main"] .card-tile:nth-child(${n})`;
+  const mainOrder = () => evaluate(`[...document.querySelectorAll('.deck-grid[data-zone="main"] .card-tile')].map(e=>e.dataset.instanceId)`);
+  const originalOrder = await mainOrder();
+  assert.equal(originalOrder.length, 10);
+  await dragCard(`${mainTile(10)} img`, mainTile(3), 'move', { xFraction:.25, preview:async()=>{
+    await checkInsertionLine(mainTile(2),mainTile(3));
+    await sleep(650); // A pending server validation must not destroy the drag DOM.
+    await checkInsertionLine(mainTile(2),mainTile(3));
+    await screenshot('deckbuilder-insertion-between.png');
+  }});
+  assert.deepEqual(await mainOrder(), [...originalOrder.slice(0,2),originalOrder[9],...originalOrder.slice(2,9)]);
+  await dragCard(`${mainTile(3)} img`, mainTile(10), 'move', { xFraction:1.7, preview:async()=>{
+    await checkInsertionLine(mainTile(10),null); await screenshot('deckbuilder-insertion-end.png');
+  }});
+  assert.deepEqual(await mainOrder(), originalOrder, 'Trailing line appends after the last card');
+  await dragCard(`${mainTile(1)} img`, mainTile(4), 'move', { xFraction:.25, preview:()=>checkInsertionLine(mainTile(3),mainTile(4)) });
+  const forwardOrder = [originalOrder[1],originalOrder[2],originalOrder[0],...originalOrder.slice(3)];
+  assert.deepEqual(await mainOrder(), forwardOrder, 'Forward moves adjust for the source leaving its old slot');
+  await dragCard(`${mainTile(1)} img`, mainTile(9), 'move', { xFraction:.25, preview:()=>checkInsertionLine(null,mainTile(9)) });
+  const wrappedOrder = [...forwardOrder.slice(1,8),forwardOrder[0],...forwardOrder.slice(8)];
+  assert.deepEqual(await mainOrder(), wrappedOrder, 'Leading line on the second row inserts before that row');
+  await dragCard(`${mainTile(1)} img`, mainTile(3), 'move', { xFraction:.25, cancel:true, preview:()=>checkInsertionLine(mainTile(2),mainTile(3)) });
+  assert.deepEqual(await mainOrder(), wrappedOrder, 'Cancelling a drag preserves order');
+  await dragCard('.library-card img', mainTile(2), 'copy', { xFraction:.25, preview:()=>checkInsertionLine(mainTile(1),mainTile(2)) });
+  const withLibraryCopy = await mainOrder();
+  assert.equal(withLibraryCopy.length, 11);
+  assert.deepEqual(withLibraryCopy.filter((_,index)=>index!==1),wrappedOrder, 'Library card inserts at the marked gap');
+  await click('#grouped-view');
+  await dragCard(`.card-tile[data-instance-id="${withLibraryCopy[1]}"] img`, mainTile(1), 'move', { xFraction:.25, preview:()=>checkInsertionLine(null,mainTile(1)) });
+  assert.equal(await evaluate(`document.querySelector('.deck-grid[data-zone="main"] .card-tile .quantity')?.textContent`), '×2', 'Grouped reorder places the complete stack at the marked gap');
+  await click('#copies-view');
+  await click('.zone[data-zone="main"] .zone-tools button:last-child');
+  await waitFor(`document.querySelector('#count-main').textContent==='0'`, 'clear reorder fixture');
+  await rightClick('.library-card img');
+  evidence.checks.push('yellow insertion preview matches between-card, trailing and wrapped-row drops; forward/backward order, cancellation, library insertion and grouped stacks');
   await setValue('#search', 'Number 39: Utopia');
   await waitFor(`document.querySelector('.library-card button')?.getAttribute('aria-label').startsWith('Inspect Number 39: Utopia,')`, 'Extra Deck card search');
   await rightClick('.library-card img');

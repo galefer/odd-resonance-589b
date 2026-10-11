@@ -42,6 +42,7 @@ let hand = [];
 let handRemaining = [];
 let toastTimer = 0;
 let activeDrag = null;
+let deckRenderPending = false;
 
 function setSaveState(state, message) {
   const line = $('saved-label').parentElement;
@@ -118,11 +119,11 @@ function dispatch(action, { select = null } = {}) {
   return true;
 }
 
-function addCard(card, zone = defaultZoneFor(card)) {
+function addCard(card, zone = defaultZoneFor(card), index = null) {
   const reason = localIssueFor(card, zone);
   if (reason) { showToast(reason, 'warning'); return; }
   const instance = instanceFromCard(card);
-  dispatch({ type: 'ADD_INSTANCE', zone, instance }, { select: instance.instanceId });
+  dispatch({ type: 'ADD_INSTANCE', zone, instance, ...(Number.isInteger(index) ? { index } : {}) }, { select: instance.instanceId });
 }
 
 function moveInstance(instanceId, zone, index = null) {
@@ -213,6 +214,10 @@ function renderInspector() {
 }
 
 function renderDeck() {
+  // Validation can finish while a card is being dragged. Keep the source and
+  // insertion marker in the DOM until the drag completes or is cancelled.
+  if (activeDrag) { deckRenderPending = true; return; }
+  deckRenderPending = false;
   const container = $('deck-zones');
   container.replaceChildren(...ZONES.map((zone) => renderZone(zone)));
   $('mobile-count').textContent = `Main ${history.deck.main.length} · Extra ${history.deck.extra.length} · Side ${history.deck.side.length}`;
@@ -233,7 +238,7 @@ function renderZone(zone) {
   const grid = document.createElement('div'); grid.className = 'deck-grid'; grid.dataset.zone = zone;
   section.addEventListener('dragover', dragOverZone);
   section.addEventListener('dragleave', (event) => {
-    if (!section.contains(event.relatedTarget)) grid.classList.remove('drag-over');
+    if (!section.contains(event.relatedTarget)) clearDropPreview(grid);
   });
   section.addEventListener('drop', dropOnZone);
   const displays = grouped ? groupedCards(history.deck[zone]) : history.deck[zone].map((instance) => ({ instance, count: 1, instanceIds: [instance.instanceId] }));
@@ -242,6 +247,8 @@ function renderZone(zone) {
     empty.innerHTML = `<strong>${zoneLabel(zone)} is empty</strong><span>Add from the library or drop a card here.</span>`;
     grid.append(empty);
   } else displays.forEach((group) => grid.append(renderDeckCard(group, zone)));
+  const marker = document.createElement('span'); marker.className = 'drop-insertion-line'; marker.hidden = true; marker.setAttribute('aria-hidden', 'true');
+  grid.append(marker);
   section.append(header, grid); return section;
 }
 
@@ -268,7 +275,7 @@ function renderDeckCard(group, zone) {
     removeInstance(group.instanceIds[0]);
   });
   button.addEventListener('dragstart', (event) => {
-    startCardDrag(event, { instanceId: group.instanceIds[0] });
+    startCardDrag(event, { instanceId: group.instanceIds[0], instanceIds: group.instanceIds });
   });
   button.addEventListener('dragend', endCardDrag);
   return button;
@@ -283,28 +290,92 @@ function startCardDrag(event, source) {
 
 function endCardDrag() {
   activeDrag = null;
-  document.querySelectorAll('.dragging, .drag-over').forEach((element) => element.classList.remove('dragging', 'drag-over'));
+  document.querySelectorAll('.dragging').forEach((element) => element.classList.remove('dragging'));
+  document.querySelectorAll('.deck-grid').forEach(clearDropPreview);
+  if (deckRenderPending) renderDeck();
+}
+
+function clearDropPreview(grid) {
+  grid.classList.remove('drag-over');
+  grid.querySelector('.drop-insertion-line').hidden = true;
+  grid.querySelectorAll('.drop-merge').forEach((tile) => tile.classList.remove('drop-merge'));
+}
+
+function dropAllowed(zone) {
+  if (activeDrag.card) return !localIssueFor(activeDrag.card, zone);
+  const found = findInstance(activeDrag.instanceId);
+  return !!found && (found.zone === zone ||
+    (history.deck[zone].length < (zone === 'main' ? 60 : 15) && (zone === 'side' || found.item.placement === zone)));
+}
+
+function dropPosition(grid, x, y) {
+  const tiles = [...grid.querySelectorAll('.card-tile')].map((element) => ({ element, rect: element.getBoundingClientRect() }));
+  const bounds = grid.getBoundingClientRect();
+  if (!tiles.length) {
+    const style = getComputedStyle(grid);
+    const left = parseFloat(style.paddingLeft), top = parseFloat(style.paddingTop);
+    return { index: 0, left: left - 4, top, height: Math.max(32, grid.clientHeight - top - parseFloat(style.paddingBottom)) };
+  }
+  // Pick the closest visual row, then the gap before/after the card midpoint.
+  // Empty space after a short row stays attached to that row's final card.
+  const rows = [];
+  for (const tile of tiles) {
+    const row = rows.at(-1);
+    if (row && Math.abs(row[0].rect.top - tile.rect.top) < 2) row.push(tile);
+    else rows.push([tile]);
+  }
+  const row = rows.reduce((best, candidate) => Math.abs(y - (candidate[0].rect.top + candidate[0].rect.height / 2)) <
+    Math.abs(y - (best[0].rect.top + best[0].rect.height / 2)) ? candidate : best);
+  const next = row.find((tile) => x < tile.rect.left + tile.rect.width / 2);
+  const previous = next ? row[row.indexOf(next) - 1] : row.at(-1);
+  const anchor = next || previous;
+  const boundary = next || tiles[tiles.indexOf(previous) + 1];
+  const index = boundary ? findInstance(boundary.element.dataset.instanceId).index : history.deck[grid.dataset.zone].length;
+  const lineX = previous && next ? (previous.rect.right + next.rect.left) / 2 : next ? next.rect.left - 4 : previous.rect.right + 4;
+  return { index, left: lineX - bounds.left - grid.clientLeft, top: anchor.rect.top - bounds.top - grid.clientTop, height: anchor.rect.height };
 }
 
 function dragOverZone(event) {
   if (!activeDrag) return;
   event.preventDefault();
-  event.currentTarget.querySelector('.deck-grid').classList.add('drag-over');
+  const grid = event.currentTarget.querySelector('.deck-grid');
+  document.querySelectorAll('.deck-grid').forEach(clearDropPreview);
+  if (!dropAllowed(grid.dataset.zone)) { event.dataTransfer.dropEffect = 'none'; return; }
+  grid.classList.add('drag-over');
   // Library cards are copied into a deck; existing deck copies are moved.
   // A move-only drop target rejects a copy-only library drag in the browser.
   event.dataTransfer.dropEffect = activeDrag.card ? 'copy' : 'move';
+  const from = activeDrag.instanceId && findInstance(activeDrag.instanceId);
+  const card = activeDrag.card || from?.item;
+  const merging = grouped && card?.canonicalId && from?.zone !== grid.dataset.zone && [...grid.querySelectorAll('.card-tile')]
+    .find((tile) => findInstance(tile.dataset.instanceId).item.canonicalId === card?.canonicalId);
+  if (merging) { merging.classList.add('drop-merge'); return; }
+  const position = dropPosition(grid, event.clientX, event.clientY);
+  const marker = grid.querySelector('.drop-insertion-line');
+  marker.style.left = `${position.left}px`; marker.style.top = `${position.top}px`; marker.style.height = `${position.height}px`;
+  marker.hidden = false;
 }
 
 function dropOnZone(event) {
   if (!activeDrag) return;
   event.preventDefault();
   const zone = event.currentTarget.dataset.zone;
-  const target = event.target.closest('.card-tile');
-  const index = target ? findInstance(target.dataset.instanceId)?.index : null;
+  const grid = event.currentTarget.querySelector('.deck-grid');
+  const position = dropPosition(grid, event.clientX, event.clientY);
   const source = activeDrag;
   endCardDrag();
-  if (source.card) addCard(source.card, zone);
-  else moveInstance(source.instanceId, zone, index);
+  if (source.card) addCard(source.card, zone, position.index);
+  else {
+    const found = findInstance(source.instanceId);
+    if (!found) return;
+    // The preview uses gaps in the current layout; the reducer inserts after
+    // removal. Subtract moved copies that originally precede that gap.
+    const ids = grouped && found.zone === zone ? source.instanceIds : [source.instanceId];
+    const removedBefore = found.zone === zone ? history.deck[zone].slice(0, position.index).filter((card) => ids.includes(card.instanceId)).length : 0;
+    const index = position.index - removedBefore;
+    if (ids.length > 1) dispatch({ type: 'REORDER_GROUP', zone, instanceIds: ids, index });
+    else if (found.zone !== zone || index !== found.index) moveInstance(source.instanceId, zone, index);
+  }
 }
 
 function renderOverview() {

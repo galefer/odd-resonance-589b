@@ -84,6 +84,16 @@ export function reduceDeck(deck, action) {
       next[action.zone].splice(index, 0, item);
       break;
     }
+    case 'REORDER_GROUP': {
+      if (!ZONES.includes(action.zone)) return deck;
+      const ids = new Set(action.instanceIds);
+      const moving = next[action.zone].filter((item) => ids.has(item.instanceId));
+      if (!moving.length) return deck;
+      next[action.zone] = next[action.zone].filter((item) => !ids.has(item.instanceId));
+      const index = Math.max(0, Math.min(action.index, next[action.zone].length));
+      next[action.zone].splice(index, 0, ...moving);
+      break;
+    }
     case 'REORDER_INSTANCE': {
       const found = locate(next, action.instanceId);
       if (!found) return deck;
