@@ -42,6 +42,7 @@ const pending = new Map();
 const events = [];
 const errors = [];
 const failedResponses = [];
+let interceptedDrag = null;
 const send = (method, params = {}) => new Promise((resolvePromise, reject) => {
   const id = ++commandId; pending.set(id, { resolve: resolvePromise, reject }); socket.send(JSON.stringify({ id, method, params }));
 });
@@ -53,6 +54,7 @@ socket.onmessage = (event) => {
     return;
   }
   events.push(message.method);
+  if (message.method === 'Input.dragIntercepted') interceptedDrag = message.params.data;
   if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails?.text || 'Runtime exception');
   if (message.method === 'Log.entryAdded' && ['error','warning'].includes(message.params.entry.level)) errors.push(message.params.entry.text);
   if (message.method === 'Network.responseReceived' && message.params.response.status >= 400)
@@ -82,6 +84,40 @@ const screenshot = async (name) => {
 };
 const counts = () => evaluate(`({main:Number(document.querySelector('#count-main').textContent),extra:Number(document.querySelector('#count-extra').textContent),side:Number(document.querySelector('#count-side').textContent)})`);
 
+const point = (selector) => evaluate(`(() => { const e=document.querySelector(${JSON.stringify(selector)}); if(!e) throw new Error('Missing drag target'); const r=e.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2}; })()`);
+async function dragCard(source, target, operation) {
+  // Start a real mouse drag on the artwork, then deliver Chrome's native drag
+  // data to the target. Synthetic DOM drops miss effectAllowed/dropEffect bugs.
+  interceptedDrag = null;
+  await send('Input.setInterceptDrags', { enabled: true });
+  const from = await point(source), to = await point(target);
+  try {
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...from });
+    await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...from, button: 'left', buttons: 1, clickCount: 1 });
+    for (let step = 1; step <= 8; step++) {
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x+(to.x-from.x)*step/8, y: from.y+(to.y-from.y)*step/8, button: 'left', buttons: 1 });
+      await sleep(20);
+      if (interceptedDrag) break;
+    }
+    if (!interceptedDrag) {
+      console.log({ source, target, from, to });
+      await screenshot('drag-failure.png');
+    }
+    assert(interceptedDrag, 'Artwork should start a native card drag');
+    assert.equal(interceptedDrag.dragOperationsMask, operation === 'copy' ? 1 : 16);
+    for (const type of ['dragEnter', 'dragOver', 'drop']) await send('Input.dispatchDragEvent', { type, ...to, data: interceptedDrag });
+    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...to, button: 'left', buttons: 0, clickCount: 1 });
+  } finally {
+    await send('Input.setInterceptDrags', { enabled: false });
+  }
+}
+async function rightClick(selector) {
+  const at = await point(selector);
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at });
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...at, button: 'right', buttons: 2, clickCount: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...at, button: 'right', buttons: 0, clickCount: 1 });
+}
+
 const evidence = { chrome: version.Browser, origin, checks: [], failedResponses, consoleErrors: errors };
 try {
   await Promise.all([send('Page.enable'), send('Runtime.enable'), send('Network.enable'), send('Log.enable')]);
@@ -98,17 +134,37 @@ try {
   assert.equal((await counts()).main, 0);
   evidence.checks.push('initial catalogue and IndexedDB state loaded');
 
-  await click('.library-card .quick-add');
-  await waitFor(`document.querySelector('#count-main').textContent==='1'`, 'legal card add');
+  assert.equal(await evaluate(`document.querySelector('.quick-add')`), null, 'Library hover add controls should be removed');
+  await dragCard('.library-card img', '.deck-grid[data-zone="main"]', 'copy');
+  await waitFor(`document.querySelector('#count-main').textContent==='1'`, 'library artwork drag into empty deck');
   await click('#undo'); await waitFor(`document.querySelector('#count-main').textContent==='0'`, 'undo');
   await click('#redo'); await waitFor(`document.querySelector('#count-main').textContent==='1'`, 'redo');
-  evidence.checks.push('add, undo and redo');
+  await dragCard('.library-card img', '.deck-grid[data-zone="main"] .card-tile img', 'copy');
+  await waitFor(`document.querySelector('#count-main').textContent==='2'`, 'library drop onto existing card');
+  await rightClick('.deck-grid[data-zone="main"] .card-tile img');
+  await waitFor(`document.querySelector('#count-main').textContent==='1'`, 'right-click removes hovered copy');
+  assert.equal(await evaluate(`document.querySelectorAll('.card-tile.selected').length`), 1, 'Removing an unselected copy preserves the other selection');
+  await click('#undo'); await waitFor(`document.querySelector('#count-main').textContent==='2'`, 'undo right-click deletion');
+  await click('#grouped-view');
+  await rightClick('.deck-grid[data-zone="main"] .card-tile img');
+  await waitFor(`document.querySelector('#count-main').textContent==='1'`, 'right-click removes only one grouped copy');
+  await click('#copies-view');
+  await dragCard('.deck-grid[data-zone="main"] .card-tile img', '.deck-grid[data-zone="side"]', 'move');
+  await waitFor(`document.querySelector('#count-main').textContent==='0' && document.querySelector('#count-side').textContent==='1'`, 'move copy to Side');
+  await dragCard('.deck-grid[data-zone="side"] .card-tile img', '.deck-grid[data-zone="main"]', 'move');
+  await waitFor(`document.querySelector('#count-main').textContent==='1' && document.querySelector('#count-side').textContent==='0'`, 'move copy back to Main');
+  await dragCard('.library-card img', '.deck-grid[data-zone="extra"]', 'copy');
+  assert.deepEqual(await counts(), { main: 1, extra: 0, side: 0 }, 'Drop must respect card placement');
+  evidence.checks.push('native library drag to empty and populated zones; move between zones; invalid placement rejected');
+  evidence.checks.push('right-click removes hovered copy, preserves selection, supports undo and grouped copies');
 
   await setValue('#search', 'Pot of Greed');
   await waitFor(`[...document.querySelectorAll('.library-card button[aria-label]')].some(e=>e.getAttribute('aria-label').startsWith('Inspect Pot of Greed,'))`, 'Forbidden card search');
   await evaluate(`(() => { const e=[...document.querySelectorAll('.library-card button[aria-label]')].find(e=>e.getAttribute('aria-label').startsWith('Inspect Pot of Greed,')); e.click(); return true; })()`);
   assert.equal(await evaluate(`document.querySelector('#card-status').textContent`), 'Forbidden');
   assert.equal(await evaluate(`document.querySelector('#add-auto').disabled`), true);
+  await dragCard('.library-card img', '.deck-grid[data-zone="main"]', 'copy');
+  assert.equal((await counts()).main, 1, 'Dragging cannot bypass Forbidden restrictions');
   evidence.checks.push('search and Forbidden add rejection');
 
   await click('#import-button'); await click('#paste-tab');
@@ -142,6 +198,8 @@ try {
     toolsLeft:document.querySelector('.tools-panel').getBoundingClientRect().left,
     deckLeft:document.querySelector('.deck-canvas').getBoundingClientRect().left,
     libraryLeft:document.querySelector('.library-panel').getBoundingClientRect().left,
+    inspectorWidth:document.querySelector('.left-panel').getBoundingClientRect().width,
+    libraryWidth:document.querySelector('.library-panel').getBoundingClientRect().width,
     libraryCard:(() => {
       const card=document.querySelector('.library-card');
       const button=card.querySelector('button');
@@ -153,6 +211,8 @@ try {
   assert(desktopLayout.overflow <= 1, `Desktop horizontal overflow: ${desktopLayout.overflow}`);
   assert(desktopLayout.inspectorLeft < desktopLayout.deckLeft && desktopLayout.toolsLeft < desktopLayout.deckLeft, 'Inspector and overview should be in the left sidebar');
   assert(desktopLayout.libraryLeft > desktopLayout.deckLeft, 'Card library should be in the right sidebar');
+  assert(desktopLayout.inspectorWidth >= 300 && desktopLayout.libraryWidth >= 340, 'Desktop sidebars should be comfortably wide');
+  assert(desktopLayout.libraryCard.imageWidth >= 85, 'Catalogue artwork should be readable at desktop size');
   assert(Math.abs(desktopLayout.libraryCard.imageHeight / desktopLayout.libraryCard.imageWidth - 614 / 421) < 0.03, 'Library artwork should keep the card aspect ratio');
   assert(desktopLayout.libraryCard.cardHeight <= desktopLayout.libraryCard.imageHeight + 1, 'Library grid row should not add vertical space around artwork');
   assert(desktopLayout.libraryCard.buttonHeight <= desktopLayout.libraryCard.imageHeight + 1, 'Library button should not stretch beyond artwork');
@@ -161,11 +221,12 @@ try {
   evidence.desktop = desktopLayout;
 
   let deckMobileHeader = null;
-  for (const width of [320, 390, 768, 1024, 1440, 1920, 2048]) {
+  for (const width of [320, 390, 768, 1024, 1180, 1440, 1920, 2048, 2560]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height: width < 768 ? 844 : 900, deviceScaleFactor: 1, mobile: width < 768 });
     await sleep(180);
     const layout = await evaluate(`({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,nav:getComputedStyle(document.querySelector('.mobile-nav')).display,workspace:getComputedStyle(document.querySelector('.workspace')).display})`);
     assert(layout.scrollWidth <= layout.width + 1, `${width}px horizontal overflow: ${layout.scrollWidth-layout.width}`);
+    if (width >= 1180) assert(await evaluate(`document.querySelector('.workspace').getBoundingClientRect().width >= innerWidth-20`), 'Workspace should use the available width');
     if (width === 390) deckMobileHeader = await evaluate(`(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()`);
     if (width === 2048) await screenshot('deckbuilder-2048.png');
     evidence.checks.push(`${width}px no horizontal overflow`);

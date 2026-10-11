@@ -41,6 +41,7 @@ let importTrigger = null;
 let hand = [];
 let handRemaining = [];
 let toastTimer = 0;
+let activeDrag = null;
 
 function setSaveState(state, message) {
   const line = $('saved-label').parentElement;
@@ -139,12 +140,13 @@ function moveInstance(instanceId, zone, index = null) {
   dispatch({ type: 'MOVE_INSTANCE', instanceId, zone, ...(Number.isInteger(index) ? { index } : {}) });
 }
 
-function removeSelected() {
-  if (!selectedInstanceId) return;
-  dispatch({ type: 'REMOVE_INSTANCE', instanceId: selectedInstanceId });
-  selectedInstanceId = null;
-  render();
+function removeInstance(instanceId) {
+  if (!findInstance(instanceId)) return;
+  if (selectedInstanceId === instanceId) selectedInstanceId = null;
+  dispatch({ type: 'REMOVE_INSTANCE', instanceId });
 }
+
+function removeSelected() { removeInstance(selectedInstanceId); }
 
 function render() {
   if (!history) return;
@@ -229,9 +231,11 @@ function renderZone(zone) {
   clear.addEventListener('click', () => { if (confirm(`Remove every card from ${zoneLabel(zone)}?`)) dispatch({ type: 'CLEAR_ZONE', zone }); });
   tools.append(sort, clear); header.append(heading, count, info, tools);
   const grid = document.createElement('div'); grid.className = 'deck-grid'; grid.dataset.zone = zone;
-  grid.addEventListener('dragover', dragOverZone);
-  grid.addEventListener('dragleave', () => grid.classList.remove('drag-over'));
-  grid.addEventListener('drop', dropOnZone);
+  section.addEventListener('dragover', dragOverZone);
+  section.addEventListener('dragleave', (event) => {
+    if (!section.contains(event.relatedTarget)) grid.classList.remove('drag-over');
+  });
+  section.addEventListener('drop', dropOnZone);
   const displays = grouped ? groupedCards(history.deck[zone]) : history.deck[zone].map((instance) => ({ instance, count: 1, instanceIds: [instance.instanceId] }));
   if (!displays.length) {
     const empty = document.createElement('p'); empty.className = 'empty-zone';
@@ -249,7 +253,7 @@ function renderDeckCard(group, zone) {
   button.setAttribute('aria-label', `${card.name}, ${statusLabel(card.status)}, in ${zoneLabel(zone)}${group.count > 1 ? `, ${group.count} copies` : ''}`);
   const index = history.deck[zone].findIndex((item) => item.instanceId === group.instanceIds[0]);
   if (validationIssues.has(issueKey(zone, index))) button.setAttribute('aria-invalid', 'true');
-  const art = document.createElement('img'); art.alt = ''; art.width = 421; art.height = 614; image(art, card);
+  const art = document.createElement('img'); art.alt = ''; art.draggable = false; art.width = 421; art.height = 614; image(art, card);
   button.append(art);
   const badgeText = statusBadge(card.status);
   if (badgeText) {
@@ -258,37 +262,49 @@ function renderDeckCard(group, zone) {
   }
   if (group.count > 1) { const quantity = document.createElement('span'); quantity.className = 'quantity'; quantity.textContent = `×${group.count}`; button.append(quantity); }
   button.addEventListener('click', () => { selectedInstanceId = group.instanceIds[0]; selectedCard = null; render(); });
+  button.title = `${card.name} — drag to move; right-click to remove one copy`;
+  button.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    removeInstance(group.instanceIds[0]);
+  });
   button.addEventListener('dragstart', (event) => {
-    event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', `instance:${group.instanceIds[0]}`); button.classList.add('dragging');
+    startCardDrag(event, { instanceId: group.instanceIds[0] });
   });
-  button.addEventListener('dragend', () => button.classList.remove('dragging'));
-  button.addEventListener('dragover', (event) => event.preventDefault());
-  button.addEventListener('drop', (event) => {
-    event.preventDefault(); event.stopPropagation();
-    const value = event.dataTransfer.getData('text/plain');
-    if (value.startsWith('instance:')) moveInstance(value.slice(9), zone, index);
-    else if (value.startsWith('library:')) {
-      const libraryCard = catalogueCards.find((item) => Number(item.canonicalId) === Number(value.slice(8)));
-      if (libraryCard) addCard(libraryCard, zone);
-    }
-  });
+  button.addEventListener('dragend', endCardDrag);
   return button;
 }
 
+function startCardDrag(event, source) {
+  activeDrag = source;
+  event.dataTransfer.effectAllowed = source.card ? 'copy' : 'move';
+  event.dataTransfer.setData('text/plain', source.card ? `library:${source.card.canonicalId}` : `instance:${source.instanceId}`);
+  event.currentTarget.classList.add('dragging');
+}
+
+function endCardDrag() {
+  activeDrag = null;
+  document.querySelectorAll('.dragging, .drag-over').forEach((element) => element.classList.remove('dragging', 'drag-over'));
+}
+
 function dragOverZone(event) {
-  event.preventDefault(); event.currentTarget.classList.add('drag-over');
-  event.dataTransfer.dropEffect = event.dataTransfer.types.includes('text/plain') ? 'move' : 'none';
+  if (!activeDrag) return;
+  event.preventDefault();
+  event.currentTarget.querySelector('.deck-grid').classList.add('drag-over');
+  // Library cards are copied into a deck; existing deck copies are moved.
+  // A move-only drop target rejects a copy-only library drag in the browser.
+  event.dataTransfer.dropEffect = activeDrag.card ? 'copy' : 'move';
 }
 
 function dropOnZone(event) {
-  event.preventDefault(); event.currentTarget.classList.remove('drag-over');
+  if (!activeDrag) return;
+  event.preventDefault();
   const zone = event.currentTarget.dataset.zone;
-  const value = event.dataTransfer.getData('text/plain');
-  if (value.startsWith('instance:')) moveInstance(value.slice(9), zone);
-  if (value.startsWith('library:')) {
-    const card = catalogueCards.find((item) => Number(item.canonicalId) === Number(value.slice(8)));
-    if (card) addCard(card, zone);
-  }
+  const target = event.target.closest('.card-tile');
+  const index = target ? findInstance(target.dataset.instanceId)?.index : null;
+  const source = activeDrag;
+  endCardDrag();
+  if (source.card) addCard(source.card, zone);
+  else moveInstance(source.instanceId, zone, index);
 }
 
 function renderOverview() {
@@ -447,18 +463,18 @@ function renderLibrary() {
     const wrap = document.createElement('article'); wrap.className = 'library-card';
     const inspect = document.createElement('button'); inspect.type = 'button'; inspect.draggable = true;
     inspect.setAttribute('aria-label', `Inspect ${card.name}, ${statusLabel(card.status)}`);
-    const art = document.createElement('img'); art.alt = ''; art.width = 421; art.height = 614; art.loading = 'lazy'; image(art, card);
+    const art = document.createElement('img'); art.alt = ''; art.draggable = false; art.width = 421; art.height = 614; art.loading = 'lazy'; image(art, card);
     inspect.append(art);
     const badgeText = statusBadge(card.status);
     let badge = null;
     if (badgeText) { badge = document.createElement('span'); badge.className = `restriction-dot ${card.status}`; badge.textContent = badgeText; badge.title = statusLabel(card.status); }
-    const add = document.createElement('button'); add.type = 'button'; add.className = 'quick-add'; add.textContent = '+'; add.setAttribute('aria-label', `Add ${card.name} to ${zoneLabel(defaultZoneFor(card))}`);
+    inspect.title = `${card.name} — drag into a deck, or click to inspect`;
     inspect.addEventListener('pointerenter', () => { if (!selectedInstanceId) { selectedCard = card; renderInspector(); renderProbability(); } });
     inspect.addEventListener('focus', () => { if (!selectedInstanceId) { selectedCard = card; renderInspector(); renderProbability(); } });
     inspect.addEventListener('click', () => { selectedCard = card; selectedInstanceId = null; render(); if (matchMedia('(max-width:767px)').matches) setMobilePanel('card'); });
-    inspect.addEventListener('dragstart', (event) => { event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData('text/plain', `library:${card.canonicalId}`); });
-    add.addEventListener('click', () => addCard(card));
-    wrap.append(inspect); if (badge) wrap.append(badge); wrap.append(add); return wrap;
+    inspect.addEventListener('dragstart', (event) => startCardDrag(event, { card }));
+    inspect.addEventListener('dragend', endCardDrag);
+    wrap.append(inspect); if (badge) wrap.append(badge); return wrap;
   }));
 }
 
