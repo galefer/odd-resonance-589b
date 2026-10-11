@@ -129,17 +129,38 @@ try {
   await waitFor(`document.querySelector('#validation-title').textContent!=='Checking published house rules'`, 'published validation result');
   await waitFor(`document.querySelector('#saved-label').textContent==='Saved on this device'`, 'saved desktop screenshot state');
 
-  const desktopLayout = await evaluate(`({overflow:document.documentElement.scrollWidth-window.innerWidth,columns:getComputedStyle(document.querySelector('.workspace')).gridTemplateColumns,dialogOpen:document.querySelector('#info-dialog').open})`);
+  const desktopLayout = await evaluate(`({
+    overflow:document.documentElement.scrollWidth-window.innerWidth,
+    columns:getComputedStyle(document.querySelector('.workspace')).gridTemplateColumns,
+    dialogOpen:document.querySelector('#info-dialog').open,
+    inspectorLeft:document.querySelector('.inspector').getBoundingClientRect().left,
+    toolsLeft:document.querySelector('.tools-panel').getBoundingClientRect().left,
+    deckLeft:document.querySelector('.deck-canvas').getBoundingClientRect().left,
+    libraryLeft:document.querySelector('.library-panel').getBoundingClientRect().left,
+    libraryCard:(() => {
+      const card=document.querySelector('.library-card');
+      const button=card.querySelector('button');
+      const image=card.querySelector('img');
+      const c=card.getBoundingClientRect(),b=button.getBoundingClientRect(),i=image.getBoundingClientRect();
+      return {cardHeight:c.height,buttonHeight:b.height,imageWidth:i.width,imageHeight:i.height};
+    })()
+  })`);
   assert(desktopLayout.overflow <= 1, `Desktop horizontal overflow: ${desktopLayout.overflow}`);
+  assert(desktopLayout.inspectorLeft < desktopLayout.deckLeft && desktopLayout.toolsLeft < desktopLayout.deckLeft, 'Inspector and overview should be in the left sidebar');
+  assert(desktopLayout.libraryLeft > desktopLayout.deckLeft, 'Card library should be in the right sidebar');
+  assert(Math.abs(desktopLayout.libraryCard.imageHeight / desktopLayout.libraryCard.imageWidth - 614 / 421) < 0.03, 'Library artwork should keep the card aspect ratio');
+  assert(desktopLayout.libraryCard.cardHeight <= desktopLayout.libraryCard.imageHeight + 1, 'Library grid row should not add vertical space around artwork');
+  assert(desktopLayout.libraryCard.buttonHeight <= desktopLayout.libraryCard.imageHeight + 1, 'Library button should not stretch beyond artwork');
   if (desktopLayout.dialogOpen) await evaluate(`document.querySelector('#info-dialog').close()`);
   await screenshot('deckbuilder-desktop.png');
   evidence.desktop = desktopLayout;
 
-  for (const width of [320, 390, 768, 1024, 1440, 1920]) {
+  for (const width of [320, 390, 768, 1024, 1440, 1920, 2048]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height: width < 768 ? 844 : 900, deviceScaleFactor: 1, mobile: width < 768 });
     await sleep(180);
     const layout = await evaluate(`({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,nav:getComputedStyle(document.querySelector('.mobile-nav')).display,workspace:getComputedStyle(document.querySelector('.workspace')).display})`);
     assert(layout.scrollWidth <= layout.width + 1, `${width}px horizontal overflow: ${layout.scrollWidth-layout.width}`);
+    if (width === 2048) await screenshot('deckbuilder-2048.png');
     evidence.checks.push(`${width}px no horizontal overflow`);
   }
 

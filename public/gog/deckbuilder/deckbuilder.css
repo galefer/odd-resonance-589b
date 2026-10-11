@@ -50,3 +50,36 @@ html{min-width:0;background:var(--bg)}
 }
 @media(max-width:350px){.deck-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.library-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.toolbar-actions .button{padding:0 8px}.brand strong{font-size:13px}}
 @media(prefers-reduced-motion:reduce){.skeleton{animation:none}}
+
+/* Desktop sidebars: inspector/overview on the left, card library on the right. */
+.left-panel .tools-panel{position:static;max-height:none;overflow:visible;border-top:1px solid var(--line)}
+.library-panel{min-width:0}
+.library{border-top:0}
+
+/* Keep every catalogue tile sized by the card ratio instead of the grid row. */
+.library-grid{grid-auto-rows:max-content;align-items:start;align-content:start}
+.library-card{align-self:start;height:auto}
+.library-card>button:first-child{display:block;width:100%;height:auto;aspect-ratio:421/614;overflow:hidden;line-height:0}
+.library-card img{display:block;width:100%;height:100%;aspect-ratio:auto;object-fit:contain}
+
+@media(min-width:1180px){
+ .library-panel{position:sticky;top:16px}
+}
+@media(min-width:1180px) and (min-height:760px){
+ .library-panel{max-height:calc(100dvh - 32px);overflow:auto}
+}
+@media(max-width:1179px) and (min-width:768px){
+ .left-panel{grid-column:1;grid-row:1/span 2}
+ .deck-canvas{grid-column:2;grid-row:1}
+ .library-panel{grid-column:2;grid-row:2}
+}
+@media(max-width:767px){
+ .left-panel,.library-panel{display:none}
+ body[data-panel="library"] .left-panel{display:none}
+ body[data-panel="library"] .library-panel,
+ body[data-panel="card"] .left-panel,
+ body[data-panel="tools"] .left-panel{display:block}
+ body[data-panel="card"] .left-panel .tools-panel{display:none}
+ body[data-panel="tools"] .left-panel .inspector{display:none}
+ body[data-panel="tools"] .left-panel .tools-panel{display:block;border-top:0}
+}
