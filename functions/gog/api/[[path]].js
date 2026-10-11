@@ -802,6 +802,7 @@ function eventValues(body, fallback = {}) {
   const title = String(body.title ?? fallback.title ?? '').trim().slice(0, 120);
   const eventDate = String(body.eventDate ?? fallback.eventDate ?? '').trim();
   const startTime = String(body.startTime ?? fallback.startTime ?? '').trim();
+  const endTime = String(body.endTime ?? fallback.endTime ?? '').trim();
   const location = String(body.location ?? fallback.location ?? 'Guild of Games, Rotherham').trim().slice(0, 180);
   const description = String(body.description ?? fallback.description ?? '').trim().slice(0, 1200);
   const status = String(body.status ?? fallback.status ?? 'scheduled');
@@ -809,27 +810,28 @@ function eventValues(body, fallback = {}) {
   const parsedDate = new Date(`${eventDate}T00:00:00Z`);
   if (!VALID_DATE.test(eventDate) || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== eventDate)
     throw fail(400, 'A valid event date is required.');
-  if (!EVENT_TIME.test(startTime)) throw fail(400, 'Event time must use 24-hour HH:MM format.');
+  if (!EVENT_TIME.test(startTime) || !EVENT_TIME.test(endTime)) throw fail(400, 'Event times must use 24-hour HH:MM format.');
+  if (endTime && (!startTime || endTime <= startTime)) throw fail(400, 'Finish time must be after the start time on the same day.');
   if (!location) throw fail(400, 'Event location is required.');
   if (!EVENT_STATUSES.has(status)) throw fail(400, 'Invalid event status.');
-  return { title, eventDate, startTime, location, description, status };
+  return { title, eventDate, startTime, endTime, location, description, status };
 }
 async function eventSchedule(db) {
   const today = londonToday();
   const [seriesResult, specialResult] = await Promise.all([
-    db.prepare(`SELECT id,slug,title,weekday,start_time AS startTime,location,description,sort_order AS sortOrder
+    db.prepare(`SELECT id,slug,title,weekday,start_time AS startTime,end_time AS endTime,location,description,sort_order AS sortOrder
       FROM recurring_events WHERE active=1 ORDER BY sort_order,id`).all(),
-    db.prepare(`SELECT id,title,event_date AS eventDate,start_time AS startTime,location,description,status
+    db.prepare(`SELECT id,title,event_date AS eventDate,start_time AS startTime,end_time AS endTime,location,description,status
       FROM special_events WHERE event_date>=? ORDER BY event_date,start_time,id`).bind(today).all()
   ]);
   const recurring = await Promise.all(seriesResult.results.map(async (series) => {
     const eventDate = nextWeekday(today, series.weekday);
-    const override = await db.prepare(`SELECT title,start_time AS startTime,location,description,status
+    const override = await db.prepare(`SELECT title,start_time AS startTime,end_time AS endTime,location,description,status
       FROM event_overrides WHERE recurring_event_id=? AND event_date=?`).bind(series.id, eventDate).first();
     return {
       id: `recurring-${series.id}-${eventDate}`, source: 'recurring', seriesId: series.id, slug: series.slug,
       title: override?.title || series.title, eventDate,
-      startTime: override?.startTime ?? series.startTime, location: override?.location || series.location,
+      startTime: override?.startTime ?? series.startTime, endTime: override?.endTime ?? series.endTime, location: override?.location || series.location,
       description: override?.description ?? series.description, status: override?.status || 'scheduled',
       customised: !!override, sortOrder: series.sortOrder
     };
@@ -950,8 +952,8 @@ async function handle(context) {
       const event = eventValues(await inputJson(request));
       const timestamp = nowIso();
       const result = await db.prepare(`INSERT INTO special_events
-        (title,event_date,start_time,location,description,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)`)
-        .bind(event.title,event.eventDate,event.startTime,event.location,event.description,event.status,timestamp,timestamp).run();
+        (title,event_date,start_time,end_time,location,description,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)`)
+        .bind(event.title,event.eventDate,event.startTime,event.endTime,event.location,event.description,event.status,timestamp,timestamp).run();
       return json({ ok: true, eventId: result.meta?.last_row_id || null });
     }
     const recurringEvent = path.match(/^\/admin\/events\/recurring\/(\d+)$/);
@@ -961,15 +963,17 @@ async function handle(context) {
       const body = await inputJson(request);
       const expectedDate = nextWeekday(londonToday(), series.weekday);
       if (String(body.eventDate || '') !== expectedDate) throw fail(409, 'This occurrence has passed. Refresh to edit the next date.');
+      const existing = await db.prepare(`SELECT title,start_time AS startTime,end_time AS endTime,location,description,status
+        FROM event_overrides WHERE recurring_event_id=? AND event_date=?`).bind(series.id, expectedDate).first();
       const event = eventValues(body, { title: series.title, eventDate: expectedDate, startTime: series.start_time,
-        location: series.location, description: series.description, status: 'scheduled' });
+        endTime: series.end_time, location: series.location, description: series.description, status: 'scheduled', ...existing });
       const timestamp = nowIso();
       await db.prepare(`INSERT INTO event_overrides
-        (recurring_event_id,event_date,title,start_time,location,description,status,created_at,updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(recurring_event_id,event_date) DO UPDATE SET
-        title=excluded.title,start_time=excluded.start_time,location=excluded.location,
+        (recurring_event_id,event_date,title,start_time,end_time,location,description,status,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(recurring_event_id,event_date) DO UPDATE SET
+        title=excluded.title,start_time=excluded.start_time,end_time=excluded.end_time,location=excluded.location,
         description=excluded.description,status=excluded.status,updated_at=excluded.updated_at`)
-        .bind(series.id,event.eventDate,event.title,event.startTime,event.location,event.description,event.status,timestamp,timestamp).run();
+        .bind(series.id,event.eventDate,event.title,event.startTime,event.endTime,event.location,event.description,event.status,timestamp,timestamp).run();
       return json({ ok: true });
     }
     const recurringReset = path.match(/^\/admin\/events\/recurring\/(\d+)\/override$/);
@@ -983,7 +987,7 @@ async function handle(context) {
     const specialEvent = path.match(/^\/admin\/events\/(\d+)$/);
     if ((method === 'PATCH' || method === 'DELETE') && specialEvent) {
       const id = Number(specialEvent[1]);
-      const existing = await db.prepare(`SELECT id,title,event_date AS eventDate,start_time AS startTime,location,description,status
+      const existing = await db.prepare(`SELECT id,title,event_date AS eventDate,start_time AS startTime,end_time AS endTime,location,description,status
         FROM special_events WHERE id=?`).bind(id).first();
       if (!existing) throw fail(404, 'One-off event not found.');
       if (method === 'DELETE') {
@@ -991,8 +995,8 @@ async function handle(context) {
         return json({ ok: true });
       }
       const event = eventValues(await inputJson(request), existing);
-      await db.prepare(`UPDATE special_events SET title=?,event_date=?,start_time=?,location=?,description=?,status=?,updated_at=? WHERE id=?`)
-        .bind(event.title,event.eventDate,event.startTime,event.location,event.description,event.status,nowIso(),id).run();
+      await db.prepare(`UPDATE special_events SET title=?,event_date=?,start_time=?,end_time=?,location=?,description=?,status=?,updated_at=? WHERE id=?`)
+        .bind(event.title,event.eventDate,event.startTime,event.endTime,event.location,event.description,event.status,nowIso(),id).run();
       return json({ ok: true });
     }
     if (method === 'GET' && path === '/admin/draft') {

@@ -129,6 +129,20 @@ This additive migration totals existing image records once. Triggers maintain th
 
 Deck validation reuses its current result when only card order or presentation changes, remapping warning positions to the displayed cards. Changes to IDs, copy counts or deck sections still validate on the server. Imports retain their independent server checks, and exports retain their draft warnings. Deck saves remain local to the browser; Undo/Redo advances the save revision so it does not create a false conflict copy.
 
+### Event finish times and the refreshed public pages
+
+For an existing event database, apply `0007_event_end_times.sql` **once**, before deploying the updated function. First check `PRAGMA table_info(recurring_events);` for the `end_time` column; skip this migration if it has already been applied. Fresh databases already include it in `schema.sql` and `seed.sql`.
+
+This repository uses dashboard-managed Pages bindings, so use the verified production database UUID when there is no local Wrangler binding configuration:
+
+```cmd
+npx wrangler d1 execute aec66a35-3c9b-460d-8721-abeea167770a --remote --file=./database/migrations/0007_event_end_times.sql
+```
+
+The migration adds finish times to recurring events, occurrence overrides and one-off events. Thursday Advanced and Friday House default to **17:30–21:00, Europe/London**. Existing cancellations and descriptions are preserved; an explicitly customised start time remains unchanged. Administrators can edit both times for the displayed occurrence or a one-off event. A finish time must follow its start time on the same day; leave both blank for an unannounced one-off schedule.
+
+The event illustrations in `public/gog/assets/` are static Pages assets with source credits in `CREDITS.md`. They do not use the card-image function, D1 or R2. The public-page browser check is `node tests/gog/browser-public-pages.mjs [origin]`; it checks responsive layouts, matching headers, event times, combined filters and card lookup without editing production data.
+
 ## 3. Bind D1 to your existing Cloudflare Pages project
 
 In Cloudflare **Workers & Pages → your Pages project → Settings → Bindings**, add a **D1 database** binding:
@@ -235,7 +249,7 @@ The public **House tweaks** view and every `NEW` badge compare the current publi
 | Symptom | Fix |
 | --- | --- |
 | `/gog/` is 404 | Check the site output root is `public` and `public/gog/index.html` was pushed. |
-| Homepage events fail to load | Apply `database/migrations/0003_events.sql` to the bound production D1 database. |
+| Homepage events fail to load | Inspect the event schema. Apply `0003_events.sql` if tables are absent, then apply `0007_event_end_times.sql` once if `end_time` is absent. |
 | `/gog/house-format/` is 404 | Check `public/gog/house-format/index.html` was pushed. |
 | `/gog/deckbuilder/` opens but the library is unavailable | Apply `0002_deckbuilder_catalogue.sql`, run the generated catalogue import, and verify `SELECT * FROM catalogue_meta;`. |
 | Website opens but reports `GOG_DB` missing | Add D1 Pages binding named exactly `GOG_DB` in Production; redeploy. |

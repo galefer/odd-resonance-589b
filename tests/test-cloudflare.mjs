@@ -24,6 +24,29 @@ upgradeDb.exec(`DELETE FROM image_cache WHERE card_id=1;
   DELETE FROM image_cache_reservations;`);
 assert.equal(upgradeDb.prepare('SELECT size_bytes FROM image_storage_usage').get().size_bytes,25);
 upgradeDb.close();
+// Upgrade real pre-end-time tables without changing event customisations.
+const eventUpgrade = new DatabaseSync(':memory:');
+eventUpgrade.exec(schemaSql.replaceAll(" end_time TEXT NOT NULL DEFAULT '',\n", ''));
+eventUpgrade.exec(`INSERT INTO recurring_events(slug,title,weekday,start_time,created_at,updated_at) VALUES
+  ('yugioh-advanced-thursday','Advanced',4,'','fixture','fixture'),
+  ('yugioh-house-friday','House',5,'','fixture','fixture'),
+  ('other','Other',6,'10:00','fixture','fixture');
+  INSERT INTO event_overrides(recurring_event_id,event_date,title,start_time,status,created_at,updated_at) VALUES
+  (1,'2030-01-03','Cancelled title','','cancelled','fixture','fixture'),
+  (2,'2030-01-04','Custom start','18:00','scheduled','fixture','fixture');
+  INSERT INTO special_events(title,event_date,start_time,created_at,updated_at)
+  VALUES ('One-off','2030-01-05','12:00','fixture','fixture');`);
+eventUpgrade.exec(readFileSync(new URL('../database/migrations/0007_event_end_times.sql', import.meta.url), 'utf8'));
+assert.deepEqual(eventUpgrade.prepare('SELECT start_time,end_time FROM recurring_events WHERE id=1').get(),
+  Object.assign(Object.create(null), {start_time:'17:30',end_time:'21:00'}));
+assert.deepEqual({...eventUpgrade.prepare('SELECT title,status,start_time,end_time FROM event_overrides WHERE recurring_event_id=1').get()},
+  {title:'Cancelled title',status:'cancelled',start_time:'17:30',end_time:'21:00'});
+assert.deepEqual({...eventUpgrade.prepare('SELECT start_time,end_time FROM event_overrides WHERE recurring_event_id=2').get()},
+  {start_time:'18:00',end_time:''});
+assert.equal(eventUpgrade.prepare('SELECT start_time FROM recurring_events WHERE id=3').get().start_time,'10:00');
+assert.equal(eventUpgrade.prepare('SELECT start_time FROM special_events').get().start_time,'12:00');
+eventUpgrade.close();
+
 db.exec(readFileSync(new URL('../database/schema.sql', import.meta.url), 'utf8'));
 db.exec(readFileSync(new URL('../database/seed.sql', import.meta.url), 'utf8'));
 
@@ -154,6 +177,8 @@ assert.equal((await get('/auth/session')).authenticated, true);
 // manageable by the same protected admin session, and past dates disappear.
 const eventAdmin = await get('/admin/events');
 const advancedOccurrence = eventAdmin.events.find(event=>event.slug==='yugioh-advanced-thursday');
+assert(eventAdmin.events.filter(event=>event.source==='recurring').every(event=>event.startTime==='17:30' && event.endTime==='21:00'));
+assert.equal((await req(`/admin/events/recurring/${advancedOccurrence.seriesId}`, 'PATCH', {eventDate:advancedOccurrence.eventDate,endTime:'16:00'})).status,400);
 const cancelledOccurrence = await req(`/admin/events/recurring/${advancedOccurrence.seriesId}`, 'PATCH', {
   title: advancedOccurrence.title, eventDate: advancedOccurrence.eventDate, startTime: '18:30',
   location: advancedOccurrence.location, description: 'Cancelled fixture.', status: 'cancelled'
@@ -162,6 +187,16 @@ assert.equal(cancelledOccurrence.status, 200);
 let publicEvents = await get('/events');
 assert.equal(publicEvents.events.find(event=>event.slug==='yugioh-advanced-thursday').status, 'cancelled');
 assert.equal(publicEvents.events.find(event=>event.slug==='yugioh-advanced-thursday').startTime, '18:30');
+assert.equal(publicEvents.events.find(event=>event.slug==='yugioh-advanced-thursday').endTime, '21:00');
+assert.equal((await req(`/admin/events/recurring/${advancedOccurrence.seriesId}`, 'PATCH', {
+  eventDate:advancedOccurrence.eventDate,endTime:'21:30'
+})).status,200);
+const partialOccurrence = (await get('/events')).events.find(event=>event.slug==='yugioh-advanced-thursday');
+assert.equal(partialOccurrence.status,'cancelled');
+assert.equal(partialOccurrence.startTime,'18:30');
+assert.equal(partialOccurrence.description,'Cancelled fixture.');
+assert.equal(partialOccurrence.endTime,'21:30');
+
 assert.equal((await req(`/admin/events/recurring/${advancedOccurrence.seriesId}/override?date=${advancedOccurrence.eventDate}`, 'DELETE')).status, 200);
 publicEvents = await get('/events');
 assert.equal(publicEvents.events.find(event=>event.slug==='yugioh-advanced-thursday').status, 'scheduled');
@@ -170,10 +205,17 @@ const tomorrow = new Date(`${eventsAtStart.generatedFor}T12:00:00Z`);
 tomorrow.setUTCDate(tomorrow.getUTCDate()+1);
 const tomorrowDate = tomorrow.toISOString().slice(0,10);
 const createdEvent = await req('/admin/events', 'POST', { title:'One-off championship', eventDate:tomorrowDate,
-  startTime:'12:00', location:'Guild of Games, Rotherham', description:'Single date.', status:'scheduled' });
+  startTime:'12:00', endTime:'16:00', location:'Guild of Games, Rotherham', description:'Single date.', status:'scheduled' });
 assert.equal(createdEvent.status, 200);
 const createdEventId = (await createdEvent.json()).eventId;
 assert((await get('/events')).events.some(event=>event.eventId===createdEventId));
+assert.equal((await get('/events')).events.find(event=>event.eventId===createdEventId).endTime,'16:00');
+for (const values of [{endTime:'11:00'}, {endTime:'12:00'}, {endTime:'24:00'}, {endTime:'9pm'}, {startTime:'',endTime:'16:00'}]) {
+  assert.equal((await req(`/admin/events/${createdEventId}`,'PATCH',values)).status,400);
+}
+assert.equal((await req(`/admin/events/${createdEventId}`,'PATCH',{endTime:'17:00'})).status,200);
+assert.equal((await get('/events')).events.find(event=>event.eventId===createdEventId).endTime,'17:00');
+
 assert.equal((await req(`/admin/events/${createdEventId}`, 'PATCH', { title:'Updated championship', eventDate:tomorrowDate,
   startTime:'13:00', location:'Guild of Games, Rotherham', description:'Updated.', status:'cancelled' })).status, 200);
 assert.equal((await get('/events')).events.find(event=>event.eventId===createdEventId).status, 'cancelled');

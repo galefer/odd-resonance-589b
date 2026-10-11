@@ -38,11 +38,11 @@
       <div class="home-shell hero-layout">
         <div class="hero-copy">
           <p class="eyebrow">Guild of Games · Rotherham</p>
-          <h1>Games are better around a table.</h1>
-          <p>Guild of Games is a tabletop game store in Rotherham: a place to meet players, find your next game, and join organised play.</p>
+          <h1>Your next game.<br><span>Your local community.</span></h1>
+          <p>Welcome to Guild of Games, your tabletop game store in Rotherham. Meet other players, discover a new game, and join us for an evening at the table.</p>
           <div class="hero-actions">
-            <a class="home-button primary" href="#upcoming-events">See upcoming events</a>
-            <a class="home-button" href="/gog/house-format/">Explore the house format</a>
+            <a class="home-button primary" href="/gog/house-format/">Explore our house format <span aria-hidden="true">↗</span></a>
+            <a class="home-text-link" href="/gog/deckbuilder/">Build a deck <span aria-hidden="true">→</span></a>
           </div>
         </div>
         <img class="hero-emblem" src="/gog/assets/guild-of-games-logo.png" alt="Guild of Games" width="512" height="483">
@@ -52,8 +52,8 @@
     <section class="events-section" id="upcoming-events" aria-labelledby="events-title">
       <div class="home-shell">
         <div class="section-heading">
-          <div><p class="eyebrow">At the shop</p><h2 id="events-title">Upcoming events</h2></div>
-          <p>The next confirmed dates at Guild of Games. Check here before travelling for schedule changes or cancellations.</p>
+          <div><p class="eyebrow">Make a night of it</p><h2 id="events-title">Upcoming events</h2></div>
+          <p>Your next dates at the shop. Check here before you travel for any changes or cancellations.</p>
         </div>
         <div class="event-grid" id="event-grid" aria-live="polite" aria-busy="true">
           <div class="event-skeleton"></div><div class="event-skeleton"></div>
@@ -64,6 +64,7 @@
     <section class="format-note">
       <div class="home-shell">
         <div>
+          <p class="eyebrow">Our game. Our house rules.</p>
           <h2>Yu-Gi-Oh! JUSH House Format</h2>
           <p>Our Justice Hunters card pool uses an altered banlist based on the official JUSH-era list. The card list clearly marks every Guild of Games change from that baseline.</p>
         </div>
@@ -72,7 +73,7 @@
     </section>
   </main>
 
-  <footer class="home-footer"><div class="home-shell"><span>Guild of Games · Rotherham</span><span>Yu-Gi-Oh! JUSH House Format</span></div></footer>
+  <footer class="home-footer"><div class="home-shell"><span>Guild of Games · Rotherham</span><span>Card artwork via <a href="https://ygoprodeck.com/" target="_blank" rel="noopener noreferrer">YGOPRODeck</a> · © Studio Dice/SHUEISHA, TV TOKYO, KONAMI</span></div></footer>
 
   <dialog id="events-admin-dialog" aria-labelledby="events-admin-title">
     <div class="dialog-header"><h2 id="events-admin-title">Event administration</h2><button class="dialog-close" id="events-admin-close" type="button" aria-label="Close">×</button></div>
@@ -102,6 +103,7 @@
               <label>Event name<input name="title" maxlength="120" required placeholder="e.g. Yu-Gi-Oh! Win-a-Box"></label>
               <label>Date<input name="eventDate" type="date" required></label>
               <label>Start time<input name="startTime" type="time"></label>
+              <label>Finish time<input name="endTime" type="time"></label>
               <label class="wide-field">Location<input name="location" maxlength="180" required value="Guild of Games, Rotherham"></label>
               <label class="wide-field">Details<textarea name="description" maxlength="1200" placeholder="Entry, format, prizes, booking information…"></textarea></label>
               <div class="form-actions"><button class="small-button primary" type="submit">Add event</button></div>

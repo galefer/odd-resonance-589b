@@ -394,6 +394,10 @@ try {
   assert(homeBrand.eventDates.some(text=>text.startsWith('Friday')));
   assert(!homeBrand.events.some(text=>/every thursday|every friday/i.test(text)), 'Public cards should show one upcoming date, not promise a weekly schedule');
   assert(homeBrand.logoLoaded);
+  assert.equal(await evaluate(`document.querySelector('a[href="#upcoming-events"]')`),null);
+  assert.equal(await evaluate(`document.querySelectorAll('#add-event-form input[name=endTime]').length`),1);
+  await waitFor(`[...document.querySelectorAll('.event-artwork')].every(img=>img.complete && img.naturalWidth>0)`, 'event artwork');
+  assert(await evaluate(`[...document.querySelectorAll('.event-card:not(.special) .event-time')].every(e=>e.textContent.includes('5:30pm – 9:00pm'))`));
   assert(homeBrand.overflow <= 1, `Homepage horizontal overflow: ${homeBrand.overflow}`);
   assert.deepEqual(homeBrand.header, deckHeader, 'Homepage and deckbuilder headers should have identical sizing and placement');
   await click('#events-admin-link');
@@ -408,9 +412,10 @@ try {
   const cardListBrand = await evaluate(`({
     brand:document.querySelector('.gog-brand strong').textContent.trim(),
     heading:document.querySelector('#format-name').textContent.trim(),
-    subtitle:document.querySelector('.hero-subtitle').textContent.trim(),
-    note:document.querySelector('.altered-list-note').textContent.trim(),
-    logoLoaded:document.querySelector('.hero-logo').naturalWidth>0,
+    pool:document.querySelector('.pool-note').textContent.trim(),
+    note:document.querySelector('#format-description').textContent.trim(),
+    baselineNote:document.querySelector('.reference-note').textContent.trim(),
+    logoLoaded:document.querySelector('.gog-brand img').naturalWidth>0,
     homePath:new URL(document.querySelector('.gog-primary-nav a[href="/gog/"]').href).pathname,
     deckbuilderPath:new URL(document.querySelector('.gog-primary-nav a[href="/gog/deckbuilder/"]').href).pathname,
     overflow:document.documentElement.scrollWidth-innerWidth,
@@ -419,9 +424,10 @@ try {
   })`);
   assert.equal(cardListBrand.brand, 'Guild of Games');
   assert.equal(cardListBrand.heading, 'Yu-Gi-Oh! JUSH House Format');
-  assert.equal(cardListBrand.subtitle, 'Justice Hunters House Format');
-  assert.match(cardListBrand.note, /altered banlist based on the official JUSH-era list/i);
-  assert(cardListBrand.logoLoaded, 'Guild of Games hero logo should load');
+  assert.match(cardListBrand.pool, /Justice Hunters.*1 August 2025 inclusive/i);
+  assert.match(cardListBrand.note, /altered/i);
+  assert.match(cardListBrand.baselineNote, /fixed JUSH-era banlist.*Not just the latest update/i);
+  assert(cardListBrand.logoLoaded, 'Guild of Games header logo should load');
   assert.equal(cardListBrand.homePath, '/gog/');
   assert.equal(cardListBrand.deckbuilderPath, '/gog/deckbuilder/');
   assert(cardListBrand.overflow <= 1, `Card-list horizontal overflow: ${cardListBrand.overflow}`);

@@ -1,0 +1,152 @@
+/* Public House Format workspace; shared header and administrator styles stay in
+   their existing stylesheets. Match the deckbuilder's sans-serif, dark surfaces. */
+.house-format-page { color-scheme: dark; --shell: min(1320px, calc(100% - 64px)); --line: #34302d; --ink-soft: #beb5af; }
+.house-format-page h1, .house-format-page h2, .house-format-page h3 { font-family: inherit; }
+.house-format-page :is(a, button, input, select):focus-visible { outline: 2px solid #ff9b59; outline-offset: 4px; }
+.house-format-page .hero { background: #101112; border-bottom: 1px solid var(--line); }
+.house-format-page .hero-grid { min-height: 0; grid-template-columns: minmax(0,1.35fr) minmax(330px,.8fr); gap: 72px; padding-block: 44px; }
+.house-format-page .hero-identity { display: block; }
+.house-format-page .hero h1 { max-width: 720px; font-size: clamp(2.1rem, 3.7vw, 3.35rem); font-weight: 760; letter-spacing: -.045em; line-height: 1.12; text-wrap: balance; }
+.house-format-page .eyebrow { color: #ff9b59; font-size: .65rem; letter-spacing: .13em; margin-bottom: 10px; }
+.house-format-page .hero-description { display: block; margin: 18px 0 16px; max-width: 660px; color: var(--ink-soft); font-size: .91rem; line-height: 1.7; }
+.house-format-page .pool-note { max-width: 100%; padding: 7px 10px; margin: 0 0 15px; color: #f1c3a3; border: 1px solid #55402f; background: #201b17; font-size: .69rem; letter-spacing: .01em; font-weight: 650; }
+.house-format-page .version-line { color: var(--ink-soft); font-size: .75rem; gap: 7px; }
+.house-format-page .format-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; margin-top: 22px; }
+.house-format-page .format-actions .button { min-height: 44px; padding: 10px 16px; border-radius: 7px; font-size: .79rem; background: var(--gold); color: #1c1008; box-shadow: none; text-decoration: none; }
+.house-format-page .format-actions .button:hover { background: #ff9b59; transform: none; }
+.house-format-page .list-admin-button { margin: 0; min-height: 44px; padding: 8px 0; color: var(--ink-soft); font-size: .75rem; }
+.house-format-page .format-reference { min-width: 0; padding: 23px; border: 1px solid var(--line); border-radius: 10px; background: #171819; }
+.house-format-page .reference-heading h2 { margin: 0 0 8px; font-size: 1.35rem; letter-spacing: -.025em; font-weight: 750; }
+.house-format-page .reference-heading > p:last-child { margin: 0 0 20px; color: var(--ink-soft); font-size: .76rem; line-height: 1.6; }
+.house-format-page .rule-summary { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+.house-format-page .rule-card { min-height: 66px; padding: 10px; gap: 9px; border-radius: 7px; border-color: var(--line); background: #111314; box-shadow: none; }
+.house-format-page .rule-card:hover { border-color: #ac7652; background: #211c18; }
+.house-format-page .rule-card .rule-number { width: 32px; height: 32px; flex: 0 0 32px; font-size: 1.05rem; border-radius: 5px; }
+.house-format-page .rule-card strong { font-size: .75rem; }
+.house-format-page .rule-card small { display: block; color: var(--ink-soft); font-size: .62rem; }
+.house-format-page .reference-note { display: flex; align-items: flex-start; gap: 8px; margin: 18px 0 0; color: var(--ink-soft); font-size: .69rem; line-height: 1.7; }
+.house-format-page .reference-note .house-change-badge { flex: 0 0 auto; margin-top: 2px; }
+.house-format-page .search-zone { margin: 0; padding-top: 32px; }
+.house-format-page .search-panel { padding: 22px 24px; background: #171819; border-radius: 10px; box-shadow: none; }
+.house-format-page .search-heading-row { margin-bottom: 18px; }
+.house-format-page .search-heading-row h2 { margin-bottom: 6px; font-size: 1.25rem; font-weight: 750; letter-spacing: -.02em; }
+.house-format-page .search-heading-row p:last-child { color: var(--ink-soft); font-size: .81rem; }
+.house-format-page .search-control input { height: 52px; border-color: #51463e; border-radius: 7px; font-size: .89rem; }
+.house-format-page .search-control input::placeholder { color: #a99e96; opacity: 1; }
+.house-format-page .search-icon { color: #ff9b59; }
+.house-format-page .search-suggestions { left: 24px; right: 24px; top: calc(100% - 22px); border-radius: 0 0 8px 8px; }
+.house-format-page .api-state { color: #f6caa6; background: #36261a; }
+.house-format-page .list-section { padding-block: 24px 64px; }
+.house-format-page .list-section > .shell { display: grid; grid-template-columns: 264px minmax(0,1fr); gap: 0 30px; grid-template-rows: auto auto auto auto 1fr; }
+.house-format-page .list-toolbar { grid-column: 1 / -1; margin: 0 0 14px; scroll-margin-top: 95px; }
+.house-format-page .view-tabs { padding: 0; border: 0; border-radius: 0; gap: 24px; background: transparent; }
+.house-format-page .view-tab { min-height: 44px; padding: 8px 0 12px; border-radius: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ink-soft); font-size: .83rem; }
+.house-format-page .view-tab.active { color: var(--ink); border-bottom-color: var(--gold); box-shadow: none; }
+.house-format-page .tab-count { background: #30261f; color: #ffd3b5; }
+.house-format-page .house-change-legend { grid-column: 1 / -1; gap: 10px; margin: 0 0 26px; color: var(--ink-soft); font-size: .73rem; }
+.house-format-page .filters-panel { grid-column: 1; grid-row: 3 / 6; display: grid; grid-template-columns: minmax(0,1fr); align-self: start; position: sticky; top: 95px; max-height: calc(100dvh - 120px); overflow-y: auto; gap: 23px; padding: 20px; border-radius: 9px; background: #141617; }
+.house-format-page .filter-label { font-size: .63rem; letter-spacing: .1em; margin-bottom: 10px; }
+.house-format-page .chip-row { gap: 7px; }
+.house-format-page .filter-chip span { min-height: 36px; padding: 7px 10px; border-radius: 6px; font-size: .72rem; color: #d0c7c0; background: #1c1d1e; border-color: #403a36; }
+.house-format-page .filter-chip input:checked + span { color: #ffd1b1; background: #392419; border-color: #c17646; box-shadow: inset 0 0 0 1px #c17646; }
+.house-format-page .filter-chip input:focus-visible + span { outline: 2px solid #ff9b59; outline-offset: 3px; }
+.house-format-page .filter-footer { gap: 13px; align-items: stretch; flex-direction: column; padding-top: 17px; }
+.house-format-page .sort-control { display: grid; gap: 7px; font-size: .73rem; }
+.house-format-page .sort-control select { width: 100%; min-height: 40px; background: #1c1d1e; border-color: #50443c; font-size: .75rem; }
+.house-format-page #clear-filters { min-height: 36px; font-size: .72rem; text-align: left; }
+.house-format-page .results-header { grid-column: 2; grid-row: 3; margin: 0 0 17px; align-items: center; }
+.house-format-page .results-kicker { color: var(--ink-soft); font-size: .62rem; letter-spacing: .1em; margin-bottom: 5px; }
+.house-format-page .results-header h2 { font-size: 1.35rem; letter-spacing: -.025em; font-weight: 750; }
+.house-format-page .results-count { font-size: .74rem; margin: 0; }
+.house-format-page .active-filters { grid-column: 2; grid-row: 4; margin: 0 0 15px; }
+.house-format-page #results-panel { grid-column: 2; grid-row: 5; min-width: 0; }
+.house-format-page .card-list { gap: 5px; }
+.house-format-page .status-section-heading { margin: 24px 0 7px; gap: 10px; font-size: .63rem; letter-spacing: .09em; }
+.house-format-page .status-section-heading:first-child { margin-top: 0; }
+.house-format-page .card-row { min-height: 66px; grid-template-columns: 34px minmax(0,1fr) 102px 112px 34px; gap: 12px; padding: 10px 12px; border-radius: 7px; border-left-width: 3px; background: #141617; box-shadow: none; transition: background .15s, border-color .15s; }
+.house-format-page .card-row:hover { transform: none; background: #1c1d1e; border-top-color: #6a5141; border-right-color: #6a5141; border-bottom-color: #6a5141; box-shadow: none; }
+.house-format-page .type-emblem { width: 32px; height: 34px; border-radius: 5px; font-family: inherit; font-size: .7rem; box-shadow: none; color: #f8d5b2; background: #493326; }
+.house-format-page .type-emblem.spell { color: #a4e9dc; background: #203f3a; }
+.house-format-page .type-emblem.trap { color: #edb8d8; background: #44293c; }
+.house-format-page .card-name { font-family: inherit; font-size: .84rem; line-height: 1.45; font-weight: 650; }
+.house-format-page .card-note-preview { font-size: .68rem; }
+.house-format-page .card-type-cell, .house-format-page .card-type-cell strong { font-size: .7rem; }
+.house-format-page .card-type-cell strong { font-weight: 650; }
+.house-format-page .card-open { width: 32px; height: 36px; background: transparent; border-color: #453b33; border-radius: 5px; color: #d5b49e; }
+.house-format-page .status-badge { min-height: 26px; font-size: .6rem; border-radius: 4px; padding: 5px 7px; font-weight: 750; letter-spacing: .035em; }
+.house-format-page .status-badge.status-forbidden { color: #ffb5bc; background: #42232b; }
+.house-format-page .status-badge.status-limited { color: #ffcea0; background: #45301e; }
+.house-format-page .status-badge.status-semi_limited { color: #c6d0ff; background: #2c3453; }
+.house-format-page .status-badge.status-unlimited { color: #afe2c5; background: #243e31; }
+.house-format-page .status-cell small { color: #b7aba2; font-size: .62rem; }
+.house-format-page .house-change-badge { background: #ff9b59; box-shadow: none; border: 0; font-size: .55rem; padding: 3px 5px; border-radius: 3px; }
+.house-format-page .about-strip { background: #121211; border-color: var(--line); }
+.house-format-page .about-grid { padding-block: 36px; gap: 48px; }
+.house-format-page .about-grid h2 { font-size: 1.7rem; font-weight: 750; line-height: 1.25; letter-spacing: -.035em; }
+.house-format-page .about-grid > p { font-size: .85rem; color: var(--ink-soft); line-height: 1.8; }
+.house-format-page .site-footer { background: var(--paper); border-color: var(--line); }
+.house-format-page .footer-inner { padding-block: 25px; }
+.house-format-page .footer-inner p, .house-format-page .footer-meta { color: #aaa097; font-size: .7rem; }
+@media (max-width: 1100px) {
+  .house-format-page .hero-grid { gap: 35px; grid-template-columns: minmax(0,1fr) 340px; }
+  .house-format-page .list-section > .shell { grid-template-columns: 235px minmax(0,1fr); gap: 0 20px; }
+  .house-format-page .filters-panel { padding: 16px; }
+  .house-format-page .card-row { grid-template-columns: 32px minmax(0,1fr) 104px 32px; gap: 9px; }
+  .house-format-page .card-type-cell { display: none; }
+}
+@media (max-width: 900px) {
+  .house-format-page { --shell: min(1320px, calc(100% - 40px)); }
+  .house-format-page .hero-grid { grid-template-columns: 1fr; gap: 28px; padding-block: 32px; }
+  .house-format-page .hero h1 { max-width: 640px; }
+  .house-format-page .format-reference { padding: 20px; }
+  .house-format-page .rule-summary { grid-template-columns: repeat(4,minmax(0,1fr)); }
+  .house-format-page .reference-heading { display: none; }
+  .house-format-page .reference-note { margin-top: 14px; }
+  .house-format-page .list-section > .shell { display: block; }
+  .house-format-page .filters-panel { position: static; max-height: none; overflow: visible; grid-template-columns: 1fr 1fr; margin-bottom: 24px; padding: 20px; }
+  .house-format-page .filter-footer { flex-direction: row; align-items: center; }
+  .house-format-page .sort-control { display: flex; }
+  .house-format-page .sort-control select { width: auto; }
+  .house-format-page .card-row { grid-template-columns: 34px minmax(0,1fr) 102px 112px 34px; }
+  .house-format-page .card-type-cell { display: block; }
+}
+@media (max-width: 650px) {
+  .house-format-page { --shell: calc(100% - 32px); }
+  .house-format-page .hero-grid { gap: 24px; padding-block: 28px; }
+  .house-format-page .hero h1 { font-size: clamp(2rem,8.8vw,2.75rem); }
+  .house-format-page .hero-description { font-size: .85rem; }
+  .house-format-page .version-line { font-size: .69rem; }
+  .house-format-page .format-actions { gap: 8px 18px; margin-top: 18px; }
+  .house-format-page .format-reference { padding: 14px; }
+  .house-format-page .rule-summary { gap: 5px; }
+  .house-format-page .rule-card { flex-direction: column; justify-content: center; min-height: 76px; padding: 8px 2px; gap: 7px; text-align: center; }
+  .house-format-page .rule-card strong { font-size: .59rem; }
+  .house-format-page .rule-card small { display: none; }
+  .house-format-page .reference-note { font-size: .68rem; }
+  .house-format-page .search-zone { padding-top: 20px; }
+  .house-format-page .search-panel { padding: 18px 16px; }
+  .house-format-page .search-heading-row h2 { font-size: 1.1rem; }
+  .house-format-page .search-heading-row p:last-child { font-size: .76rem; }
+  .house-format-page .search-control input { font-size: .8rem; padding-left: 44px; }
+  .house-format-page .search-suggestions { left: 16px; right: 16px; top: calc(100% - 18px); }
+  .house-format-page .list-toolbar { gap: 12px; align-items: center; scroll-margin-top: 125px; }
+  .house-format-page .view-tabs { gap: 16px; }
+  .house-format-page .view-tab { flex: initial; font-size: .74rem; }
+  .house-format-page .filter-toggle { min-height: 44px; padding: 8px 10px; font-size: .74rem; }
+  .house-format-page .house-change-legend { margin-bottom: 22px; align-items: flex-start; font-size: .68rem; }
+  .house-format-page .house-change-legend .house-change-badge { flex: 0 0 auto; margin-top: 2px; }
+  .house-format-page .filters-panel { display: none; grid-template-columns: minmax(0,1fr); padding: 16px; }
+  .house-format-page .filters-panel.open { display: grid; }
+  .house-format-page .filter-footer { flex-direction: column; align-items: stretch; }
+  .house-format-page .filter-chip span { min-height: 42px; }
+  .house-format-page .results-header { margin: 0 0 16px; }
+  .house-format-page .results-header h2 { font-size: 1.3rem; }
+  .house-format-page .results-count { margin-top: 5px; }
+  .house-format-page .card-row { grid-template-columns: 32px minmax(0,1fr) 34px; gap: 7px 9px; min-height: 86px; padding: 12px 10px; }
+  .house-format-page .card-name { font-size: .81rem; }
+  .house-format-page .card-type-cell { display: none; }
+  .house-format-page .card-open { grid-column: 3; grid-row: 1; width: 34px; height: 42px; }
+  .house-format-page .status-cell { grid-column: 2 / 4; display: flex; align-items: center; gap: 9px; text-align: left; }
+  .house-format-page .about-grid { display: block; padding-block: 30px; }
+  .house-format-page .about-grid h2 { font-size: 1.5rem; margin-bottom: 18px; }
+}

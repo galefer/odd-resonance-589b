@@ -8,9 +8,10 @@
   <title>Yu-Gi-Oh! JUSH House Format · Guild of Games</title>
   <link rel="icon" href="/gog/assets/guild-of-games-logo.png" type="image/png">
   <link rel="stylesheet" href="/gog/styles.css">
+  <link rel="stylesheet" href="/gog/house-format/house-format.css">
   <link rel="stylesheet" href="/gog/site-header.css">
 </head>
-<body>
+<body class="house-format-page">
   <a class="skip-link" href="#main-content">Skip to card list</a>
 
   <header class="gog-site-header">
@@ -38,16 +39,13 @@
       <div class="shell hero-grid">
         <div class="hero-copy">
           <div class="hero-identity">
-            <img class="hero-logo" src="/gog/assets/guild-of-games-logo.png" alt="Guild of Games" width="512" height="483">
             <div>
               <p class="eyebrow" id="accent-label">Guild of Games</p>
               <h1 id="format-name">Yu-Gi-Oh! JUSH House Format</h1>
-              <p class="hero-subtitle">Justice Hunters House Format</p>
             </div>
           </div>
           <p class="hero-description" id="format-description">A Guild of Games format using the Justice Hunters card pool and an altered Forbidden &amp; Limited List based on the JUSH-era banlist.</p>
-          <p class="altered-list-note"><strong>House rules:</strong> this format uses an altered banlist based on the official JUSH-era list. Cards marked <span class="house-change-badge inline">NEW</span> show every Guild of Games change from that fixed baseline.</p>
-          <div class="pool-note" aria-label="Eligible card pool"><span class="pool-dot" aria-hidden="true"></span> CARD POOL LOCKED · THROUGH JUSTICE HUNTERS (JUSH) · 01 AUG 2025</div>
+          <div class="pool-note" aria-label="Eligible card pool"><span class="pool-dot" aria-hidden="true"></span> Justice Hunters card pool · 1 August 2025 inclusive</div>
           <div class="version-line" aria-label="Current format version">
             <span class="live-dot" aria-hidden="true"></span>
             <span>Current list:</span>
@@ -55,9 +53,11 @@
             <span aria-hidden="true">•</span>
             <span>Effective <time id="effective-date">—</time></span>
           </div>
-          <button class="button gold compact list-admin-button" id="admin-button" type="button">Manage the house list</button>
+          <div class="format-actions"><a class="button gold" href="/gog/deckbuilder/">Open deckbuilder <span aria-hidden="true">↗</span></a><button class="text-button list-admin-button" id="admin-button" type="button">Manage the house list</button></div>
         </div>
 
+        <aside class="format-reference" aria-labelledby="limits-title">
+          <div class="reference-heading"><p class="eyebrow">The format at a glance</p><h2 id="limits-title">Know your limits.</h2><p>Copies are counted across your Main, Extra and Side Deck combined.</p></div>
         <div class="rule-summary" aria-label="Deck-building limits">
           <button class="rule-card forbidden" type="button" data-rule-filter="forbidden">
             <span class="rule-number">0</span>
@@ -76,6 +76,8 @@
             <span><strong>Unlimited</strong><small>if not listed</small></span>
           </button>
         </div>
+          <p class="reference-note"><span class="house-change-badge">NEW</span> Every house change from the fixed JUSH-era banlist. Not just the latest update.</p>
+        </aside>
       </div>
     </section>
 
@@ -84,9 +86,8 @@
         <div class="search-panel">
           <div class="search-heading-row">
             <div>
-              <p class="eyebrow dark">Card status checker</p>
-              <h2 id="search-heading">Find any card instantly</h2>
-              <p>Search cards released in the TCG through Justice Hunters (JUSH), 1 August 2025. Unlisted eligible cards are Unlimited.</p>
+              <h2 id="search-heading">Check a card. Build with confidence.</h2>
+              <p>Search the eligible card pool. Cards absent from the restricted list are Unlimited (3 copies).</p>
             </div>
             <div class="api-state" id="api-state" hidden>
               <span class="status-dot"></span>
@@ -118,13 +119,13 @@
           </div>
 
           <button class="button filter-toggle" id="filter-toggle" type="button" aria-expanded="false" aria-controls="filters-panel">
-            <span aria-hidden="true">☰</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/></svg>
             Filters
             <span class="filter-count" id="filter-count" hidden>0</span>
           </button>
         </div>
 
-        <p class="house-change-legend"><span class="house-change-badge">NEW</span><span>Different from the official JUSH banlist. This marker remains until the card matches the official baseline again.</span></p>
+        <p class="house-change-legend"><span class="house-change-badge">NEW</span><span>House tweaks compared with the fixed JUSH-era baseline. A card stays marked until its restriction matches again.</span></p>
 
         <div class="filters-panel" id="filters-panel">
           <div class="filter-group">

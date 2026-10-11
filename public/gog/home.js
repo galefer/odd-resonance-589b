@@ -39,18 +39,34 @@ function displayTime(value) {
   return `${hour % 12 || 12}:${String(minute).padStart(2, '0')}${suffix}`;
 }
 
+const eventArtwork = {
+  'yugioh-advanced-thursday': { image: 'blue-eyes-art.jpg', label: 'Advanced Format', theme: 'advanced' },
+  'yugioh-house-friday': { image: 'dracotail-art.jpg', label: 'JUSH House Format', theme: 'house' }
+};
+const eventIcon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${name === 'clock'
+  ? '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+  : '<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>'}</svg>`;
+
 function eventCard(event) {
   const badge = dateBadge(event.eventDate);
   const cancelled = event.status === 'cancelled';
-  return `<article class="event-card ${event.source === 'special' ? 'special' : ''} ${cancelled ? 'cancelled' : ''}">
-    <div class="event-date"><span>${escapeHtml(badge.month)}</span><strong>${escapeHtml(badge.day)}</strong></div>
-    <div>
+  const artwork = eventArtwork[event.slug];
+  const time = displayTime(event.startTime) + (event.endTime ? ` – ${displayTime(event.endTime)}` : '');
+  return `<article class="event-card ${artwork?.theme || 'special'} ${cancelled ? 'cancelled' : ''}">
+    <div class="event-visual">
+      ${artwork ? `<img class="event-artwork" src="/gog/assets/${artwork.image}" alt="" width="624" height="624" loading="lazy" decoding="async">`
+        : '<img class="event-artwork store-artwork" src="/gog/assets/guild-of-games-logo.png" alt="" width="512" height="483" loading="lazy" decoding="async">'}
+      <span class="event-format">${artwork?.label || 'At Guild of Games'}</span>
+      <div class="event-date" aria-hidden="true"><span>${escapeHtml(badge.month)}</span><strong>${escapeHtml(badge.day)}</strong></div>
       ${cancelled ? '<p class="event-status">Cancelled</p>' : ''}
-      <p class="event-type">${event.source === 'special' ? 'Special event' : 'Next event'}</p>
+    </div>
+    <div class="event-body">
+      <p class="event-type">${event.source === 'special' ? 'One-off event' : 'Next at the shop'}</p>
       <h3>${escapeHtml(event.title)}</h3>
-      <p class="event-full-date">${escapeHtml(displayDate(event.eventDate))}</p>
-      <p class="event-meta"><span>${escapeHtml(displayTime(event.startTime))}</span><span>${escapeHtml(event.location)}</span></p>
+      <p class="event-full-date"><time datetime="${escapeHtml(event.eventDate)}">${escapeHtml(displayDate(event.eventDate))}</time></p>
+      <div class="event-meta"><p class="event-time">${eventIcon('clock')}<span>${escapeHtml(time)}</span></p><p>${eventIcon('location')}<span>${escapeHtml(event.location)}</span></p></div>
       ${event.description ? `<p class="event-description">${escapeHtml(event.description)}</p>` : ''}
+      ${artwork?.theme === 'house' ? '<a class="event-link" href="/gog/house-format/">Explore the house rules <span aria-hidden="true">→</span></a>' : ''}
     </div>
   </article>`;
 }
@@ -87,6 +103,7 @@ function eventForm(event, recurring) {
       <input type="hidden" name="eventDate" value="${escapeHtml(event.eventDate)}">
       <label>Event name<input name="title" maxlength="120" required value="${escapeHtml(event.title)}"></label>
       <label>Start time<input name="startTime" type="time" value="${escapeHtml(event.startTime || '')}"></label>
+      <label>Finish time<input name="endTime" type="time" value="${escapeHtml(event.endTime || '')}"></label>
       <label>Status<select name="status"><option value="scheduled" ${event.status === 'scheduled' ? 'selected' : ''}>Scheduled</option><option value="cancelled" ${event.status === 'cancelled' ? 'selected' : ''}>Cancelled</option></select></label>
       <label class="wide-field">Location<input name="location" maxlength="180" required value="${escapeHtml(event.location)}"></label>
       <label class="wide-field">Details<textarea name="description" maxlength="1200">${escapeHtml(event.description || '')}</textarea></label>
