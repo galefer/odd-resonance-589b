@@ -83,6 +83,15 @@ const validCardId = (value) => Number.isSafeInteger(Number(value)) && Number(val
 function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), { status, headers: { ...HEADERS, 'Content-Type': 'application/json; charset=utf-8', ...extra } });
 }
+function isD1DailyReadLimit(error) {
+  const message = String(error?.message || error || '');
+  return /D1_ERROR:/i.test(message) && /free tier daily row read limit|code\s*7500/i.test(message);
+}
+function secondsUntilNextUtcDay() {
+  const now = new Date();
+  const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  return Math.max(1, Math.ceil((next - now.getTime()) / 1000));
+}
 function sessionCookie(token, remove = false) {
   return `gog_session=${remove ? '' : token}; Path=/gog/; Secure; HttpOnly; SameSite=Strict; Max-Age=${remove ? 0 : SESSION_SECONDS}`;
 }
@@ -1066,6 +1075,9 @@ export async function onRequest(context) {
   try { return await handle(context); }
   catch (error) {
     if (!error.status) console.error('GOG API failure:', error);
+    if (isD1DailyReadLimit(error)) return json({
+      error: 'Card and format data are temporarily unavailable because the daily database allowance has been reached. Service resumes automatically at midnight UTC.'
+    }, 503, { 'Retry-After': String(secondsUntilNextUtcDay()) });
     return json({ error: error.status ? error.message : 'Internal server error. Check Cloudflare Pages Function logs.' }, error.status || 500);
   }
 }
