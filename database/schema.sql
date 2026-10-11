@@ -73,3 +73,10 @@ CREATE TABLE IF NOT EXISTS image_cache (
  size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
  cached_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS r2_operation_usage (
+ usage_month TEXT PRIMARY KEY,
+ class_a_operations INTEGER NOT NULL DEFAULT 0 CHECK(class_a_operations >= 0),
+ class_b_operations INTEGER NOT NULL DEFAULT 0 CHECK(class_b_operations >= 0),
+ updated_at TEXT NOT NULL,
+ CHECK(length(usage_month) = 7)
+);

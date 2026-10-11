@@ -222,9 +222,10 @@ assert.equal(imgOutside.headers.get('content-type'),'image/svg+xml');
 // With R2 bound, the first eligible request populates the private cache and later
 // requests are served from it without another artwork-host request.
 const imageObjects = new Map();
+let imageReads = 0;
 let imageFetches = 0;
 contextBase.env.GOG_IMAGES = {
-  async get(key) { const body = imageObjects.get(key); return body ? { body } : null; },
+  async get(key) { imageReads += 1; const body = imageObjects.get(key); return body ? { body } : null; },
   async put(key, value) { imageObjects.set(key, value); },
   async delete(key) { imageObjects.delete(key); }
 };
@@ -241,6 +242,9 @@ const cachedImage = await req('/cards/1111/image');
 assert.equal(cachedImage.headers.get('content-type'),'image/jpeg');
 assert.equal(cachedImage.headers.get('x-gog-image-cache'),'hit');
 assert.equal(imageFetches,1);
+let operationUsage = db.prepare('SELECT class_a_operations,class_b_operations FROM r2_operation_usage').get();
+assert.equal(operationUsage.class_a_operations,1);
+assert.equal(operationUsage.class_b_operations,2);
 
 // The cache never writes beyond 5 GB; artwork still renders when storage is full.
 imageObjects.clear();
@@ -251,6 +255,51 @@ assert.equal(cappedImage.headers.get('content-type'),'image/jpeg');
 assert.equal(cappedImage.headers.get('x-gog-image-cache'),'bypass-limit');
 assert.equal(imageObjects.size,0);
 assert.equal(imageFetches,2);
+
+// R2 operations stop at conservative monthly ceilings, leaving 90% of each
+// Cloudflare allowance available for billing-cycle overlap and maintenance.
+const usageMonth = new Date().toISOString().slice(0,7);
+db.prepare('DELETE FROM image_cache').run();
+db.prepare('UPDATE r2_operation_usage SET class_a_operations=100000,class_b_operations=3 WHERE usage_month=?').run(usageMonth);
+const classACappedImage = await req('/cards/1111/image');
+assert.equal(classACappedImage.headers.get('content-type'),'image/jpeg');
+assert.equal(classACappedImage.headers.get('x-gog-image-cache'),'bypass-operation-limit');
+assert.equal(imageObjects.size,0);
+assert.equal(imageFetches,3);
+operationUsage = db.prepare('SELECT class_a_operations,class_b_operations FROM r2_operation_usage WHERE usage_month=?').get(usageMonth);
+assert.equal(operationUsage.class_a_operations,100000);
+assert.equal(operationUsage.class_b_operations,4);
+
+db.prepare('UPDATE r2_operation_usage SET class_b_operations=1000000 WHERE usage_month=?').run(usageMonth);
+const readsBeforeCap = imageReads;
+const fetchesBeforeCap = imageFetches;
+const classBCappedImage = await req('/cards/1111/image');
+assert.equal(classBCappedImage.headers.get('content-type'),'image/svg+xml');
+assert.equal(classBCappedImage.headers.get('x-gog-image-cache'),'operation-limit');
+assert.equal(imageReads,readsBeforeCap);
+assert.equal(imageFetches,fetchesBeforeCap);
+
+// Cloudflare's edge cache is checked before D1 and R2. A second request at the
+// same edge therefore consumes no R2 operation at all.
+db.prepare('DELETE FROM image_cache').run();
+db.prepare('UPDATE r2_operation_usage SET class_a_operations=0,class_b_operations=0 WHERE usage_month=?').run(usageMonth);
+imageObjects.clear();
+const originalCaches = globalThis.caches;
+const edgeObjects = new Map();
+globalThis.caches = { default: {
+  async match(key) { return edgeObjects.get(key.url)?.clone() || null; },
+  async put(key, value) { edgeObjects.set(key.url, value.clone()); }
+} };
+const readsBeforeEdge = imageReads;
+const edgeStoredImage = await req('/cards/1111/image');
+assert.equal(edgeStoredImage.headers.get('x-gog-image-cache'),'stored');
+imageObjects.clear();
+const edgeCachedImage = await req('/cards/1111/image');
+assert.equal(edgeCachedImage.headers.get('content-type'),'image/jpeg');
+assert.equal(edgeCachedImage.headers.get('x-gog-image-cache'),'edge');
+assert.equal(imageReads,readsBeforeEdge+1);
+if (originalCaches === undefined) delete globalThis.caches;
+else globalThis.caches = originalCaches;
 globalThis.fetch = catalogueFetch;
 delete contextBase.env.GOG_IMAGES;
 
@@ -271,5 +320,5 @@ const changePassword = await req('/admin/password','POST',{currentVerifier:setup
 assert.equal(changePassword.status,200);
 assert.equal((await get('/auth/password-salt?email=admin%40example.com')).salt,newSalt);
 assert(fetchCount>0);
-console.log(`Passed: 207-card foundation, persistent baseline markers, JUSH cutoff, spoofing resistance, PBKDF2/HMAC browser auth, CSRF, drafts, publication, restore, and R2 image caching (${fetchCount} simulated upstream requests).`);
+console.log(`Passed: 207-card foundation, persistent baseline markers, JUSH cutoff, spoofing resistance, PBKDF2/HMAC browser auth, CSRF, drafts, publication, restore, edge caching, and R2 storage/operation caps (${fetchCount} simulated upstream requests).`);
 globalThis.fetch = fetchOriginal;

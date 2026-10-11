@@ -10,6 +10,11 @@ const LOGIN_WINDOW = 15 * 60 * 1000;
 // Leave a wide margin below R2's 10 GB monthly free storage allowance.
 const IMAGE_CACHE_LIMIT_BYTES = 5_000_000_000;
 const IMAGE_MAX_BYTES = 300_000;
+// Use only 10% of R2's monthly free operation allowances. Calendar-month
+// counters preserve ample headroom even when Cloudflare's billing cycle differs.
+const R2_CLASS_A_MONTHLY_LIMIT = 100_000;
+const R2_CLASS_B_MONTHLY_LIMIT = 1_000_000;
+const IMAGE_CACHE_SECONDS = 30 * 24 * 60 * 60;
 const loginEncoder = new TextEncoder();
 const HEADERS = {
   'Cache-Control': 'no-store',
@@ -284,15 +289,71 @@ async function statusesFor(db, cards) {
       isHouseChange: status !== baselineStatus };
   });
 }
+async function reserveR2Operation(db, operationClass) {
+  const classA = operationClass === 'A';
+  const column = classA ? 'class_a_operations' : 'class_b_operations';
+  const limit = classA ? R2_CLASS_A_MONTHLY_LIMIT : R2_CLASS_B_MONTHLY_LIMIT;
+  const initialA = classA ? 1 : 0;
+  const initialB = classA ? 0 : 1;
+  const month = nowIso().slice(0, 7);
+  try {
+    const row = await db.prepare(`INSERT INTO r2_operation_usage
+      (usage_month,class_a_operations,class_b_operations,updated_at)
+      VALUES (?,?,?,?)
+      ON CONFLICT(usage_month) DO UPDATE SET ${column}=${column}+1,updated_at=excluded.updated_at
+      WHERE ${column} < ?
+      RETURNING ${column} AS used`)
+      .bind(month, initialA, initialB, nowIso(), limit).first();
+    return !!row;
+  } catch {
+    // If usage cannot be accounted for, fail closed and avoid the R2 operation.
+    return false;
+  }
+}
+function cardImageResponse(body, cacheState) {
+  return new Response(body, { headers: {
+    'Content-Type': 'image/jpeg',
+    'Cache-Control': `public, max-age=${IMAGE_CACHE_SECONDS}`,
+    'X-Content-Type-Options': 'nosniff',
+    'X-GOG-Image-Cache': cacheState
+  } });
+}
+async function edgeImageMatch(request) {
+  const cache = globalThis.caches?.default;
+  if (!cache) return null;
+  try {
+    const url = new URL(request.url);
+    url.search = '';
+    const response = await cache.match(new Request(url.toString(), { method: 'GET' }));
+    if (!response) return null;
+    const headers = new Headers(response.headers);
+    headers.set('X-GOG-Image-Cache', 'edge');
+    return new Response(response.body, { status: response.status, headers });
+  } catch { return null; }
+}
+async function storeEdgeImage(request, response) {
+  const cache = globalThis.caches?.default;
+  if (!cache) return;
+  try {
+    const url = new URL(request.url);
+    url.search = '';
+    await cache.put(new Request(url.toString(), { method: 'GET' }), response.clone());
+  } catch { /* R2 and browser caching still work if edge caching is unavailable. */ }
+}
 async function imageFor(context, id) {
   const db = context.env.GOG_DB;
   const validId = Number(id);
   if (!Number.isSafeInteger(validId) || validId <= 0) return placeholderImage();
+  const edgeHit = await edgeImageMatch(context.request);
+  if (edgeHit) return edgeHit;
   // Image requests for unknown / post-cutoff IDs never reach the image host.
   const cached = await db.prepare('SELECT card_id FROM cards_cache WHERE card_id=?').bind(validId).first();
   if (!cached || !context.env.GOG_IMAGES) return placeholderImage();
   const key = `cards-small/${validId}.jpg`;
-  let object = await context.env.GOG_IMAGES.get(key);
+  if (!await reserveR2Operation(db, 'B')) return placeholderImage('operation-limit');
+  let object;
+  try { object = await context.env.GOG_IMAGES.get(key); }
+  catch { return placeholderImage(); }
   if (!object) {
     try {
       const response = await fetch(`https://images.ygoprodeck.com/images/cards_small/${validId}.jpg`, { signal: AbortSignal.timeout(9000) });
@@ -305,28 +366,36 @@ async function imageFor(context, id) {
         await db.prepare('DELETE FROM image_cache WHERE card_id=?').bind(validId).run();
         const usage = await db.prepare('SELECT COALESCE(SUM(size_bytes),0) AS bytes FROM image_cache').first();
         if (Number(usage?.bytes || 0) + bytes.byteLength <= IMAGE_CACHE_LIMIT_BYTES) {
-          await context.env.GOG_IMAGES.put(key, bytes, { httpMetadata: { contentType: 'image/jpeg' } });
-          try {
-            await db.prepare(`INSERT INTO image_cache(card_id,size_bytes,cached_at)
-              VALUES (?,?,?) ON CONFLICT(card_id) DO UPDATE SET size_bytes=excluded.size_bytes,cached_at=excluded.cached_at`)
-              .bind(validId, bytes.byteLength, nowIso()).run();
-            cacheState = 'stored';
-          } catch (error) {
-            await context.env.GOG_IMAGES.delete(key);
-            throw error;
+          if (await reserveR2Operation(db, 'A')) {
+            await context.env.GOG_IMAGES.put(key, bytes, { httpMetadata: { contentType: 'image/jpeg' } });
+            try {
+              await db.prepare(`INSERT INTO image_cache(card_id,size_bytes,cached_at)
+                VALUES (?,?,?) ON CONFLICT(card_id) DO UPDATE SET size_bytes=excluded.size_bytes,cached_at=excluded.cached_at`)
+                .bind(validId, bytes.byteLength, nowIso()).run();
+              cacheState = 'stored';
+            } catch (error) {
+              await context.env.GOG_IMAGES.delete(key);
+              throw error;
+            }
+          } else {
+            cacheState = 'bypass-operation-limit';
           }
         }
       } catch { cacheState = 'bypass-error'; }
-      return new Response(bytes, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=2592000',
-        'X-Content-Type-Options': 'nosniff', 'X-GOG-Image-Cache': cacheState } });
+      const result = cardImageResponse(bytes, cacheState);
+      await storeEdgeImage(context.request, result);
+      return result;
     } catch { return placeholderImage(); }
   }
-  return new Response(object.body, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=2592000',
-    'X-Content-Type-Options': 'nosniff', 'X-GOG-Image-Cache': 'hit' } });
+  const result = cardImageResponse(object.body, 'hit');
+  await storeEdgeImage(context.request, result);
+  return result;
 }
-function placeholderImage() {
+function placeholderImage(cacheState = null) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 421 614"><rect width="421" height="614" fill="#182033"/><rect x="20" y="20" width="381" height="574" rx="16" fill="#222d45" stroke="#c8a85b" stroke-width="4"/><circle cx="210" cy="280" r="82" fill="none" stroke="#c8a85b" stroke-width="8" opacity=".75"/><path d="M210 192l24 64 68 4-53 43 17 66-56-37-56 37 17-66-53-43 68-4z" fill="#c8a85b" opacity=".7"/><text x="210" y="430" text-anchor="middle" font-family="system-ui" font-size="22" fill="#f3ead2">CARD IMAGE</text></svg>`;
-  return new Response(svg, { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' } });
+  const headers = { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' };
+  if (cacheState) headers['X-GOG-Image-Cache'] = cacheState;
+  return new Response(svg, { headers });
 }
 async function applyEntry(db, versionId, card, status, note) {
   const key = normalise(card.name);

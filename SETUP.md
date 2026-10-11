@@ -113,7 +113,9 @@ Authentication deliberately uses PBKDF2-HMAC-SHA256 in the browser plus a server
 
 YGOPRODeck asks users **not to repeatedly hotlink card images**. The website uses a same-origin image endpoint, which fetches and stores a card image in your own Cloudflare R2 bucket on first request. Later requests use your own saved copy.
 
-The application enforces a **5 GB image-cache ceiling** in D1. When that ceiling is reached, it serves newly requested artwork without storing another R2 object. This leaves a substantial margin below R2's 10 GB free storage allowance; Cloudflare operation limits are separate from stored bytes.
+The application enforces a **5 GB image-cache ceiling** in D1. When that ceiling is reached, it serves newly requested artwork without storing another R2 object. It also checks Cloudflare's edge cache before R2 and keeps a D1 usage ledger with conservative calendar-month ceilings of **100,000 Class A** and **1,000,000 Class B** operations. These are 10% of R2's included monthly allowances, leaving room for billing-cycle overlap, maintenance commands and other account activity. At the Class A ceiling, uncached artwork can still be fetched and edge-cached without an R2 write. At the Class B ceiling, the endpoint returns placeholder artwork instead of reading R2.
+
+The counters cover operations made by this application. Check the R2 dashboard for account-wide usage from Wrangler, the dashboard or any other bucket.
 
 1. In Cloudflare **R2 Object Storage**, create a private bucket named `gog-card-images`.
 2. In your Pages project's **Settings → Bindings**, add an **R2 bucket** binding:
