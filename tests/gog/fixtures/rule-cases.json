@@ -1,0 +1,239 @@
+{
+  "synthetic": true,
+  "cutoff": "2025-08-01",
+  "publishedVersion": "fixture-published-3",
+  "draftVersion": "fixture-draft-4",
+  "cards": [
+    {
+      "id": 1001,
+      "name": "Fixture Main Effect",
+      "rawType": "Effect Monster",
+      "firstTcgRelease": "2024-01-01",
+      "placement": "main",
+      "copyKey": "1001"
+    },
+    {
+      "id": 1002,
+      "name": "Fixture JUSH Spell",
+      "rawType": "Spell Card",
+      "firstTcgRelease": "2025-08-01",
+      "placement": "main",
+      "copyKey": "1002"
+    },
+    {
+      "id": 1003,
+      "name": "Fixture New Card",
+      "rawType": "Effect Monster",
+      "firstTcgRelease": "2025-08-02",
+      "placement": "main",
+      "copyKey": "1003"
+    },
+    {
+      "id": 1004,
+      "name": "Fixture Fusion Pendulum",
+      "rawType": "Pendulum Effect Fusion Monster",
+      "firstTcgRelease": "2020-01-01",
+      "placement": "extra",
+      "copyKey": "1004"
+    },
+    {
+      "id": 1005,
+      "name": "Fixture Ordinary Pendulum",
+      "rawType": "Pendulum Effect Monster",
+      "firstTcgRelease": "2020-01-01",
+      "placement": "main",
+      "copyKey": "1005"
+    },
+    {
+      "id": 1006,
+      "name": "Fixture Unknown Release",
+      "rawType": "Effect Monster",
+      "firstTcgRelease": null,
+      "placement": "main",
+      "copyKey": "1006"
+    },
+    {
+      "id": 1007,
+      "name": "Fixture Same-Name A",
+      "rawType": "Effect Monster",
+      "firstTcgRelease": "2020-01-01",
+      "placement": "main",
+      "copyKey": "fixture-always-treated-name"
+    },
+    {
+      "id": 1008,
+      "name": "Fixture Same-Name B",
+      "rawType": "Effect Monster",
+      "firstTcgRelease": "2020-01-01",
+      "placement": "main",
+      "copyKey": "fixture-always-treated-name"
+    },
+    {
+      "id": 1009,
+      "name": "Fixture Token",
+      "rawType": "Token",
+      "firstTcgRelease": "2020-01-01",
+      "placement": null,
+      "copyKey": "1009"
+    },
+    {
+      "id": 1010,
+      "name": "Fixture Old Card Later Reprint",
+      "rawType": "Trap Card",
+      "firstTcgRelease": "2005-04-01",
+      "latestReprint": "2026-09-01",
+      "placement": "main",
+      "copyKey": "1010"
+    },
+    {
+      "id": 1011,
+      "name": "Fixture OCG Earlier",
+      "rawType": "Effect Monster",
+      "firstOcgRelease": "2025-01-01",
+      "firstTcgRelease": "2025-09-01",
+      "placement": "main",
+      "copyKey": "1011"
+    }
+  ],
+  "artAliases": {
+    "9001001": 1001
+  },
+  "publishedRestrictions": {
+    "1001": "limited",
+    "1002": "semi_limited",
+    "1005": "forbidden"
+  },
+  "draftRestrictions": {
+    "1001": "unlimited"
+  },
+  "cases": [
+    {
+      "name": "combined limited count",
+      "main": [
+        1001
+      ],
+      "extra": [],
+      "side": [
+        1001
+      ],
+      "expectIssue": "too_many_copies"
+    },
+    {
+      "name": "art alias shares limit",
+      "main": [
+        1001,
+        9001001
+      ],
+      "extra": [],
+      "side": [],
+      "expectIssue": "too_many_copies"
+    },
+    {
+      "name": "unpublished relaxation ignored",
+      "main": [
+        1001,
+        1001
+      ],
+      "extra": [],
+      "side": [],
+      "expectIssue": "too_many_copies"
+    },
+    {
+      "name": "post-cutoff kept invalid in repair",
+      "main": [
+        1003
+      ],
+      "extra": [],
+      "side": [],
+      "expectIssue": "outside_pool",
+      "retainAllImported": true
+    },
+    {
+      "name": "hybrid belongs Extra",
+      "main": [],
+      "extra": [
+        1004
+      ],
+      "side": [],
+      "expectNoIssue": "wrong_section"
+    },
+    {
+      "name": "hybrid does not belong Main",
+      "main": [
+        1004
+      ],
+      "extra": [],
+      "side": [],
+      "expectIssue": "wrong_section"
+    },
+    {
+      "name": "ordinary pendulum forbidden",
+      "main": [
+        1005
+      ],
+      "extra": [],
+      "side": [],
+      "expectIssue": "forbidden"
+    },
+    {
+      "name": "unknown release unverified",
+      "main": [
+        1006
+      ],
+      "extra": [],
+      "side": [],
+      "expectIssue": "metadata_unavailable"
+    },
+    {
+      "name": "same-name combined cap",
+      "main": [
+        1007,
+        1007,
+        1008
+      ],
+      "extra": [],
+      "side": [
+        1008
+      ],
+      "expectIssue": "too_many_copies"
+    },
+    {
+      "name": "token excluded",
+      "main": [
+        1009
+      ],
+      "extra": [],
+      "side": [],
+      "expectIssue": "non_playable"
+    },
+    {
+      "name": "later reprint remains eligible",
+      "main": [
+        1010
+      ],
+      "extra": [],
+      "side": [],
+      "expectNoIssue": "outside_pool"
+    },
+    {
+      "name": "ocg date does not qualify tcg",
+      "main": [
+        1011
+      ],
+      "extra": [],
+      "side": [],
+      "expectIssue": "outside_pool"
+    },
+    {
+      "name": "unknown numeric id preserved",
+      "main": [
+        4000000000
+      ],
+      "extra": [],
+      "side": [],
+      "expectIssue": "unknown_id",
+      "retainAllImported": true
+    }
+  ],
+  "notes": "All small main decks also have deck_size warnings; each case asserts a targeted issue, not overall legal status."
+}

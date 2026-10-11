@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#141923">
+  <meta name="description" content="Build, validate, save and export decks for the GRAVETALE JUSH house format.">
+  <title>JUSH House Format Deckbuilder</title>
+  <link rel="icon" href="/assets/images/favicon.png" type="image/png">
+  <link rel="stylesheet" href="/gog/deckbuilder/deckbuilder.css">
+</head>
+<body data-panel="deck">
+  <a class="skip-link" href="#workspace">Skip to deckbuilder</a>
+  <header class="global-header">
+    <a class="brand" href="/gog/" aria-label="JUSH house format card list">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M32 4 55 17v30L32 60 9 47V17Z"/><path d="M32 13 47 22v20L32 51 17 42V22Z"/><path d="m32 19 4 9 10 1-8 7 3 10-9-5-9 5 3-10-8-7 10-1Z"/></svg></span>
+      <span><strong>JUSH <em>FORMAT</em></strong><small>THE HOUSE RULES. YOUR DECK.</small></span>
+    </a>
+    <nav class="site-nav" aria-label="House format">
+      <a href="/gog/">Card list</a>
+      <a class="active" aria-current="page" href="/gog/deckbuilder/">Deckbuilder</a>
+      <a href="/gog/#format-rules">Format rules</a>
+    </nav>
+    <a class="back-list" href="/gog/">Card list ↗</a>
+    <div class="pool-chip"><span aria-hidden="true">◆</span> JUSH card pool <b>01 AUG 2025</b></div>
+  </header>
+
+  <section class="deck-toolbar" aria-label="Deck controls">
+    <div class="deck-identity">
+      <button id="deck-menu-button" class="deck-title-button" type="button" aria-haspopup="menu" aria-expanded="false">
+        <span id="deck-name">Untitled deck</span><span aria-hidden="true">⌄</span>
+      </button>
+      <div class="save-line"><span id="save-dot"></span><span id="saved-label" role="status">Opening local decks…</span></div>
+      <div id="deck-menu" class="floating-menu deck-menu" role="menu" hidden>
+        <div class="menu-heading"><b>Your decks</b><span>Saved on this device</span></div>
+        <div id="deck-menu-list" class="deck-menu-list"></div>
+        <hr>
+        <button id="new-deck" type="button" role="menuitem">＋ New deck</button>
+        <button id="duplicate-deck" type="button" role="menuitem">⧉ Duplicate current</button>
+        <button id="rename-deck" type="button" role="menuitem">✎ Rename current</button>
+        <button id="delete-deck" class="danger" type="button" role="menuitem">Delete current</button>
+      </div>
+    </div>
+    <div class="toolbar-actions">
+      <button id="undo" class="icon-button" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled>↶</button>
+      <button id="redo" class="icon-button" type="button" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled>↷</button>
+      <span class="toolbar-divider" aria-hidden="true"></span>
+      <button id="import-button" class="button" type="button">↥ Import</button>
+      <button id="export-button" class="button primary" type="button" aria-haspopup="menu" aria-expanded="false">↧ Export deck <span aria-hidden="true">⌄</span></button>
+    </div>
+  </section>
+
+  <main id="workspace" class="workspace">
+    <aside class="left-panel panel" data-workspace-panel="library">
+      <section class="inspector" data-workspace-panel="card">
+        <div class="panel-heading"><h2>Card inspector</h2><span id="selection-label">NOTHING SELECTED</span></div>
+        <div class="inspector-image-wrap"><img id="large-card" src="/gog/deckbuilder/card-back.svg" alt="No card selected" width="421" height="614"><button id="zoom" type="button" aria-label="Open larger artwork" disabled>↗</button></div>
+        <div class="inspector-copy">
+          <h2 id="card-name">Select a card</h2>
+          <p id="card-meta" class="muted">Search the eligible catalogue or select a card in your deck.</p>
+          <div class="status-row"><span id="card-status" class="restriction neutral">Unverified</span><span id="usage" class="muted"></span></div>
+          <p id="effect">Verified effect text and house-format status will appear here.</p>
+          <dl id="card-stats" class="card-stats"></dl>
+          <p id="add-reason" class="action-reason" hidden></p>
+          <div class="inspector-actions">
+            <button id="add-auto" class="button" type="button" disabled>＋ Main / Extra</button>
+            <button id="add-side" class="button" type="button" disabled>＋ Side</button>
+          </div>
+          <div id="selected-instance-actions" class="selected-actions" hidden>
+            <button id="remove-selected" type="button">Remove</button>
+            <button id="copy-selected" type="button">Add copy</button>
+            <button id="move-selected" type="button">Move section</button>
+            <button id="move-left" type="button" aria-label="Move selected card earlier">←</button>
+            <button id="move-right" type="button" aria-label="Move selected card later">→</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="library">
+        <div class="panel-heading"><h2>Card library</h2><span id="library-total">LOADING</span></div>
+        <label class="search-box"><span aria-hidden="true">⌕</span><span class="sr-only">Search eligible cards</span><input id="search" type="search" autocomplete="off" placeholder="Search cards…"><kbd>/</kbd></label>
+        <div class="library-filters" aria-label="Card category">
+          <button class="active" data-category="" type="button">All</button><button data-category="Monster" type="button">Monster</button><button data-category="Spell" type="button">Spell</button><button data-category="Trap" type="button">Trap</button>
+          <button id="filters" class="filter-button" type="button" aria-expanded="false" aria-controls="extra-filters" aria-label="More filters">☷</button>
+        </div>
+        <div id="extra-filters" class="extra-filters" hidden>
+          <label>Status<select id="status-filter"><option value="">Any</option><option value="unlimited">Unlimited</option><option value="semi_limited">Semi-Limited</option><option value="limited">Limited</option><option value="forbidden">Forbidden</option></select></label>
+          <label>Subtype<select id="subtype-filter"><option value="">Any</option><option>Effect</option><option>Normal</option><option>Ritual</option><option>Pendulum</option><option>Fusion</option><option>Synchro</option><option>Xyz</option><option>Link</option><option>Spell</option><option>Trap</option></select></label>
+          <label>Attribute<select id="attribute-filter"><option value="">Any</option><option>DARK</option><option>DIVINE</option><option>EARTH</option><option>FIRE</option><option>LIGHT</option><option>WATER</option><option>WIND</option></select></label>
+          <button id="clear-library-filters" class="text-button" type="button">Clear filters</button>
+        </div>
+        <div id="library-state" class="library-state" role="status">Loading eligible catalogue…</div>
+        <div id="library-grid" class="library-grid" aria-live="polite"></div>
+        <button id="load-more" class="button wide" type="button" hidden>Load more cards</button>
+      </section>
+    </aside>
+
+    <section class="deck-canvas" data-workspace-panel="deck">
+      <div class="canvas-heading"><div><p class="eyebrow">YOUR WORKSPACE</p><h1>Deckbuilder</h1><p id="mobile-count" class="mobile-count">Main 0 · Extra 0 · Side 0</p></div><div class="view-toggle" role="group" aria-label="Deck display"><button id="copies-view" class="active" type="button">▦ Copies</button><button id="grouped-view" type="button">▤ Grouped</button></div></div>
+      <div id="validation-banner" class="validation-banner checking" role="status"><span id="validation-icon">…</span><div><strong id="validation-title">Checking published house rules</strong><p id="validation-summary">Waiting for the current catalogue and list.</p></div><button id="validation-info" type="button">Details</button></div>
+      <div id="deck-zones"></div>
+      <div class="canvas-footer"><span>Click a card to inspect it. Dragging is optional; every edit also has a button.</span><button id="keyboard-help" class="text-button" type="button">Keyboard help</button></div>
+    </section>
+
+    <aside class="tools-panel panel" data-workspace-panel="tools">
+      <div class="tool-tabs" role="tablist"><button id="overview-tab" class="active" type="button" role="tab" aria-selected="true">Overview</button><button id="hand-tab" type="button" role="tab" aria-selected="false">Test hand</button></div>
+      <div id="overview" class="tool-content">
+        <section class="tool-section">
+          <h2>Deck composition</h2>
+          <div class="count-grid"><div><b id="count-main">0</b><span>Main</span><small>40–60</small></div><div><b id="count-extra">0</b><span>Extra</span><small>0–15</small></div><div><b id="count-side">0</b><span>Side</span><small>0–15</small></div></div>
+          <div class="composition-bar"><i id="monster-bar"></i><i id="spell-bar"></i><i id="trap-bar"></i></div>
+          <div class="type-count"><span><i class="monster-dot"></i> Monsters</span><b id="monster-count">0</b></div><div class="type-count"><span><i class="spell-dot"></i> Spells</span><b id="spell-count">0</b></div><div class="type-count"><span><i class="trap-dot"></i> Traps</span><b id="trap-count">0</b></div>
+        </section>
+        <section class="tool-section">
+          <div class="section-heading"><h2>Opening probability</h2><button id="probability-info" class="info-dot" type="button" title="Main Deck only">i</button></div>
+          <label>Cards or group<select id="probability-target"><option value="selected">Selected card</option></select></label>
+          <div class="probability-options"><label>Hand<select id="hand-size"><option value="5">Opening 5</option><option value="6">After draw 6</option></select></label><label>At least<select id="minimum-copies"><option value="1">1 copy</option><option value="2">2 copies</option><option value="3">3 copies</option></select></label></div>
+          <div class="prob-result"><strong id="probability-value">0.0%</strong><span id="probability-caption">Choose a card or group.</span></div>
+          <div class="prob-bar"><i id="probability-bar"></i></div>
+          <button id="groups-button" class="button wide" type="button">Manage card groups</button>
+          <p class="muted micro">Both players start with 5. “After draw 6” includes the second player’s first draw.</p>
+        </section>
+        <section class="export-hint"><span>↓</span><div><b>Take your deck with you.</b><p>Export .ydk for a simulator or copy a YDKE code.</p></div></section>
+      </div>
+      <div id="hand-tools" class="tool-content" hidden>
+        <section class="tool-section"><h2>Test your opening hand</h2><p class="muted">This shuffles Main Deck instances only. It does not change the saved deck.</p><div class="hand-actions"><button id="draw-hand" class="button primary" type="button">Draw 5</button><button id="draw-one" class="button" type="button" disabled>Draw one</button><button id="reset-hand" class="button" type="button" disabled>Reset</button></div><div id="sample-hand" class="sample-hand"></div><p id="hand-caption" class="muted micro">Ready for a new sample hand.</p></section>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="deck-footer"><span>Unofficial community format · Card data powered by YGOPRODeck</span><span id="footer-version">Published list unavailable</span></footer>
+  <nav class="mobile-nav" aria-label="Workspace"><button class="active" data-panel="deck" type="button">▦<span>Deck</span></button><button data-panel="library" type="button">⌕<span>Library</span></button><button data-panel="card" type="button">□<span>Card</span></button><button data-panel="tools" type="button">◴<span>Tools</span></button></nav>
+
+  <div id="export-menu" class="floating-menu export-menu" role="menu" hidden>
+    <div class="menu-heading"><b>Export deck</b><span>Main / Extra / Side</span></div>
+    <button id="download-ydk" class="export-option" type="button"><span class="file-type">YDK</span><span><strong>Download .ydk</strong><small>Simulator-friendly deck file</small></span><b>⇩</b></button>
+    <button id="copy-ydke" class="export-option" type="button"><span class="file-type">LINK</span><span><strong>Copy YDKE code</strong><small>For compatible sites and clients</small></span><b>⧉</b></button>
+    <button id="copy-list" class="export-option" type="button"><span class="file-type">TXT</span><span><strong>Copy text list</strong><small>Readable list for your friends</small></span><b>⧉</b></button>
+    <hr><button id="backup" class="menu-row" type="button">Download complete backup <span>JSON</span></button>
+    <p>Deck files do not carry the house banlist. Agree on room rules with your opponent.</p>
+  </div>
+
+  <dialog id="import-dialog" class="app-dialog">
+    <form method="dialog" class="modal-header"><div><p class="eyebrow">BRING YOUR DECK</p><h2>Import deck</h2></div><button class="close-button" value="cancel" aria-label="Close import dialog">×</button></form>
+    <div class="modal-content">
+      <div class="modal-tabs" role="tablist"><button id="file-tab" class="active" type="button">Upload .ydk</button><button id="paste-tab" type="button">Paste YDKE / text</button><button id="backup-tab" type="button">Restore JSON</button></div>
+      <div id="drop-zone" class="drop-zone"><span>↥</span><b>Drop your deck file here</b><p>Or choose a .ydk file from your device.</p><button id="choose-file" class="button" type="button">Choose file</button><input id="file-input" hidden type="file" accept=".ydk,.txt,text/plain"></div>
+      <textarea id="paste-input" hidden rows="8" placeholder="ydke://…!…!…! or #main…" aria-label="Paste YDKE code or YDK text"></textarea>
+      <div id="backup-zone" class="drop-zone" hidden><span>⧉</span><b>Restore complete JSON backup</b><p>This adds restored decks as local copies and revalidates them.</p><button id="choose-backup" class="button" type="button">Choose JSON backup</button><input id="backup-input" hidden type="file" accept=".json,application/json"></div>
+      <button id="preview-paste" class="button wide" type="button" hidden>Preview pasted deck</button>
+      <div id="import-preview" class="import-preview" hidden><div><b>Import preview</b><span id="import-source" class="restriction neutral"></span></div><p id="import-counts"></p><div id="import-issues"></div><p class="micro muted">Every numeric entry is retained. Invalid entries remain visible in a repair draft.</p></div>
+      <p id="import-error" class="dialog-error" role="alert" hidden></p>
+      <div id="import-mode-wrap"><label class="import-mode"><input type="radio" name="import-mode" value="new" checked> Create a new deck <span>Recommended</span></label><label class="import-mode"><input type="radio" name="import-mode" value="replace"> Replace this deck <span>Confirmation required</span></label></div>
+    </div>
+    <div class="modal-actions"><button id="cancel-import" class="button" type="button">Cancel</button><button id="confirm-import" class="button primary" type="button" disabled>Import deck</button></div>
+  </dialog>
+
+  <dialog id="groups-dialog" class="app-dialog narrow">
+    <form method="dialog" class="modal-header"><div><p class="eyebrow">OPENING ODDS</p><h2>Card groups</h2></div><button class="close-button" value="cancel" aria-label="Close groups dialog">×</button></form>
+    <div class="modal-content"><p class="muted">Create groups such as Starters or Hand traps. Probabilities use physical copies in the Main Deck.</p><div class="group-create"><input id="group-name" maxlength="80" placeholder="New group name"><button id="add-group" class="button" type="button">Add group</button></div><div id="groups-list"></div></div>
+    <div class="modal-actions"><button id="close-groups" class="button primary" type="button">Done</button></div>
+  </dialog>
+
+  <dialog id="info-dialog" class="app-dialog narrow"><form method="dialog" class="modal-header"><h2 id="info-title">Details</h2><button class="close-button" value="cancel" aria-label="Close">×</button></form><div id="info-body" class="modal-content"></div></dialog>
+  <dialog id="art-dialog" class="art-dialog"><form method="dialog"><button class="close-button" value="cancel" aria-label="Close artwork">×</button><img id="art-dialog-image" src="/gog/deckbuilder/card-back.svg" alt=""></form></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script type="module" src="/gog/deckbuilder/app.js"></script>
+</body>
+</html>

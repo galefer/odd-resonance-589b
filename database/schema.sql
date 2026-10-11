@@ -60,9 +60,44 @@ CREATE TABLE IF NOT EXISTS cards_cache (
  def INTEGER,
  description TEXT,
  image_source_url TEXT,
+ canonical_id INTEGER,
+ artwork_ids_json TEXT NOT NULL DEFAULT '[]',
+ tcg_date TEXT,
+ frame_type TEXT,
+ placement TEXT CHECK(placement IS NULL OR placement IN ('main','extra')),
+ link_rating INTEGER,
+ pendulum_scale INTEGER,
+ archetype TEXT,
+ treated_as TEXT,
+ copy_limit_key TEXT,
+ pool_verified INTEGER NOT NULL DEFAULT 0 CHECK(pool_verified IN (0,1)),
+ metadata_revision TEXT,
  updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_cache_sort ON cards_cache(sort_name);
+CREATE INDEX IF NOT EXISTS idx_cache_catalogue ON cards_cache(pool_verified,category,sort_name);
+CREATE INDEX IF NOT EXISTS idx_cache_type ON cards_cache(pool_verified,card_type,sort_name);
+CREATE INDEX IF NOT EXISTS idx_cache_attribute ON cards_cache(pool_verified,attribute,sort_name);
+CREATE TABLE IF NOT EXISTS card_artworks (
+ artwork_id INTEGER PRIMARY KEY,
+ canonical_id INTEGER NOT NULL,
+ is_default INTEGER NOT NULL DEFAULT 0 CHECK(is_default IN (0,1)),
+ updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_artworks_canonical ON card_artworks(canonical_id);
+CREATE TABLE IF NOT EXISTS card_id_evidence (
+ input_id INTEGER PRIMARY KEY,
+ canonical_id INTEGER,
+ tcg_date TEXT,
+ eligible INTEGER NOT NULL CHECK(eligible IN (0,1)),
+ reason TEXT NOT NULL,
+ updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_evidence_canonical ON card_id_evidence(canonical_id);
+CREATE TABLE IF NOT EXISTS catalogue_meta (
+ key TEXT PRIMARY KEY,
+ value TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS search_cache (
  query TEXT PRIMARY KEY,
  results_json TEXT NOT NULL,
@@ -73,6 +108,14 @@ CREATE TABLE IF NOT EXISTS image_cache (
  size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
  cached_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS image_cache_v2 (
+ asset_key TEXT PRIMARY KEY,
+ card_id INTEGER NOT NULL,
+ variant TEXT NOT NULL CHECK(variant IN ('thumb','full')),
+ size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
+ cached_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_image_cache_v2_card ON image_cache_v2(card_id);
 CREATE TABLE IF NOT EXISTS r2_operation_usage (
  usage_month TEXT PRIMARY KEY,
  class_a_operations INTEGER NOT NULL DEFAULT 0 CHECK(class_a_operations >= 0),

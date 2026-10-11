@@ -64,6 +64,15 @@ Wrangler may ask to install itself or confirm SQL execution. Accept the prompts 
 
 **Important:** `--remote` is required, otherwise you only initialise a local development copy. The `seed.sql` file supplies the historical April 2025 list; you do not have to enter individual cards.
 
+Build and import the verified deckbuilder catalogue after a fresh schema/seed setup:
+
+```cmd
+node database/sync-catalogue.mjs database/catalogue-import.sql
+npx wrangler d1 execute gog-house-format --remote --file=./database/catalogue-import.sql
+```
+
+`sync-catalogue.mjs` downloads current metadata from YGOPRODeck, records evidence for known IDs, and writes only playable cards whose original TCG date is on or before the cutoff. The generated `database/catalogue-import.sql` is intentionally ignored by Git. Delete it after execution or regenerate it when a reviewed metadata refresh is needed.
+
 Verify that it worked:
 
 ```cmd
@@ -73,6 +82,19 @@ npx wrangler d1 execute gog-house-format --remote --command="SELECT status, COUN
 Expected numbers: Forbidden **109**, Limited **82**, Semi-Limited **16**. (The SQL status names are `forbidden`, `limited`, `semi_limited`.)
 
 Do **not** reinitialise or delete the database after you've begun editing: it stores your list versions and administrator account.
+
+### Upgrade an existing populated database for the deckbuilder
+
+Never rerun `seed.sql` on an established site. Inspect first, apply the additive migration once, then generate and execute the catalogue import:
+
+```cmd
+npx wrangler d1 execute gog-house-format --remote --command="PRAGMA table_info(cards_cache);"
+npx wrangler d1 execute gog-house-format --remote --file=./database/migrations/0002_deckbuilder_catalogue.sql
+node database/sync-catalogue.mjs database/catalogue-import.sql
+npx wrangler d1 execute gog-house-format --remote --file=./database/catalogue-import.sql
+```
+
+The migration and import enrich card metadata and may fill an unambiguous missing `entries.card_id`; they do not edit restriction statuses, notes, versions, draft state or administrator data. Fingerprint those records before and after a production migration.
 
 ## 3. Bind D1 to your existing Cloudflare Pages project
 
@@ -143,6 +165,12 @@ Wait for Cloudflare's deployment to finish, then open:
 
 **https://gravetalestudios.com/gog/**
 
+The local deckbuilder is available at:
+
+**https://gravetalestudios.com/gog/deckbuilder/**
+
+Decks are saved only in that browser profile. Use **Export deck -> Download complete backup** to move or protect deck documents.
+
 Your existing `/`, `/null/`, `/outworld/`, etc. remain unchanged.
 
 ## 7. Create your administrator
@@ -168,6 +196,7 @@ The public **House tweaks** view and every `NEW` badge compare the current publi
 | Symptom | Fix |
 | --- | --- |
 | `/gog/` is 404 | Check the site output root is `public` and `public/gog/index.html` was pushed. |
+| `/gog/deckbuilder/` opens but the library is unavailable | Apply `0002_deckbuilder_catalogue.sql`, run the generated catalogue import, and verify `SELECT * FROM catalogue_meta;`. |
 | Website opens but reports `GOG_DB` missing | Add D1 Pages binding named exactly `GOG_DB` in Production; redeploy. |
 | Website reports the JUSH foundation is missing | Run both `schema.sql` and `seed.sql` with `--remote` against `gog-house-format`. |
 | Administrator setup says token required | Set encrypted `GOG_SETUP_TOKEN` **and** permanent `GOG_AUTH_PEPPER` and redeploy, then use the setup token in the form. |
@@ -193,6 +222,7 @@ The JavaScript and SQL regression tests work with Node.js 22.5+:
 
 ```cmd
 node tests/test-cloudflare.mjs
+node --test tests/gog/deckbuilder-unit.mjs
 ```
 
-Tests simulate D1, HTTP requests and an API that enforces the 1 August cutoff; they do not require Cloudflare credentials. A live Cloudflare deployment and the live YGOPRODeck API cannot be verified until you deploy the package.
+Tests simulate D1, HTTP requests and an API that enforces the 1 August cutoff; they do not require Cloudflare credentials. `tests/gog/browser-smoke.mjs` can additionally exercise a local `wrangler pages dev` instance using an installed Chrome browser. A live Cloudflare deployment and external simulator interoperability still require separate verification.

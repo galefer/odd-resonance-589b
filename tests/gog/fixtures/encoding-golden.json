@@ -1,0 +1,45 @@
+[
+  {
+    "name": "empty",
+    "deck": {
+      "main": [],
+      "extra": [],
+      "side": []
+    },
+    "ydke": "ydke://!!!"
+  },
+  {
+    "name": "endian-and-unsigned",
+    "deck": {
+      "main": [
+        1,
+        16909060,
+        4294967295
+      ],
+      "extra": [
+        16777216
+      ],
+      "side": [
+        2147483648
+      ]
+    },
+    "ydke": "ydke://AQAAAAQDAgH/////!AAAAAQ==!AAAAgA==!"
+  },
+  {
+    "name": "ordered-duplicates",
+    "deck": {
+      "main": [
+        14558127,
+        14558127,
+        89631139
+      ],
+      "extra": [
+        84013237
+      ],
+      "side": [
+        27204311
+      ]
+    },
+    "ydke": "ydke://ryPeAK8j3gCjqVcF!tfABBQ==!1xqfAQ==!"
+  }
+]

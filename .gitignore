@@ -26,3 +26,9 @@ pnpm-debug.log*
 # wrangler files
 .wrangler
 .dev.vars
+
+# generated deckbuilder catalogue and local QA artifacts
+database/catalogue-import.sql
+tests/gog/artifacts/
+_codex/gog-deckbuilder-codex-pack/
+_codex/deckbuilder-progress.md

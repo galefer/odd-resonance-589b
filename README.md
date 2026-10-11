@@ -1,8 +1,10 @@
 # Justice Hunters House Format · Cloudflare Pages Overlay
 
-**Homepage:** `https://gravetalestudios.com/gog/`
+**Card list:** `https://gravetalestudios.com/gog/`
 
-A mobile-friendly house-format Forbidden & Limited List with admin login (browser PBKDF2 plus a private Cloudflare auth pepper), live card search, draft editing and version publishing.
+**Deckbuilder:** `https://gravetalestudios.com/gog/deckbuilder/`
+
+A mobile-friendly house-format Forbidden & Limited List and full local deckbuilder. The card list includes admin login (browser PBKDF2 plus a private Cloudflare auth pepper), live card search, draft editing and version publishing. The deckbuilder provides Main/Extra/Side editing, published-list validation, named local saves, YDK/YDKE import and export, JSON backup, exact opening probabilities and a sample-hand tool.
 
 - **Card pool cutoff:** first TCG release no later than **1 August 2025** (Justice Hunters / JUSH).
 - **Starting restriction list:** 7 April 2025 TCG Advanced Format (109 Forbidden, 82 Limited, 16 Semi-Limited).
@@ -11,6 +13,8 @@ A mobile-friendly house-format Forbidden & Limited List with admin login (browse
 - **Unlimited:** any eligible, unlisted card. Cards released after JUSH are not eligible at all.
 - **Backend:** Cloudflare Pages Functions + D1; card images optionally stored in Cloudflare R2.
 - **R2 cost guards:** image caching stops at 5 GB; edge caching runs before R2; application traffic stops at 100,000 Class A and 1,000,000 Class B R2 operations per calendar month.
+- **Deck storage:** IndexedDB in the visitor's browser. Anonymous decks are never written to D1; JSON is the complete portable backup.
+- **Catalogue:** a generated, versioned D1 snapshot of verified playable TCG cards through the cutoff. Post-JUSH and unverified cards remain explicit import errors and never become selectable.
 - **Dependencies:** none in the deployed frontend or functions; Wrangler is needed once for D1 initialization.
 
 **Read [`SETUP.md`](SETUP.md) before deployment.** Extract this package into the root of the existing Pages Git repository (`odd-resonance-589b`); it adds files and does not replace your other pages.

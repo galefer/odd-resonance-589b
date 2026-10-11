@@ -214,6 +214,77 @@ const noteOnlyCurrent = await get('/list');
 assert.equal(noteOnlyCurrent.version.label,'Note update');
 assert.equal(noteOnlyCurrent.changes.length,0);
 
+// Deckbuilder catalogue: complete local metadata, artwork aliases, explicit pool
+// evidence and published restrictions. The draft below must remain invisible.
+const catalogueCards = [
+  [1111,'Dracotail Lukias','dracotail lukias','Monster','Effect','Effect Monster','2025-08-01','main','dracotail lukias'],
+  [2222,'Ash Blossom & Joyous Spring','ash blossom & joyous spring','Monster','Tuner','Tuner Monster','2017-05-04','main','ash blossom & joyous spring'],
+  [4444,'Pot of Greed','pot of greed','Spell','Spell','Spell Card','2002-03-08','main','pot of greed'],
+  [6666,'Fixture Fusion Pendulum','fixture fusion pendulum','Monster','Fusion','Pendulum Effect Fusion Monster','2020-01-01','extra','fixture fusion pendulum']
+];
+const upsertCatalogue = db.prepare(`INSERT INTO cards_cache
+  (card_id,name,sort_name,category,subtype,card_type,description,canonical_id,artwork_ids_json,tcg_date,placement,copy_limit_key,pool_verified,metadata_revision,updated_at)
+  VALUES (?,?,?,?,?,?,'Fixture text',?,?,?,?,?,1,'test-catalogue',?)
+  ON CONFLICT(card_id) DO UPDATE SET canonical_id=excluded.canonical_id,artwork_ids_json=excluded.artwork_ids_json,
+  tcg_date=excluded.tcg_date,placement=excluded.placement,copy_limit_key=excluded.copy_limit_key,
+  pool_verified=1,metadata_revision=excluded.metadata_revision`);
+for (const row of catalogueCards) {
+  const [id,name,sortName,category,subtype,cardType,tcgDate,placement,copyKey] = row;
+  const artworks = id === 1111 ? '[1111,9111]' : `[${id}]`;
+  upsertCatalogue.run(id,name,sortName,category,subtype,cardType,id,artworks,tcgDate,placement,copyKey,new Date().toISOString());
+  db.prepare('INSERT OR REPLACE INTO card_id_evidence(input_id,canonical_id,tcg_date,eligible,reason,updated_at) VALUES(?,?,?,1,\'eligible\',?)').run(id,id,tcgDate,new Date().toISOString());
+  db.prepare('INSERT OR REPLACE INTO card_artworks(artwork_id,canonical_id,is_default,updated_at) VALUES(?,?,1,?)').run(id,id,new Date().toISOString());
+}
+db.prepare('INSERT OR REPLACE INTO card_id_evidence(input_id,canonical_id,tcg_date,eligible,reason,updated_at) VALUES(9111,1111,\'2025-08-01\',1,\'eligible\',?)').run(new Date().toISOString());
+db.prepare('INSERT OR REPLACE INTO card_artworks(artwork_id,canonical_id,is_default,updated_at) VALUES(9111,1111,0,?)').run(new Date().toISOString());
+db.prepare('INSERT OR REPLACE INTO card_id_evidence(input_id,canonical_id,tcg_date,eligible,reason,updated_at) VALUES(3333,3333,\'2026-02-07\',0,\'outside_pool\',?)').run(new Date().toISOString());
+for (const [key,value] of [['complete','1'],['revision','test-catalogue'],['eligible_cards','4'],['source','fixture']])
+  db.prepare('INSERT OR REPLACE INTO catalogue_meta(key,value) VALUES(?,?)').run(key,value);
+
+await get('/admin/draft');
+assert.equal((await req('/admin/draft/entry','POST',{card:{id:1111},status:'forbidden'})).status,200);
+const catalogue = await get('/catalogue?q=dracotail&limit=10');
+assert.equal(catalogue.catalogue.complete,true);
+assert.equal(catalogue.cards.length,1);
+assert.equal(catalogue.cards[0].name,'Dracotail Lukias');
+assert.equal(catalogue.cards[0].status,'unlimited'); // unpublished draft ignored
+assert.equal(catalogue.cards[0].placement,'main');
+assert.deepEqual(catalogue.cards[0].artworkIds,[1111,9111]);
+
+const filteredCatalogue = await get('/catalogue?category=Monster&subtype=Fusion&attribute=DARK&limit=10');
+assert.equal(filteredCatalogue.cards.length,0);
+const statusCatalogue = await get('/catalogue?status=forbidden&q=pot');
+assert.equal(statusCatalogue.cards[0].name,'Pot of Greed');
+
+const resolvedResponse = await req('/cards/resolve','POST',{ids:[1111,9111,3333,999999]});
+assert.equal(resolvedResponse.status,200);
+const resolved = (await resolvedResponse.json()).results;
+assert.deepEqual(resolved.map(item=>item.outcome),['resolved','resolved','outside_pool','unknown_id']);
+assert.equal(resolved[1].canonicalId,1111);
+assert.equal(resolved[1].artworkId,9111);
+
+const rejectedResolution = await req('/cards/resolve','POST',{ids:Array(513).fill(1111)});
+assert.equal(rejectedResolution.status,400);
+const validationResponse = await req('/decks/validate','POST',{
+  main:[1111,9111,1111,1111,6666,3333,999999,4444], extra:[], side:[]
+});
+assert.equal(validationResponse.status,200);
+const validation = await validationResponse.json();
+assert.equal(validation.verified,true);
+assert.equal(validation.legal,false);
+assert.equal(validation.version.label,'Note update');
+assert(validation.issues.some(issue=>issue.code==='too_many_copies' && issue.name==='Dracotail Lukias'));
+assert(validation.issues.some(issue=>issue.code==='wrong_section' && issue.name==='Fixture Fusion Pendulum'));
+assert(validation.issues.some(issue=>issue.code==='outside_pool'));
+assert(validation.issues.some(issue=>issue.code==='unknown_id'));
+assert(validation.issues.some(issue=>issue.code==='forbidden' && issue.name==='Pot of Greed'));
+
+const noBindingImage = await req('/cards/1111/image?size=thumb&v=2');
+assert.equal(noBindingImage.status,503);
+assert.equal(noBindingImage.headers.get('cache-control'),'no-store');
+const unknownVersionedImage = await req('/cards/3333/image?size=full&v=2');
+assert.equal(unknownVersionedImage.status,404);
+
 const img = await req('/cards/1111/image');
 assert.equal(img.headers.get('content-type'),'image/svg+xml'); // No R2 configured, never hotlinks.
 const imgOutside = await req('/cards/3333/image');
@@ -232,6 +303,7 @@ contextBase.env.GOG_IMAGES = {
 const catalogueFetch = globalThis.fetch;
 globalThis.fetch = async (url) => {
   if (!String(url).startsWith('https://images.ygoprodeck.com/')) return catalogueFetch(url);
+  assert(String(url).includes('/images/cards_small/'), `Unexpected thumbnail URL: ${url}`);
   imageFetches += 1;
   return new Response(new Uint8Array([0xff,0xd8,0xff,0xd9]), { headers: { 'Content-Type':'image/jpeg' } });
 };

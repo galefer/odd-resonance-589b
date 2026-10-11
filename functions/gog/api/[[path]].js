@@ -9,12 +9,26 @@ const SESSION_SECONDS = 12 * 60 * 60;
 const LOGIN_WINDOW = 15 * 60 * 1000;
 // Leave a wide margin below R2's 10 GB monthly free storage allowance.
 const IMAGE_CACHE_LIMIT_BYTES = 5_000_000_000;
-const IMAGE_MAX_BYTES = 300_000;
+const IMAGE_MAX_BYTES = Object.freeze({ thumb: 350_000, full: 2_000_000 });
 // Use only 10% of R2's monthly free operation allowances. Calendar-month
 // counters preserve ample headroom even when Cloudflare's billing cycle differs.
 const R2_CLASS_A_MONTHLY_LIMIT = 100_000;
 const R2_CLASS_B_MONTHLY_LIMIT = 1_000_000;
 const IMAGE_CACHE_SECONDS = 30 * 24 * 60 * 60;
+const CATALOGUE_PAGE_SIZE = 48;
+const MAX_CATALOGUE_PAGE_SIZE = 60;
+const MAX_RESOLVE_IDS = 512;
+const ASSET_REVISION = '2';
+const EXTRA_TYPES = new Set([
+  'Fusion Monster', 'Link Monster', 'Pendulum Effect Fusion Monster', 'Synchro Monster',
+  'Synchro Pendulum Effect Monster', 'Synchro Tuner Monster', 'XYZ Monster', 'XYZ Pendulum Effect Monster'
+]);
+const MONSTER_TYPES = [
+  'Effect Monster','Flip Effect Monster','Flip Tuner Effect Monster','Gemini Monster','Normal Monster',
+  'Normal Tuner Monster','Pendulum Effect Monster','Pendulum Effect Ritual Monster','Pendulum Flip Effect Monster',
+  'Pendulum Normal Monster','Pendulum Tuner Effect Monster','Ritual Effect Monster','Ritual Monster','Spirit Monster',
+  'Toon Monster','Tuner Monster','Union Effect Monster',...EXTRA_TYPES
+];
 const loginEncoder = new TextEncoder();
 const HEADERS = {
   'Cache-Control': 'no-store',
@@ -58,8 +72,14 @@ const cardCategory = (type = '') => /spell/i.test(type) ? 'Spell' : /trap/i.test
 const cardSubtype = (type = '') => {
   if (/spell/i.test(type)) return 'Spell';
   if (/trap/i.test(type)) return 'Trap';
-  return ['Pendulum', 'Fusion', 'Synchro', 'Xyz', 'Link', 'Ritual', 'Normal', 'Effect'].find((x) => new RegExp(x, 'i').test(type)) || 'Effect';
+  return ['Fusion', 'Synchro', 'XYZ', 'Link', 'Ritual', 'Pendulum', 'Normal', 'Effect']
+    .find((x) => new RegExp(x, 'i').test(type))?.replace('XYZ', 'Xyz') || 'Effect';
 };
+const cardPlacement = (type = '') => EXTRA_TYPES.has(type) ? 'extra' : 'main';
+const playableType = (type = '') => !!type && type !== 'Skill Card' && type !== 'Token';
+const tcgDateFor = (raw) => raw?.misc_info?.find((info) => typeof info?.tcg_date === 'string')?.tcg_date || null;
+const treatedAsFor = (raw) => raw?.misc_info?.find((info) => typeof info?.treated_as === 'string')?.treated_as || null;
+const validCardId = (value) => Number.isSafeInteger(Number(value)) && Number(value) > 0 && Number(value) <= 0xffffffff;
 function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), { status, headers: { ...HEADERS, 'Content-Type': 'application/json; charset=utf-8', ...extra } });
 }
@@ -178,54 +198,107 @@ async function getDraft(db) {
 // Defence in depth: the catalogue may filter on dates, but never trust it alone.
 // misc=yes provides the original TCG print date; fail closed when unavailable.
 function isJushEligible(raw) {
-  const tcgDate = raw?.misc_info?.find((info) => typeof info?.tcg_date === 'string')?.tcg_date;
-  return /^\d{4}-\d{2}-\d{2}$/.test(tcgDate || '') && tcgDate <= CUTOFF;
+  const tcgDate = tcgDateFor(raw);
+  return playableType(raw?.type) && raw?.name !== '???' && /^\d{4}-\d{2}-\d{2}$/.test(tcgDate || '') && tcgDate <= CUTOFF;
 }
-function cardFromApi(raw) {
+function cardFromApi(raw, requestedArtworkId = null) {
   const category = cardCategory(raw.type || '');
+  const canonicalId = Number(raw.id);
+  const artworkIds = [...new Set((raw.card_images || []).map((image) => Number(image.id)).filter(validCardId))];
+  if (!artworkIds.includes(canonicalId)) artworkIds.unshift(canonicalId);
+  const artworkId = validCardId(requestedArtworkId) && artworkIds.includes(Number(requestedArtworkId))
+    ? Number(requestedArtworkId) : artworkIds[0] || canonicalId;
+  const treatedAs = treatedAsFor(raw);
   return {
-    id: Number(raw.id), name: String(raw.name || ''), category, subtype: cardSubtype(raw.type || ''),
+    id: canonicalId, canonicalId, portableId: canonicalId, artworkId, artworkIds,
+    name: String(raw.name || ''), category, subtype: cardSubtype(raw.type || ''),
     cardType: raw.type || '', race: raw.race || null, attribute: raw.attribute || null,
-    level: raw.level ?? raw.linkval ?? null, atk: raw.atk ?? null, def: raw.def ?? null,
-    description: raw.desc || '',
-    imageUrl: `${BASE}/cards/${Number(raw.id)}/image`
+    level: raw.level ?? null, linkRating: raw.linkval ?? null, pendulumScale: raw.scale ?? null,
+    atk: raw.atk ?? null, def: raw.def ?? null, description: raw.desc || '',
+    archetype: raw.archetype || null, frameType: raw.frameType || null,
+    tcgDate: tcgDateFor(raw), placement: cardPlacement(raw.type || ''), treatedAs,
+    copyLimitKey: normalise(treatedAs || raw.name), poolVerified: isJushEligible(raw),
+    imageUrl: `${BASE}/cards/${artworkId}/image?size=thumb&v=${ASSET_REVISION}`,
+    fullImageUrl: `${BASE}/cards/${artworkId}/image?size=full&v=${ASSET_REVISION}`
   };
 }
-async function storeCard(db, card) {
-  await db.prepare(`INSERT INTO cards_cache(card_id,name,sort_name,category,subtype,card_type,race,attribute,level,atk,def,description,image_source_url,updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+function cardStoreStatements(db, card) {
+  const updated = nowIso();
+  const statements = [db.prepare(`INSERT INTO cards_cache(card_id,name,sort_name,category,subtype,card_type,race,attribute,
+      level,atk,def,description,image_source_url,canonical_id,artwork_ids_json,tcg_date,frame_type,placement,
+      link_rating,pendulum_scale,archetype,treated_as,copy_limit_key,pool_verified,metadata_revision,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(card_id) DO UPDATE SET name=excluded.name,sort_name=excluded.sort_name,category=excluded.category,
       subtype=excluded.subtype,card_type=excluded.card_type,race=excluded.race,attribute=excluded.attribute,
       level=excluded.level,atk=excluded.atk,def=excluded.def,description=excluded.description,
-      image_source_url=excluded.image_source_url,updated_at=excluded.updated_at`)
+      image_source_url=excluded.image_source_url,canonical_id=excluded.canonical_id,
+      artwork_ids_json=excluded.artwork_ids_json,tcg_date=excluded.tcg_date,frame_type=excluded.frame_type,
+      placement=excluded.placement,link_rating=excluded.link_rating,pendulum_scale=excluded.pendulum_scale,
+      archetype=excluded.archetype,treated_as=excluded.treated_as,copy_limit_key=excluded.copy_limit_key,
+      pool_verified=excluded.pool_verified,metadata_revision=excluded.metadata_revision,updated_at=excluded.updated_at`)
     .bind(card.id, card.name, normalise(card.name), card.category, card.subtype, card.cardType,
       card.race, card.attribute, card.level, card.atk, card.def, card.description,
-      `https://images.ygoprodeck.com/images/cards_small/${card.id}.jpg`, nowIso()).run();
+      `https://images.ygoprodeck.com/images/cards_small/${card.artworkId}.jpg`, card.canonicalId,
+      JSON.stringify(card.artworkIds), card.tcgDate, card.frameType, card.placement, card.linkRating,
+      card.pendulumScale, card.archetype, card.treatedAs, card.copyLimitKey, card.poolVerified ? 1 : 0,
+      updated, updated)];
+  for (const artworkId of card.artworkIds) {
+    statements.push(db.prepare(`INSERT INTO card_artworks(artwork_id,canonical_id,is_default,updated_at) VALUES (?,?,?,?)
+      ON CONFLICT(artwork_id) DO UPDATE SET canonical_id=excluded.canonical_id,is_default=excluded.is_default,updated_at=excluded.updated_at`)
+      .bind(artworkId, card.canonicalId, artworkId === card.canonicalId ? 1 : 0, updated));
+    statements.push(db.prepare(`INSERT INTO card_id_evidence(input_id,canonical_id,tcg_date,eligible,reason,updated_at) VALUES (?,?,?,?,?,?)
+      ON CONFLICT(input_id) DO UPDATE SET canonical_id=excluded.canonical_id,tcg_date=excluded.tcg_date,
+      eligible=excluded.eligible,reason=excluded.reason,updated_at=excluded.updated_at`)
+      .bind(artworkId, card.canonicalId, card.tcgDate, card.poolVerified ? 1 : 0,
+        card.poolVerified ? 'eligible' : 'outside_pool', updated));
+  }
+  return statements;
 }
-function cachedCardView(row) {
-  return { id: row.card_id, name: row.name, category: row.category, subtype: row.subtype,
+async function storeCard(db, card) {
+  await db.batch(cardStoreStatements(db, card));
+}
+function cachedCardView(row, requestedArtworkId = null) {
+  let artworkIds = [];
+  try { artworkIds = JSON.parse(row.artwork_ids_json || '[]').map(Number).filter(validCardId); } catch { artworkIds = []; }
+  const canonicalId = Number(row.canonical_id || row.card_id);
+  if (!artworkIds.includes(canonicalId)) artworkIds.unshift(canonicalId);
+  const artworkId = validCardId(requestedArtworkId) && artworkIds.includes(Number(requestedArtworkId))
+    ? Number(requestedArtworkId) : artworkIds[0] || canonicalId;
+  return { id: canonicalId, canonicalId, portableId: canonicalId, artworkId, artworkIds,
+    name: row.name, category: row.category, subtype: row.subtype,
     cardType: row.card_type, race: row.race, attribute: row.attribute, level: row.level, atk: row.atk,
-    def: row.def, description: row.description,
-    imageUrl: `${BASE}/cards/${row.card_id}/image` };
+    def: row.def, description: row.description, linkRating: row.link_rating ?? null,
+    pendulumScale: row.pendulum_scale ?? null, archetype: row.archetype || null,
+    frameType: row.frame_type || null, tcgDate: row.tcg_date || null,
+    placement: row.placement || cardPlacement(row.card_type), treatedAs: row.treated_as || null,
+    copyLimitKey: row.copy_limit_key || normalise(row.treated_as || row.name), poolVerified: row.pool_verified === 1,
+    imageUrl: `${BASE}/cards/${artworkId}/image?size=thumb&v=${ASSET_REVISION}`,
+    fullImageUrl: `${BASE}/cards/${artworkId}/image?size=full&v=${ASSET_REVISION}` };
 }
-async function ygoFetch(params) {
+async function ygoRequest(params, { cutoff = true } = {}) {
   const url = new URL('https://db.ygoprodeck.com/api/v7/cardinfo.php');
-  // These three parameters are required on every upstream lookup.
   url.searchParams.set('format', 'tcg');
-  url.searchParams.set('enddate', CUTOFF);
-  url.searchParams.set('dateregion', 'tcg');
   url.searchParams.set('misc', 'yes');
+  if (cutoff) {
+    url.searchParams.set('enddate', CUTOFF);
+    url.searchParams.set('dateregion', 'tcg');
+  }
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, String(value));
   const result = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(9000) });
-  if (result.status === 400 || result.status === 404) return [];
+  if (result.status === 400 || result.status === 404) return { data: [], meta: null };
   if (!result.ok) throw fail(503, 'Card catalogue temporarily unavailable. Try again shortly.');
   const payload = await result.json();
-  return Array.isArray(payload.data) ? payload.data : [];
+  return { data: Array.isArray(payload.data) ? payload.data : [], meta: payload.meta || null };
+}
+const ygoFetch = async (params, options) => (await ygoRequest(params, options)).data;
+async function catalogueComplete(db) {
+  const row = await db.prepare("SELECT value FROM catalogue_meta WHERE key='complete'").first();
+  return row?.value === '1';
 }
 async function localSearch(db, query) {
   const like = `%${normalise(query).replace(/[%_\\]/g, '\\$&')}%`;
   const [cached, foundation] = await Promise.all([
-    db.prepare("SELECT * FROM cards_cache WHERE sort_name LIKE ? ESCAPE '\\' ORDER BY sort_name LIMIT 25").bind(like).all(),
+    db.prepare("SELECT * FROM cards_cache WHERE pool_verified=1 AND sort_name LIKE ? ESCAPE '\\' ORDER BY sort_name LIMIT 25").bind(like).all(),
     db.prepare(`SELECT name,card_id AS id,category,subtype,card_type AS cardType FROM entries
       WHERE version_id=(SELECT id FROM versions WHERE source='tcg-apr-2025' ORDER BY id LIMIT 1)
       AND sort_name LIKE ? ESCAPE '\\' ORDER BY sort_name LIMIT 25`).bind(like).all()
@@ -242,22 +315,15 @@ async function cardSearch(db, query) {
   const hit = await db.prepare('SELECT results_json FROM search_cache WHERE query=? AND expires_at>?')
     .bind(key, nowIso()).first();
   if (hit) return JSON.parse(hit.results_json);
+  const local = await localSearch(db, trimmed);
+  if (await catalogueComplete(db)) return local.slice(0, 20);
   let results = [];
   try {
     const rawCards = await ygoFetch({ fname: trimmed, num: 30, offset: 0 });
-    results = rawCards.filter((raw) => isJushEligible(raw) && raw.id && raw.name && !['Skill Card', 'Token'].includes(raw.type))
+    results = rawCards.filter((raw) => isJushEligible(raw) && raw.id && raw.name)
       .slice(0, 20).map(cardFromApi);
     if (results.length) {
-      // Each upstream result has already passed YGOPRODeck's TCG first-release filter.
-      await db.batch(results.map((c) => db.prepare(`INSERT INTO cards_cache
-        (card_id,name,sort_name,category,subtype,card_type,race,attribute,level,atk,def,description,image_source_url,updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(card_id) DO UPDATE SET
-        name=excluded.name,sort_name=excluded.sort_name,category=excluded.category,subtype=excluded.subtype,
-        card_type=excluded.card_type,race=excluded.race,attribute=excluded.attribute,level=excluded.level,
-        atk=excluded.atk,def=excluded.def,description=excluded.description,image_source_url=excluded.image_source_url,
-        updated_at=excluded.updated_at`).bind(c.id,c.name,normalise(c.name),c.category,c.subtype,c.cardType,
-          c.race,c.attribute,c.level,c.atk,c.def,c.description,
-          `https://images.ygoprodeck.com/images/cards_small/${c.id}.jpg`,nowIso())));
+      await db.batch(results.flatMap((card) => cardStoreStatements(db, card)));
     }
     await db.prepare('INSERT INTO search_cache(query,results_json,expires_at) VALUES(?,?,?) ON CONFLICT(query) DO UPDATE SET results_json=excluded.results_json,expires_at=excluded.expires_at')
       .bind(key, JSON.stringify(results), new Date(Date.now() + 48 * 3600_000).toISOString()).run();
@@ -268,26 +334,237 @@ async function cardSearch(db, query) {
   return results;
 }
 async function cardById(db, cardId) {
+  const local = await db.prepare(`SELECT c.* FROM card_artworks a JOIN cards_cache c ON c.card_id=a.canonical_id
+    WHERE a.artwork_id=? AND c.pool_verified=1 LIMIT 1`).bind(Number(cardId)).first();
+  if (local) return cachedCardView(local, cardId);
   const rows = await ygoFetch({ id: cardId });
-  // Do not trust a browser-supplied name or type: resolve against the locked TCG API.
-  const raw = rows.find((row) => Number(row.id) === Number(cardId));
-  if (!raw || !isJushEligible(raw) || ['Skill Card', 'Token'].includes(raw.type)) return null;
-  const card = cardFromApi(raw);
+  // Artwork aliases resolve only when the provider explicitly lists the requested ID.
+  const raw = rows.find((row) => Number(row.id) === Number(cardId) ||
+    row.card_images?.some((image) => Number(image.id) === Number(cardId)));
+  if (!raw || !isJushEligible(raw)) return null;
+  const card = cardFromApi(raw, cardId);
   await storeCard(db, card);
   return card;
 }
-async function statusesFor(db, cards) {
-  const [current, baseline] = await Promise.all([currentVersion(db), foundationVersion(db)]);
+function restrictionStatus(map, card) {
+  const keys = [normalise(card.name), normalise(card.treatedAs || ''), card.copyLimitKey].filter(Boolean);
+  return keys.map((key) => map.get(key)).filter(Boolean)
+    .sort((a, b) => cardCopies(a) - cardCopies(b))[0] || 'unlimited';
+}
+async function statusesFor(db, cards, capturedVersion = null) {
+  const [current, baseline] = await Promise.all([capturedVersion || currentVersion(db), foundationVersion(db)]);
   const [entries, baselineEntries] = await Promise.all([entriesFor(db, current?.id), entriesFor(db, baseline?.id)]);
   const map = new Map(entries.map((e) => [normalise(e.name), e.status]));
   const baselineMap = new Map(baselineEntries.map((e) => [normalise(e.name), e.status]));
   return cards.map((c) => {
-    const key = normalise(c.name);
-    const status = map.get(key) || 'unlimited';
-    const baselineStatus = baselineMap.get(key) || 'unlimited';
+    const status = restrictionStatus(map, c);
+    const baselineStatus = restrictionStatus(baselineMap, c);
     return { ...c, status, copies: cardCopies(status), baselineStatus,
       isHouseChange: status !== baselineStatus };
   });
+}
+async function catalogueMeta(db) {
+  const { results } = await db.prepare('SELECT key,value FROM catalogue_meta').all();
+  return Object.fromEntries(results.map((row) => [row.key, row.value]));
+}
+function boundedInteger(value, fallback, min, max) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback;
+}
+async function cataloguePage(db, url) {
+  const version = await currentVersion(db);
+  if (!version) throw fail(503, 'The published house list is unavailable.');
+  const query = normalise((url.searchParams.get('q') || '').slice(0, 80));
+  const category = url.searchParams.get('category') || '';
+  const subtype = url.searchParams.get('subtype') || '';
+  const attribute = (url.searchParams.get('attribute') || '').toUpperCase();
+  const archetype = (url.searchParams.get('archetype') || '').trim().slice(0, 80);
+  const level = url.searchParams.get('level');
+  const link = url.searchParams.get('link');
+  const statuses = (url.searchParams.get('status') || '').split(',').filter((item) => ALLOWED.has(item));
+  const limit = boundedInteger(url.searchParams.get('limit'), CATALOGUE_PAGE_SIZE, 1, MAX_CATALOGUE_PAGE_SIZE);
+  const page = boundedInteger(url.searchParams.get('page'), 0, 0, 500);
+  if (category && !['Monster','Spell','Trap'].includes(category)) throw fail(400, 'Invalid card category filter.');
+  if (attribute && !['DARK','DIVINE','EARTH','FIRE','LIGHT','WATER','WIND'].includes(attribute))
+    throw fail(400, 'Invalid attribute filter.');
+  const clauses = ['c.pool_verified=1'];
+  const bindings = [];
+  if (query) {
+    clauses.push("c.sort_name LIKE ? ESCAPE '\\'");
+    bindings.push(`%${query.replace(/[%_\\]/g, '\\$&')}%`);
+  }
+  if (category) { clauses.push('c.category=?'); bindings.push(category); }
+  if (subtype) { clauses.push('c.subtype=?'); bindings.push(subtype.slice(0, 40)); }
+  if (attribute) { clauses.push('c.attribute=?'); bindings.push(attribute); }
+  if (archetype) { clauses.push("c.archetype LIKE ? ESCAPE '\\'"); bindings.push(`%${archetype.replace(/[%_\\]/g, '\\$&')}%`); }
+  if (level !== null && level !== '') { clauses.push('c.level=?'); bindings.push(boundedInteger(level, -1, 0, 13)); }
+  if (link !== null && link !== '') { clauses.push('c.link_rating=?'); bindings.push(boundedInteger(link, -1, 0, 8)); }
+  const statusExpr = `COALESCE((SELECT e.status FROM entries e WHERE e.version_id=?
+    AND (e.sort_name=c.sort_name OR e.sort_name=c.copy_limit_key)
+    ORDER BY CASE e.status WHEN 'forbidden' THEN 0 WHEN 'limited' THEN 1 ELSE 2 END LIMIT 1),'unlimited')`;
+  const selectBindings = [version.id];
+  if (statuses.length) {
+    clauses.push(`${statusExpr} IN (${statuses.map(() => '?').join(',')})`);
+    bindings.push(version.id, ...statuses);
+  }
+  let order = 'c.sort_name';
+  const orderBindings = [];
+  if (query) {
+    order = "CASE WHEN c.sort_name=? THEN 0 WHEN c.sort_name LIKE ? ESCAPE '\\' THEN 1 ELSE 2 END,c.sort_name";
+    orderBindings.push(query, `${query.replace(/[%_\\]/g, '\\$&')}%`);
+  }
+  const { results } = await db.prepare(`SELECT c.*,${statusExpr} AS house_status FROM cards_cache c
+    WHERE ${clauses.join(' AND ')} ORDER BY ${order} LIMIT ? OFFSET ?`)
+    .bind(...selectBindings, ...bindings, ...orderBindings, limit + 1, page * limit).all();
+  const hasMore = results.length > limit;
+  const cards = results.slice(0, limit).map((row) => ({ ...cachedCardView(row), status: row.house_status,
+    copies: cardCopies(row.house_status) }));
+  const meta = await catalogueMeta(db);
+  return { cards, page, pageSize: limit, hasMore, query, catalogue: {
+    complete: meta.complete === '1', revision: meta.revision || null,
+    eligibleCards: Number(meta.eligible_cards || 0) || null, source: meta.source || null
+  }, version: versionView(version) };
+}
+const chunks = (items, size) => Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
+async function evidenceForIds(db, ids) {
+  const byId = new Map();
+  for (const group of chunks([...new Set(ids)], 80)) {
+    if (!group.length) continue;
+    const { results } = await db.prepare(`SELECT ev.input_id,ev.canonical_id AS evidence_canonical_id,
+      ev.tcg_date AS evidence_tcg_date,ev.eligible,ev.reason,c.* FROM card_id_evidence ev
+      LEFT JOIN cards_cache c ON c.card_id=ev.canonical_id AND c.pool_verified=1
+      WHERE ev.input_id IN (${group.map(() => '?').join(',')})`).bind(...group).all();
+    for (const row of results) byId.set(Number(row.input_id), row);
+  }
+  return byId;
+}
+async function storeRawEvidence(db, raw) {
+  const canonicalId = Number(raw.id), tcgDate = tcgDateFor(raw);
+  const eligible = isJushEligible(raw);
+  const reason = !playableType(raw.type) || raw.name === '???' ? 'not_playable'
+    : !/^\d{4}-\d{2}-\d{2}$/.test(tcgDate || '') ? 'metadata_unavailable'
+      : eligible ? 'eligible' : 'outside_pool';
+  const ids = [...new Set([canonicalId, ...(raw.card_images || []).map((image) => Number(image.id))].filter(validCardId))];
+  const updated = nowIso();
+  await db.batch(ids.map((inputId) => db.prepare(`INSERT INTO card_id_evidence(input_id,canonical_id,tcg_date,eligible,reason,updated_at)
+    VALUES (?,?,?,?,?,?) ON CONFLICT(input_id) DO UPDATE SET canonical_id=excluded.canonical_id,
+    tcg_date=excluded.tcg_date,eligible=excluded.eligible,reason=excluded.reason,updated_at=excluded.updated_at`)
+    .bind(inputId, canonicalId, tcgDate, eligible ? 1 : 0, reason, updated)));
+  if (eligible) await storeCard(db, cardFromApi(raw));
+}
+async function resolveCardIds(db, inputIds, { allowUpstream = true, version = null } = {}) {
+  const ids = inputIds.map(Number);
+  if (!ids.length || ids.length > MAX_RESOLVE_IDS || ids.some((id) => !validCardId(id)))
+    throw fail(400, `Provide between 1 and ${MAX_RESOLVE_IDS} positive numeric card IDs.`);
+  let evidence = await evidenceForIds(db, ids);
+  const missing = [...new Set(ids.filter((id) => !evidence.has(id)))];
+  const complete = await catalogueComplete(db);
+  let upstreamUnavailable = false;
+  if (missing.length && allowUpstream && !complete) {
+    try {
+      for (const group of chunks(missing, 40)) {
+        const rawCards = await ygoFetch({ id: group.join(',') }, { cutoff: false });
+        for (const raw of rawCards) await storeRawEvidence(db, raw);
+      }
+      evidence = await evidenceForIds(db, ids);
+    } catch { upstreamUnavailable = true; }
+  }
+  const resolvedCards = [];
+  const preliminary = ids.map((inputId) => {
+    const row = evidence.get(inputId);
+    if (!row) return { inputId, outcome: upstreamUnavailable || !complete ? 'metadata_unavailable' : 'unknown_id' };
+    if (!row.eligible) return { inputId, outcome: row.reason || 'outside_pool', canonicalId: row.evidence_canonical_id || null,
+      tcgDate: row.evidence_tcg_date || null };
+    if (!row.card_id) return { inputId, outcome: 'metadata_unavailable', canonicalId: row.evidence_canonical_id || null };
+    const card = cachedCardView(row, inputId);
+    resolvedCards.push(card);
+    return { inputId, outcome: 'resolved', card };
+  });
+  const statusCards = await statusesFor(db, resolvedCards, version);
+  let cardIndex = 0;
+  return preliminary.map((result) => result.outcome === 'resolved'
+    ? { inputId: result.inputId, outcome: 'resolved', canonicalId: statusCards[cardIndex].canonicalId,
+      artworkId: result.inputId, card: statusCards[cardIndex++] }
+    : result);
+}
+async function publishedRestrictionHash(version, entries) {
+  return sha256(JSON.stringify({ id: version.id, publishedAt: version.published_at,
+    entries: entries.map((entry) => [normalise(entry.name), entry.status]) }));
+}
+async function validateDeck(db, body) {
+  const version = await currentVersion(db);
+  if (!version) throw fail(503, 'The published house list is unavailable.');
+  const zones = {};
+  const flat = [];
+  for (const zone of ['main','extra','side']) {
+    if (!Array.isArray(body?.[zone])) throw fail(400, `Missing ${zone} deck section.`);
+    zones[zone] = body[zone].map((value, index) => {
+      const raw = typeof value === 'object' && value ? (value.originalImportId ?? value.canonicalId) : value;
+      const inputId = Number(raw);
+      const item = { zone, index, inputId };
+      flat.push(item);
+      return item;
+    });
+  }
+  if (flat.length > MAX_RESOLVE_IDS) throw fail(413, `Deck validation is limited to ${MAX_RESOLVE_IDS} entries.`);
+  const validIds = flat.filter((item) => validCardId(item.inputId)).map((item) => item.inputId);
+  const resolved = validIds.length ? await resolveCardIds(db, validIds, { version }) : [];
+  let resolvedIndex = 0;
+  const issues = [];
+  for (const item of flat) {
+    if (!validCardId(item.inputId)) {
+      item.outcome = 'unknown_id';
+      issues.push({ code: 'unknown_id', zone: item.zone, index: item.index, message: 'This entry has no valid numeric card ID.' });
+      continue;
+    }
+    Object.assign(item, resolved[resolvedIndex++]);
+    if (item.outcome !== 'resolved') issues.push({ code: item.outcome, inputId: item.inputId,
+      zone: item.zone, index: item.index, message: item.outcome === 'outside_pool'
+        ? `Card ${item.inputId} was first released after ${CUTOFF}.`
+        : item.outcome === 'not_playable' ? `Card ${item.inputId} is not a playable TCG deck card.`
+          : item.outcome === 'metadata_unavailable' ? `Card ${item.inputId} could not be verified.`
+            : `Card ${item.inputId} is unknown.` });
+  }
+  const sectionLimits = { main: [40,60], extra: [0,15], side: [0,15] };
+  for (const [zone, [minimum, maximum]] of Object.entries(sectionLimits)) {
+    const count = zones[zone].length;
+    if (count < minimum) issues.push({ code: 'deck_size', zone, count, minimum, maximum,
+      message: `${zone === 'main' ? 'Main Deck' : zone === 'extra' ? 'Extra Deck' : 'Side Deck'} has ${count}; minimum is ${minimum}.` });
+    if (count > maximum) issues.push({ code: 'deck_size', zone, count, minimum, maximum,
+      message: `${zone === 'main' ? 'Main Deck' : zone === 'extra' ? 'Extra Deck' : 'Side Deck'} has ${count}; maximum is ${maximum}.` });
+  }
+  const groups = new Map();
+  for (const item of flat.filter((entry) => entry.outcome === 'resolved')) {
+    const card = item.card;
+    if (card.copies === 0) issues.push({ code: 'forbidden', zone: item.zone,
+      index: item.index, inputId: item.inputId, canonicalId: card.canonicalId, name: card.name,
+      message: `${card.name} is Forbidden in the published house list.` });
+    if (item.zone !== 'side' && card.placement !== item.zone) issues.push({ code: 'wrong_section', zone: item.zone,
+      index: item.index, inputId: item.inputId, canonicalId: card.canonicalId, name: card.name,
+      message: `${card.name} belongs in the ${card.placement === 'extra' ? 'Extra' : 'Main'} Deck.` });
+    const key = card.copyLimitKey || normalise(card.name);
+    const group = groups.get(key) || { key, name: card.treatedAs || card.name, count: 0, allowed: card.copies, items: [] };
+    group.count += 1;
+    group.allowed = Math.min(group.allowed, card.copies);
+    group.items.push(item);
+    groups.set(key, group);
+  }
+  for (const group of groups.values()) if (group.count > group.allowed) issues.push({ code: 'too_many_copies',
+    copyLimitKey: group.key, name: group.name, count: group.count, allowed: group.allowed,
+    message: `${group.name} allows ${group.allowed} ${group.allowed === 1 ? 'copy' : 'copies'} across Main, Extra and Side; this deck has ${group.count}.` });
+  const entries = await entriesFor(db, version.id);
+  const metadataUnavailable = issues.some((issue) => issue.code === 'metadata_unavailable');
+  const meta = await catalogueMeta(db);
+  return {
+    verified: !metadataUnavailable && meta.complete === '1',
+    legal: issues.length === 0 && !metadataUnavailable && meta.complete === '1',
+    checkedAt: nowIso(), version: versionView(version), restrictionHash: await publishedRestrictionHash(version, entries),
+    poolRevision: meta.revision || null, catalogueComplete: meta.complete === '1',
+    counts: Object.fromEntries(Object.entries(zones).map(([zone, values]) => [zone, values.length])),
+    issues, cards: flat.map((item) => ({ zone: item.zone, index: item.index, inputId: item.inputId,
+      outcome: item.outcome, canonicalId: item.canonicalId || item.card?.canonicalId || null,
+      artworkId: item.artworkId || null, card: item.card || null }))
+  };
 }
 async function reserveR2Operation(db, operationClass) {
   const classA = operationClass === 'A';
@@ -313,18 +590,25 @@ async function reserveR2Operation(db, operationClass) {
 function cardImageResponse(body, cacheState) {
   return new Response(body, { headers: {
     'Content-Type': 'image/jpeg',
-    'Cache-Control': `public, max-age=${IMAGE_CACHE_SECONDS}`,
+    'Cache-Control': `public, max-age=${IMAGE_CACHE_SECONDS}, immutable`,
     'X-Content-Type-Options': 'nosniff',
     'X-GOG-Image-Cache': cacheState
   } });
+}
+function edgeImageKey(request) {
+  const input = new URL(request.url);
+  const url = new URL(input.origin + input.pathname);
+  const size = input.searchParams.get('size');
+  const revision = input.searchParams.get('v');
+  if (size) url.searchParams.set('size', size);
+  if (revision) url.searchParams.set('v', revision);
+  return new Request(url.toString(), { method: 'GET' });
 }
 async function edgeImageMatch(request) {
   const cache = globalThis.caches?.default;
   if (!cache) return null;
   try {
-    const url = new URL(request.url);
-    url.search = '';
-    const response = await cache.match(new Request(url.toString(), { method: 'GET' }));
+    const response = await cache.match(edgeImageKey(request));
     if (!response) return null;
     const headers = new Headers(response.headers);
     headers.set('X-GOG-Image-Cache', 'edge');
@@ -335,43 +619,50 @@ async function storeEdgeImage(request, response) {
   const cache = globalThis.caches?.default;
   if (!cache) return;
   try {
-    const url = new URL(request.url);
-    url.search = '';
-    await cache.put(new Request(url.toString(), { method: 'GET' }), response.clone());
+    await cache.put(edgeImageKey(request), response.clone());
   } catch { /* R2 and browser caching still work if edge caching is unavailable. */ }
 }
 async function imageFor(context, id) {
   const db = context.env.GOG_DB;
   const validId = Number(id);
-  if (!Number.isSafeInteger(validId) || validId <= 0) return placeholderImage();
+  const url = new URL(context.request.url);
+  const size = url.searchParams.get('size') || 'thumb';
+  const versioned = url.searchParams.get('v') === ASSET_REVISION;
+  const failure = (status, cacheState = null) => versioned ? imageFailure(status, cacheState) : placeholderImage(cacheState);
+  if (!validCardId(validId) || !['thumb','full'].includes(size)) return failure(400);
   const edgeHit = await edgeImageMatch(context.request);
   if (edgeHit) return edgeHit;
   // Image requests for unknown / post-cutoff IDs never reach the image host.
-  const cached = await db.prepare('SELECT card_id FROM cards_cache WHERE card_id=?').bind(validId).first();
-  if (!cached || !context.env.GOG_IMAGES) return placeholderImage();
-  const key = `cards-small/${validId}.jpg`;
-  if (!await reserveR2Operation(db, 'B')) return placeholderImage('operation-limit');
+  const cached = await db.prepare(`SELECT a.artwork_id FROM card_artworks a JOIN cards_cache c ON c.card_id=a.canonical_id
+    WHERE a.artwork_id=? AND c.pool_verified=1 LIMIT 1`).bind(validId).first();
+  if (!cached || !context.env.GOG_IMAGES) return failure(cached ? 503 : 404, cached ? 'binding-missing' : 'unknown-card');
+  const bucketPrefix = size === 'full' ? 'cards' : 'cards-small';
+  const providerPrefix = size === 'full' ? 'cards' : 'cards_small';
+  const key = `${bucketPrefix}/${validId}.jpg`;
+  if (!await reserveR2Operation(db, 'B')) return failure(503, 'operation-limit');
   let object;
   try { object = await context.env.GOG_IMAGES.get(key); }
-  catch { return placeholderImage(); }
+  catch { return failure(503, 'r2-error'); }
   if (!object) {
     try {
-      const response = await fetch(`https://images.ygoprodeck.com/images/cards_small/${validId}.jpg`, { signal: AbortSignal.timeout(9000) });
-      if (!response.ok || !response.headers.get('content-type')?.startsWith('image/')) return placeholderImage();
+      const response = await fetch(`https://images.ygoprodeck.com/images/${providerPrefix}/${validId}.jpg`, { signal: AbortSignal.timeout(9000) });
+      if (!response.ok || !response.headers.get('content-type')?.startsWith('image/')) return failure(response.status === 404 ? 404 : 503, 'upstream-error');
       const bytes = await response.arrayBuffer();
-      if (bytes.byteLength > IMAGE_MAX_BYTES) return placeholderImage();
+      if (bytes.byteLength > IMAGE_MAX_BYTES[size]) return failure(502, 'image-too-large');
       let cacheState = 'bypass-limit';
       try {
         // An object missing from R2 makes any old accounting row stale.
-        await db.prepare('DELETE FROM image_cache WHERE card_id=?').bind(validId).run();
-        const usage = await db.prepare('SELECT COALESCE(SUM(size_bytes),0) AS bytes FROM image_cache').first();
+        await db.prepare('DELETE FROM image_cache_v2 WHERE asset_key=?').bind(key).run();
+        const usage = await db.prepare(`SELECT
+          (SELECT COALESCE(SUM(size_bytes),0) FROM image_cache)+
+          (SELECT COALESCE(SUM(size_bytes),0) FROM image_cache_v2) AS bytes`).first();
         if (Number(usage?.bytes || 0) + bytes.byteLength <= IMAGE_CACHE_LIMIT_BYTES) {
           if (await reserveR2Operation(db, 'A')) {
             await context.env.GOG_IMAGES.put(key, bytes, { httpMetadata: { contentType: 'image/jpeg' } });
             try {
-              await db.prepare(`INSERT INTO image_cache(card_id,size_bytes,cached_at)
-                VALUES (?,?,?) ON CONFLICT(card_id) DO UPDATE SET size_bytes=excluded.size_bytes,cached_at=excluded.cached_at`)
-                .bind(validId, bytes.byteLength, nowIso()).run();
+              await db.prepare(`INSERT INTO image_cache_v2(asset_key,card_id,variant,size_bytes,cached_at)
+                VALUES (?,?,?,?,?) ON CONFLICT(asset_key) DO UPDATE SET size_bytes=excluded.size_bytes,cached_at=excluded.cached_at`)
+                .bind(key, validId, size, bytes.byteLength, nowIso()).run();
               cacheState = 'stored';
             } catch (error) {
               await context.env.GOG_IMAGES.delete(key);
@@ -385,11 +676,17 @@ async function imageFor(context, id) {
       const result = cardImageResponse(bytes, cacheState);
       await storeEdgeImage(context.request, result);
       return result;
-    } catch { return placeholderImage(); }
+    } catch { return failure(503, 'upstream-error'); }
   }
   const result = cardImageResponse(object.body, 'hit');
   await storeEdgeImage(context.request, result);
   return result;
+}
+function imageFailure(status, cacheState = null) {
+  const headers = { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff' };
+  if (cacheState) headers['X-GOG-Image-Cache'] = cacheState;
+  return new Response('Card image unavailable.', { status, headers });
 }
 function placeholderImage(cacheState = null) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 421 614"><rect width="421" height="614" fill="#182033"/><rect x="20" y="20" width="381" height="574" rx="16" fill="#222d45" stroke="#c8a85b" stroke-width="4"/><circle cx="210" cy="280" r="82" fill="none" stroke="#c8a85b" stroke-width="8" opacity=".75"/><path d="M210 192l24 64 68 4-53 43 17 66-56-37-56 37 17-66-53-43 68-4z" fill="#c8a85b" opacity=".7"/><text x="210" y="430" text-anchor="middle" font-family="system-ui" font-size="22" fill="#f3ead2">CARD IMAGE</text></svg>`;
@@ -453,6 +750,7 @@ async function handle(context) {
     const house = await houseViewFor(db, version);
     return json({ version: versionView(version), baseline: house.baseline, entries: house.entries, changes: house.changes });
   }
+  if (method === 'GET' && path === '/catalogue') return json(await cataloguePage(db, url));
   if (method === 'GET' && path === '/cards/search') {
     const q = (url.searchParams.get('q') || '').trim();
     return json({ results: q.length < 2 ? [] : await statusesFor(db, await cardSearch(db, q)) });
@@ -468,6 +766,14 @@ async function handle(context) {
     }
     return json({ card: card ? (await statusesFor(db, [card]))[0] : null });
   }
+  if (method === 'POST' && path === '/cards/resolve') {
+    const body = await inputJson(request);
+    if (!Array.isArray(body.ids)) throw fail(400, 'An ids array is required.');
+    const results = await resolveCardIds(db, body.ids);
+    const meta = await catalogueMeta(db);
+    return json({ results, catalogue: { complete: meta.complete === '1', revision: meta.revision || null } });
+  }
+  if (method === 'POST' && path === '/decks/validate') return json(await validateDeck(db, await inputJson(request)));
   const imageRoute = path.match(/^\/cards\/(\d+)\/image$/);
   if (method === 'GET' && imageRoute) return imageFor(context, imageRoute[1]);
   if (method === 'GET' && path === '/auth/password-salt') {
