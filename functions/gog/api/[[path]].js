@@ -106,14 +106,15 @@ async function entriesFor(db, versionId) {
     FROM entries WHERE version_id=? ORDER BY sort_name`).bind(versionId).all();
   return results.map((e) => ({ ...e, copies: cardCopies(e.status) }));
 }
-async function changesFor(db, version) {
-  if (!version || !version.previous_version_id) return [];
-  const [before, after] = await Promise.all([entriesFor(db, version.previous_version_id), entriesFor(db, version.id)]);
+async function foundationVersion(db) {
+  return db.prepare("SELECT * FROM versions WHERE source='tcg-apr-2025' ORDER BY id LIMIT 1").first();
+}
+function compareEntries(before, after, includeNotes = true) {
   const b = new Map(before.map((e) => [normalise(e.name), e]));
   const a = new Map(after.map((e) => [normalise(e.name), e]));
   return [...new Set([...a.keys(), ...b.keys()])].map((k) => {
     const past = b.get(k), next = a.get(k);
-    if (past && next && past.status === next.status && (past.note || '') === (next.note || '')) return null;
+    if (past && next && past.status === next.status && (!includeNotes || (past.note || '') === (next.note || ''))) return null;
     return {
       ...(next || past),
       previousStatus: past?.status || 'unlimited',
@@ -121,6 +122,33 @@ async function changesFor(db, version) {
       changeType: !past ? 'restricted' : !next ? 'unrestricted' : past.status === next.status ? 'note_updated' : 'changed'
     };
   }).filter(Boolean).sort((x, y) => x.name.localeCompare(y.name));
+}
+async function differencesFor(db, beforeId, afterId, includeNotes = true) {
+  if (!beforeId || !afterId) return [];
+  const [before, after] = await Promise.all([entriesFor(db, beforeId), entriesFor(db, afterId)]);
+  return compareEntries(before, after, includeNotes);
+}
+async function changesFor(db, version) {
+  if (!version || !version.previous_version_id) return [];
+  return differencesFor(db, version.previous_version_id, version.id, true);
+}
+async function houseViewFor(db, version) {
+  const [baseline, entries] = await Promise.all([foundationVersion(db), entriesFor(db, version?.id)]);
+  if (!baseline || !version) return { baseline: versionView(baseline), entries, changes: [] };
+  const changes = (await differencesFor(db, baseline.id, version.id, false)).map((entry) => ({
+    ...entry,
+    baselineStatus: entry.previousStatus,
+    isHouseChange: true
+  }));
+  const byName = new Map(changes.map((entry) => [normalise(entry.name), entry]));
+  return {
+    baseline: versionView(baseline),
+    entries: entries.map((entry) => {
+      const change = byName.get(normalise(entry.name));
+      return change ? { ...entry, baselineStatus: change.baselineStatus, isHouseChange: true } : entry;
+    }),
+    changes
+  };
 }
 async function getDraft(db) {
   let draft = await db.prepare("SELECT * FROM versions WHERE status='draft' LIMIT 1").first();
@@ -241,11 +269,17 @@ async function cardById(db, cardId) {
   return card;
 }
 async function statusesFor(db, cards) {
-  const current = await currentVersion(db);
-  const entries = await entriesFor(db, current?.id);
+  const [current, baseline] = await Promise.all([currentVersion(db), foundationVersion(db)]);
+  const [entries, baselineEntries] = await Promise.all([entriesFor(db, current?.id), entriesFor(db, baseline?.id)]);
   const map = new Map(entries.map((e) => [normalise(e.name), e.status]));
-  return cards.map((c) => ({ ...c, status: map.get(normalise(c.name)) || 'unlimited',
-    copies: cardCopies(map.get(normalise(c.name)) || 'unlimited') }));
+  const baselineMap = new Map(baselineEntries.map((e) => [normalise(e.name), e.status]));
+  return cards.map((c) => {
+    const key = normalise(c.name);
+    const status = map.get(key) || 'unlimited';
+    const baselineStatus = baselineMap.get(key) || 'unlimited';
+    return { ...c, status, copies: cardCopies(status), baselineStatus,
+      isHouseChange: status !== baselineStatus };
+  });
 }
 async function imageFor(context, id) {
   const db = context.env.GOG_DB;
@@ -325,8 +359,8 @@ async function handle(context) {
   if (method === 'GET' && path === '/list') {
     const version = await currentVersion(db);
     if (!version) throw fail(503, 'The JUSH foundation has not been seeded. See SETUP.md.');
-    const [entries, changes] = await Promise.all([entriesFor(db, version.id), changesFor(db, version)]);
-    return json({ version: versionView(version), entries, changes });
+    const house = await houseViewFor(db, version);
+    return json({ version: versionView(version), baseline: house.baseline, entries: house.entries, changes: house.changes });
   }
   if (method === 'GET' && path === '/cards/search') {
     const q = (url.searchParams.get('q') || '').trim();
@@ -397,9 +431,10 @@ async function handle(context) {
     const session = await requireAdmin(db, request, method !== 'GET');
     if (method === 'GET' && path === '/admin/draft') {
       const draft = await getDraft(db);
+      const [changes, house] = await Promise.all([changesFor(db, draft), houseViewFor(db, draft)]);
       return json({ draft: { id: draft.id, label: draft.version_label, effectiveDate: draft.effective_date,
         summary: draft.summary, previousVersionId: draft.previous_version_id },
-        entries: await entriesFor(db, draft.id), changes: await changesFor(db, draft) });
+        baseline: house.baseline, entries: house.entries, changes, houseChanges: house.changes });
     }
     if (method === 'POST' && path === '/admin/draft/entry') {
       const body = await inputJson(request);

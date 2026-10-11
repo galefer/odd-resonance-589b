@@ -26,6 +26,7 @@ const STATUS = {
 
 const state = {
   config: null,
+  baseline: null,
   entries: [],
   changes: [],
   view: 'current',
@@ -41,6 +42,7 @@ const state = {
     draft: null,
     entries: [],
     changes: [],
+    houseChanges: [],
     versions: [],
     section: 'editor',
     searchResults: []
@@ -91,6 +93,12 @@ function statusBadge(status) {
   return `<span class="status-badge status-${status}">${item.label}</span>`;
 }
 
+function houseChangeBadge(card) {
+  return card?.isHouseChange
+    ? '<span class="house-change-badge" title="Different from the official JUSH baseline">NEW</span>'
+    : '';
+}
+
 async function api(path, options = {}) {
   const config = { ...options, headers: { ...(options.headers || {}) } };
   if (config.body && typeof config.body !== 'string') {
@@ -121,6 +129,7 @@ async function loadPublicData() {
   const [configPayload, listPayload] = await Promise.all([api('/api/config'), api('/api/list')]);
   state.config = configPayload;
   if (configPayload.cardPool?.cutoffDate !== CARD_POOL_CUTOFF) throw new Error('Card pool mismatch. The deployed list is not locked to Justice Hunters.');
+  state.baseline = listPayload.baseline || null;
   state.entries = listPayload.entries || [];
   state.changes = listPayload.changes || [];
   state.config.version = listPayload.version || configPayload.version;
@@ -169,8 +178,8 @@ function renderList() {
   const data = filteredDataset();
   const isChanges = state.view === 'changes';
   $('#changes-count').textContent = state.changes.length;
-  $('#results-kicker').textContent = isChanges ? 'Most recent publication' : 'Current restricted cards';
-  $('#results-title').textContent = isChanges ? 'Latest Changes' : 'Forbidden & Limited List';
+  $('#results-kicker').textContent = isChanges ? 'Compared with the official JUSH baseline' : 'Current restricted cards';
+  $('#results-title').textContent = isChanges ? 'House Banlist Tweaks' : 'Forbidden & Limited List';
   $('#results-count').textContent = `${data.length} ${data.length === 1 ? 'card' : 'cards'} shown`;
   $('#results-panel').setAttribute('aria-labelledby', isChanges ? 'changes-tab' : 'current-tab');
   list.setAttribute('aria-busy', 'false');
@@ -179,8 +188,8 @@ function renderList() {
     list.innerHTML = '';
     $('#empty-state').hidden = false;
     if (isChanges && state.changes.length === 0 && !activeFilterCount()) {
-      $('#empty-state h3').textContent = 'This is the foundation list';
-      $('#empty-state p').textContent = 'House-format changes will appear here after the first custom version is published.';
+      $('#empty-state h3').textContent = 'This list matches the official baseline';
+      $('#empty-state p').textContent = 'House tweaks will appear here whenever a published status differs from the official JUSH banlist.';
       $('#empty-clear').hidden = true;
     } else {
       $('#empty-state h3').textContent = 'No cards match those filters';
@@ -212,10 +221,10 @@ function renderCardRow(card) {
     <span class="change-arrow"><span class="old-status">${STATUS[card.previousStatus]?.label || 'Unlimited'}</span><span aria-hidden="true">→</span><span>${status.label}</span></span>` :
     `<small>${status.copies} ${status.copies === 1 ? 'copy' : 'copies'} maximum</small>`;
   return `
-    <article class="card-row status-${card.status}" data-card-name="${escapeHtml(card.name)}">
+    <article class="card-row status-${card.status}${card.isHouseChange ? ' is-house-change' : ''}" data-card-name="${escapeHtml(card.name)}">
       <div class="type-emblem ${card.category.toLowerCase()}" aria-hidden="true">${typeInitial(card.category)}</div>
       <div>
-        <h3 class="card-name">${escapeHtml(smartTitle(card.name))}</h3>
+        <h3 class="card-name">${escapeHtml(smartTitle(card.name))}${houseChangeBadge(card)}</h3>
         ${note}
       </div>
       <div class="card-type-cell"><strong>${escapeHtml(card.category)}</strong>${escapeHtml(card.subtype)}</div>
@@ -334,7 +343,7 @@ function renderSuggestions(results, pending) {
     <button class="suggestion-row" type="button" role="option" aria-selected="false" data-suggestion-index="${index}">
       <img class="suggestion-thumb" src="${card.id ? cardImageUrl(card.id) : cardImageUrl(0)}" alt="" loading="lazy">
       <span><span class="suggestion-name">${escapeHtml(smartTitle(card.name))}</span><span class="suggestion-meta">${escapeHtml(card.cardType || `${card.category} · ${card.subtype}`)}</span></span>
-      <span class="suggestion-status">${statusBadge(card.status || 'unlimited')}</span>
+      <span class="suggestion-status">${statusBadge(card.status || 'unlimited')}${houseChangeBadge(card)}</span>
     </button>`).join('');
 }
 
@@ -379,6 +388,7 @@ function populateCardDetail(card) {
   $('#detail-name').textContent = smartTitle(card.name || 'Unknown card');
   $('#detail-status').className = `status-badge status-${status}`;
   $('#detail-status').textContent = STATUS[status].label;
+  $('#detail-house-change').hidden = !card.isHouseChange;
   $('#detail-type').textContent = card.cardType || `${card.category || 'Card'} · ${card.subtype || ''}`;
   const stats = [];
   if (card.attribute) stats.push(card.attribute);
@@ -441,6 +451,7 @@ async function loadDraft() {
   state.admin.draft = payload.draft;
   state.admin.entries = payload.entries || [];
   state.admin.changes = payload.changes || [];
+  state.admin.houseChanges = payload.houseChanges || [];
   renderDraftTable();
   renderChangeReview();
   $('#publish-date').value = state.admin.draft?.effectiveDate || new Date().toISOString().slice(0, 10);
@@ -455,7 +466,7 @@ function renderDraftTable() {
   const body = $('#draft-table-body');
   body.innerHTML = rows.map((card) => `
     <tr data-draft-name="${escapeHtml(card.name)}">
-      <td>${escapeHtml(smartTitle(card.name))}</td>
+      <td>${escapeHtml(smartTitle(card.name))}${houseChangeBadge(card)}</td>
       <td>${escapeHtml(card.category)} · ${escapeHtml(card.subtype)}</td>
       <td>
         <select data-draft-status="${escapeHtml(card.name)}" aria-label="Status for ${escapeHtml(smartTitle(card.name))}">
@@ -701,7 +712,7 @@ function wireEvents() {
 
   $('#logout-button').addEventListener('click', async () => {
     try { await api('/api/auth/logout', { method: 'POST' }); } catch {}
-    state.admin = { authenticated: false, email: null, csrf: null, draft: null, entries: [], changes: [], versions: [], section: 'editor', searchResults: [] };
+    state.admin = { authenticated: false, email: null, csrf: null, draft: null, entries: [], changes: [], houseChanges: [], versions: [], section: 'editor', searchResults: [] };
     showAdminAuth(false);
     toast('Signed out.');
   });

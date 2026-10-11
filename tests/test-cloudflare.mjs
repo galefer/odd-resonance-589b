@@ -89,6 +89,8 @@ assert.equal(config.cardPool.cutoffDate, '2025-08-01');
 assert.equal(config.version.effectiveDate, '2025-04-07');
 assert.equal(config.adminConfigured, false);
 const starting = await get('/list');
+assert.equal(starting.baseline.source, 'tcg-apr-2025');
+assert.equal(starting.changes.length, 0);
 assert.equal(starting.entries.length, 207);
 assert.equal(starting.entries.filter(e=>e.status==='forbidden').length,109);
 assert.equal(starting.entries.filter(e=>e.status==='limited').length,82);
@@ -97,6 +99,7 @@ assert.equal(starting.entries.find(e=>e.name==='ABYSS DWELLER').status,'forbidde
 assert.equal(starting.entries.find(e=>e.name==='DIMENSION SHIFTER').status,'limited');
 assert.equal(starting.entries.find(e=>e.name==='EXT RYZEAL').status,'semi_limited');
 assert(!starting.entries.some(e=>e.name.includes('K9-04')));
+assert(!starting.entries.some(e=>e.isHouseChange));
 
 const unauthed = await req('/admin/draft');
 assert.equal(unauthed.status, 401);
@@ -124,12 +127,14 @@ assert.equal(blockedOrigin.status, 403);
 const draft = await get('/admin/draft');
 assert.equal(draft.entries.length,207);
 assert.equal(draft.changes.length,0);
+assert.equal(draft.houseChanges.length,0);
 
 // Eligible cards must appear; post-JUSH card searches and ID submissions must not,
 // EVEN IF the upstream API returns post-cutoff cards incorrectly.
 const jush = await get('/cards/search?q=Dracotail');
 assert.equal(jush.results[0].name,'Dracotail Lukias');
 assert.equal(jush.results[0].status,'unlimited');
+assert.equal(jush.results[0].isHouseChange,false);
 const excluded = await get('/cards/search?q=Post%20JUSH');
 assert.deepEqual(excluded.results,[]);
 const noBypass = await req('/admin/draft/entry', 'POST', {card:afterCutoff,status:'forbidden'});
@@ -156,6 +161,9 @@ assert.equal(add.status,200);
 assert.equal((await get('/list')).entries.find(e=>e.name==='ABYSS DWELLER').status,'forbidden');
 currentDraft = await get('/admin/draft');
 assert.equal(currentDraft.changes.length,2);
+assert.equal(currentDraft.houseChanges.length,2);
+assert(currentDraft.entries.find(e=>e.name==='ABYSS DWELLER').isHouseChange);
+assert(currentDraft.entries.find(e=>e.name==='Dracotail Lukias').isHouseChange);
 const preview = await req('/admin/export.csv');
 assert.equal(preview.status,200);
 assert((await preview.text()).includes('Dracotail Lukias'));
@@ -166,17 +174,35 @@ assert.equal(current.version.label,'JUSH Local v1');
 assert.equal(current.entries.find(e=>e.name==='ABYSS DWELLER').status,'limited');
 assert.equal(current.entries.find(e=>e.name==='Dracotail Lukias').status,'semi_limited');
 assert.equal(current.changes.length,2);
+assert(current.changes.every(e=>e.isHouseChange));
+assert.equal(current.changes.find(e=>e.name==='ABYSS DWELLER').baselineStatus,'forbidden');
+assert.equal(current.changes.find(e=>e.name==='Dracotail Lukias').baselineStatus,'unlimited');
+
+// A later publication must keep every deviation from the fixed foundation marked,
+// even when only one additional card changed since the previous house version.
+await get('/admin/draft');
+const addSecondVersion = await req('/admin/draft/entry','POST',{card:{id:5555},status:'limited'});
+assert.equal(addSecondVersion.status,200);
+const secondDraft = await get('/admin/draft');
+assert.equal(secondDraft.changes.length,1);
+assert.equal(secondDraft.houseChanges.length,3);
+const secondPublish = await req('/admin/publish','POST',{versionLabel:'JUSH Local v2',effectiveDate:'2025-08-02',summary:'One more house tweak.'});
+assert.equal(secondPublish.status,200);
+const secondCurrent = await get('/list');
+assert.equal(secondCurrent.changes.length,3);
+assert.deepEqual(secondCurrent.changes.map(e=>e.name), ['ABYSS DWELLER','Dracotail Lukias','Droll & Lock Bird']);
 const versions = await get('/admin/versions');
-assert.equal(versions.versions.filter(e=>e.status==='published').length,2);
+assert.equal(versions.versions.filter(e=>e.status==='published').length,3);
 const restore = await req('/admin/versions/1/restore','POST',{});
 assert.equal(restore.status,200);
 const restored = await get('/admin/draft');
 assert.equal(restored.entries.length,207);
 assert.equal(restored.entries.find(e=>e.name==='ABYSS DWELLER').status,'forbidden');
-assert.equal((await get('/list')).version.label,'JUSH Local v1');
+assert.equal((await get('/list')).version.label,'JUSH Local v2');
 // Publish the restored older snapshot, then make a note-only draft.
 const restoredPublish = await req('/admin/publish','POST',{versionLabel:'Restored foundation',effectiveDate:'2025-08-01',summary:'Restored the foundation.'});
 assert.equal(restoredPublish.status,200);
+assert.equal((await get('/list')).changes.length,0);
 await get('/admin/draft');
 // Publishing a note change without a restriction status change must be possible too.
 const noteOnly = await req('/admin/draft/entry-by-name','PATCH',{name:'DIMENSION SHIFTER',status:'limited',note:'Store note only.'});
@@ -184,12 +210,34 @@ assert.equal(noteOnly.status,200);
 assert((await get('/admin/draft')).changes.some(e => e.changeType === 'note_updated'));
 const notePublish = await req('/admin/publish','POST',{versionLabel:'Note update',effectiveDate:'2025-08-02',summary:'Updated a store note.'});
 assert.equal(notePublish.status,200);
-assert.equal((await get('/list')).version.label,'Note update');
+const noteOnlyCurrent = await get('/list');
+assert.equal(noteOnlyCurrent.version.label,'Note update');
+assert.equal(noteOnlyCurrent.changes.length,0);
 
 const img = await req('/cards/1111/image');
 assert.equal(img.headers.get('content-type'),'image/svg+xml'); // No R2 configured, never hotlinks.
 const imgOutside = await req('/cards/3333/image');
 assert.equal(imgOutside.headers.get('content-type'),'image/svg+xml');
+
+// With R2 bound, the first eligible request populates the private cache and later
+// requests are served from it without another artwork-host request.
+const imageObjects = new Map();
+let imageFetches = 0;
+contextBase.env.GOG_IMAGES = {
+  async get(key) { const body = imageObjects.get(key); return body ? { body } : null; },
+  async put(key, value) { imageObjects.set(key, value); }
+};
+const catalogueFetch = globalThis.fetch;
+globalThis.fetch = async (url) => {
+  if (!String(url).startsWith('https://images.ygoprodeck.com/')) return catalogueFetch(url);
+  imageFetches += 1;
+  return new Response(new Uint8Array([0xff,0xd8,0xff,0xd9]), { headers: { 'Content-Type':'image/jpeg' } });
+};
+assert.equal((await req('/cards/1111/image')).headers.get('content-type'),'image/jpeg');
+assert.equal((await req('/cards/1111/image')).headers.get('content-type'),'image/jpeg');
+assert.equal(imageFetches,1);
+globalThis.fetch = catalogueFetch;
+delete contextBase.env.GOG_IMAGES;
 
 const logout = await req('/auth/logout','POST',{});
 assert.equal(logout.status,200);
@@ -208,5 +256,5 @@ const changePassword = await req('/admin/password','POST',{currentVerifier:setup
 assert.equal(changePassword.status,200);
 assert.equal((await get('/auth/password-salt?email=admin%40example.com')).salt,newSalt);
 assert(fetchCount>0);
-console.log(`Passed: 207-card foundation, JUSH cutoff, spoofing resistance, PBKDF2/HMAC browser auth, CSRF, password change, drafts, publication, restore, image safeguards (${fetchCount} simulated upstream requests).`);
+console.log(`Passed: 207-card foundation, persistent baseline markers, JUSH cutoff, spoofing resistance, PBKDF2/HMAC browser auth, CSRF, drafts, publication, restore, and R2 image caching (${fetchCount} simulated upstream requests).`);
 globalThis.fetch = fetchOriginal;

@@ -7,6 +7,7 @@ A mobile-friendly house-format Forbidden & Limited List with admin login (browse
 - **Card pool cutoff:** first TCG release no later than **1 August 2025** (Justice Hunters / JUSH).
 - **Starting restriction list:** 7 April 2025 TCG Advanced Format (109 Forbidden, 82 Limited, 16 Semi-Limited).
 - **Independent format:** the official list is just a historical starting point, not an ongoing overlay.
+- **House-tweak markers:** `NEW` always means the card's current status differs from the fixed April 2025/JUSH-era foundation, even after later house versions are published.
 - **Unlimited:** any eligible, unlisted card. Cards released after JUSH are not eligible at all.
 - **Backend:** Cloudflare Pages Functions + D1; card images optionally stored in Cloudflare R2.
 - **Dependencies:** none in the deployed frontend or functions; Wrangler is needed once for D1 initialization.

@@ -149,6 +149,8 @@ Your existing `/`, `/null/`, `/outworld/`, etc. remain unchanged.
 4. After creation, the site logs you in and disables further public admin registration.
 5. Use **Draft editor** to change cards, **Review & publish** to make changes public, and **Version history** to restore a prior published snapshot.
 
+The public **House tweaks** view and every `NEW` badge compare the current published status with the original `tcg-apr-2025` foundation. They do not reset when another house version is published. A card loses the marker only when its status matches that fixed baseline again.
+
 **Sanity-check these cards:**
 
 - `Abyss Dweller` → **Forbidden** by the April 2025 foundation.

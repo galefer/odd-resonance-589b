@@ -111,7 +111,7 @@
         <div class="list-toolbar">
           <div class="view-tabs" role="tablist" aria-label="List view">
             <button class="view-tab active" id="current-tab" role="tab" aria-selected="true" aria-controls="results-panel" data-view="current">Current list</button>
-            <button class="view-tab" id="changes-tab" role="tab" aria-selected="false" aria-controls="results-panel" data-view="changes">Latest changes <span class="tab-count" id="changes-count">0</span></button>
+            <button class="view-tab" id="changes-tab" role="tab" aria-selected="false" aria-controls="results-panel" data-view="changes">House tweaks <span class="tab-count" id="changes-count">0</span></button>
           </div>
 
           <button class="button filter-toggle" id="filter-toggle" type="button" aria-expanded="false" aria-controls="filters-panel">
@@ -121,6 +121,8 @@
           </button>
         </div>
 
+        <p class="house-change-legend"><span class="house-change-badge">NEW</span><span>Different from the official JUSH banlist. This marker remains until the card matches the official baseline again.</span></p>
+
         <div class="filters-panel" id="filters-panel">
           <div class="filter-group">
             <span class="filter-label">Status</span>
@@ -128,7 +130,7 @@
               <label class="filter-chip forbidden"><input type="checkbox" value="forbidden" data-filter="status"><span>Forbidden</span></label>
               <label class="filter-chip limited"><input type="checkbox" value="limited" data-filter="status"><span>Limited</span></label>
               <label class="filter-chip semi-limited"><input type="checkbox" value="semi_limited" data-filter="status"><span>Semi-Limited</span></label>
-              <label class="filter-chip unlimited"><input type="checkbox" value="unlimited" data-filter="status"><span>Unlimited changes</span></label>
+              <label class="filter-chip unlimited"><input type="checkbox" value="unlimited" data-filter="status"><span>Unlimited house tweaks</span></label>
             </div>
           </div>
 
@@ -227,6 +229,7 @@
         <div class="card-detail-copy">
           <div class="detail-badges">
             <span class="status-badge" id="detail-status"></span>
+            <span class="house-change-badge" id="detail-house-change" hidden>NEW</span>
             <span class="type-badge" id="detail-type"></span>
           </div>
           <h2 id="detail-name"></h2>
@@ -259,6 +262,7 @@
           <li><strong>Unlisted and within the JUSH card pool:</strong> up to 3 copies.</li>
         </ul>
         <p><strong>Card pool:</strong> TCG cards first released no later than 1 August 2025 (including all of Justice Hunters/JUSH). Later cards are not legal, even if not listed above. Reprints after the cutoff do not exclude cards released earlier.</p>
+        <p><strong>House tweaks:</strong> Cards marked <span class="house-change-badge inline">NEW</span> differ from the official JUSH-era banlist. The marker compares against that fixed baseline, not against the previous house update.</p>
         <p>Limits apply across the Main Deck, Extra Deck, and Side Deck combined.</p>
       </div>
     </div>
