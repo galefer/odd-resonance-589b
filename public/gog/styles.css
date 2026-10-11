@@ -773,3 +773,5 @@ h1, h2, h3, .card-name, .footer-inner strong, .admin-sidebar-brand strong,
   .header-actions .button.compact { padding-inline: 8px; }
   .hero-logo { width: 65px; height: 62px; }
 }
+
+.list-admin-button { margin-top: 18px; }

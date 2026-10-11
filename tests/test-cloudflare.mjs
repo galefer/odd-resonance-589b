@@ -101,8 +101,17 @@ assert.equal(starting.entries.find(e=>e.name==='EXT RYZEAL').status,'semi_limite
 assert(!starting.entries.some(e=>e.name.includes('K9-04')));
 assert(!starting.entries.some(e=>e.isHouseChange));
 
+const eventsAtStart = await get('/events');
+assert.equal(eventsAtStart.timezone, 'Europe/London');
+assert.equal(eventsAtStart.events.length, 2);
+assert.deepEqual(eventsAtStart.events.map(event=>event.title).sort(), ['Yu-Gi-Oh! TCG Advanced','Yu-Gi-Oh! TCG House'].sort());
+assert.equal(new Date(`${eventsAtStart.events.find(event=>event.slug==='yugioh-advanced-thursday').eventDate}T12:00:00Z`).getUTCDay(), 4);
+assert.equal(new Date(`${eventsAtStart.events.find(event=>event.slug==='yugioh-house-friday').eventDate}T12:00:00Z`).getUTCDay(), 5);
+assert(eventsAtStart.events.every(event=>event.source==='recurring' && event.status==='scheduled'));
+
 const unauthed = await req('/admin/draft');
 assert.equal(unauthed.status, 401);
+assert.equal((await req('/admin/events')).status, 401);
 
 const blockedSetup = await req('/setup', 'POST', { email:'admin@example.com', password:'aVeryStrongPassword1' });
 assert.equal(blockedSetup.status,403);
@@ -119,6 +128,44 @@ assert.equal(configAfter.adminConfigured, true);
 const duplicate = await req('/setup', 'POST', { email:'other@example.com',password:'superStrongPassword!',setupToken:'test-setup-token' });
 assert.equal(duplicate.status, 409);
 assert.equal((await get('/auth/session')).authenticated, true);
+
+// Homepage events: recurring edits are occurrence-specific, one-off events are
+// manageable by the same protected admin session, and past dates disappear.
+const eventAdmin = await get('/admin/events');
+const advancedOccurrence = eventAdmin.events.find(event=>event.slug==='yugioh-advanced-thursday');
+const cancelledOccurrence = await req(`/admin/events/recurring/${advancedOccurrence.seriesId}`, 'PATCH', {
+  title: advancedOccurrence.title, eventDate: advancedOccurrence.eventDate, startTime: '18:30',
+  location: advancedOccurrence.location, description: 'Cancelled fixture.', status: 'cancelled'
+});
+assert.equal(cancelledOccurrence.status, 200);
+let publicEvents = await get('/events');
+assert.equal(publicEvents.events.find(event=>event.slug==='yugioh-advanced-thursday').status, 'cancelled');
+assert.equal(publicEvents.events.find(event=>event.slug==='yugioh-advanced-thursday').startTime, '18:30');
+assert.equal((await req(`/admin/events/recurring/${advancedOccurrence.seriesId}/override?date=${advancedOccurrence.eventDate}`, 'DELETE')).status, 200);
+publicEvents = await get('/events');
+assert.equal(publicEvents.events.find(event=>event.slug==='yugioh-advanced-thursday').status, 'scheduled');
+
+const tomorrow = new Date(`${eventsAtStart.generatedFor}T12:00:00Z`);
+tomorrow.setUTCDate(tomorrow.getUTCDate()+1);
+const tomorrowDate = tomorrow.toISOString().slice(0,10);
+const createdEvent = await req('/admin/events', 'POST', { title:'One-off championship', eventDate:tomorrowDate,
+  startTime:'12:00', location:'Guild of Games, Rotherham', description:'Single date.', status:'scheduled' });
+assert.equal(createdEvent.status, 200);
+const createdEventId = (await createdEvent.json()).eventId;
+assert((await get('/events')).events.some(event=>event.eventId===createdEventId));
+assert.equal((await req(`/admin/events/${createdEventId}`, 'PATCH', { title:'Updated championship', eventDate:tomorrowDate,
+  startTime:'13:00', location:'Guild of Games, Rotherham', description:'Updated.', status:'cancelled' })).status, 200);
+assert.equal((await get('/events')).events.find(event=>event.eventId===createdEventId).status, 'cancelled');
+const yesterday = new Date(`${eventsAtStart.generatedFor}T12:00:00Z`);
+yesterday.setUTCDate(yesterday.getUTCDate()-1);
+const expiredEvent = await req('/admin/events', 'POST', { title:'Expired fixture', eventDate:yesterday.toISOString().slice(0,10),
+  startTime:'', location:'Guild of Games, Rotherham', description:'', status:'scheduled' });
+assert.equal(expiredEvent.status, 200);
+assert(!(await get('/events')).events.some(event=>event.title==='Expired fixture'));
+assert.equal((await req(`/admin/events/${createdEventId}`, 'DELETE')).status, 200);
+assert(!(await get('/events')).events.some(event=>event.eventId===createdEventId));
+assert.equal((await req('/admin/events', 'POST', { title:'Blocked', eventDate:tomorrowDate, location:'Shop' }, {token:'wrong'})).status, 403);
+assert.equal((await req('/admin/events', 'POST', { title:'Impossible date', eventDate:'2026-02-31', location:'Shop' })).status, 400);
 
 const blockedCsrf = await req('/admin/settings', 'PATCH', {store_name:'Evil'}, {token:'wrong'});
 assert.equal(blockedCsrf.status, 403);
@@ -392,5 +439,5 @@ const changePassword = await req('/admin/password','POST',{currentVerifier:setup
 assert.equal(changePassword.status,200);
 assert.equal((await get('/auth/password-salt?email=admin%40example.com')).salt,newSalt);
 assert(fetchCount>0);
-console.log(`Passed: 207-card foundation, persistent baseline markers, JUSH cutoff, spoofing resistance, PBKDF2/HMAC browser auth, CSRF, drafts, publication, restore, edge caching, and R2 storage/operation caps (${fetchCount} simulated upstream requests).`);
+console.log(`Passed: homepage event recurrence/admin controls, 207-card foundation, persistent baseline markers, JUSH cutoff, spoofing resistance, PBKDF2/HMAC browser auth, CSRF, drafts, publication, restore, edge caching, and R2 storage/operation caps (${fetchCount} simulated upstream requests).`);
 globalThis.fetch = fetchOriginal;

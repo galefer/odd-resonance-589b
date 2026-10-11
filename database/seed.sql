@@ -216,3 +216,9 @@ INSERT OR IGNORE INTO entries(version_id,name,sort_name,card_id,category,subtype
   (1,'PURRELY DELICIOUS MEMORY','purrely delicious memory',NULL,'Spell','Spell','Spell','semi_limited',NULL),
   (1,'PURRELY SLEEPY MEMORY','purrely sleepy memory',NULL,'Spell','Spell','Spell','semi_limited',NULL),
   (1,'RUNICK FOUNTAIN','runick fountain',NULL,'Spell','Spell','Spell','semi_limited',NULL);
+
+INSERT OR IGNORE INTO recurring_events
+  (slug,title,weekday,start_time,location,description,active,sort_order,created_at,updated_at)
+VALUES
+  ('yugioh-advanced-thursday','Yu-Gi-Oh! TCG Advanced',4,'','Guild of Games, Rotherham','Official Advanced Format play at Guild of Games.',1,10,datetime('now'),datetime('now')),
+  ('yugioh-house-friday','Yu-Gi-Oh! TCG House',5,'','Guild of Games, Rotherham','Play using the Guild of Games Justice Hunters house format.',1,20,datetime('now'),datetime('now'));

@@ -88,9 +88,11 @@ try {
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: `${origin}/gog/deckbuilder/` });
   await waitFor(`document.readyState==='complete' && document.querySelectorAll('.library-card').length>0`, 'initial card catalogue');
-  assert.equal(await evaluate(`document.querySelector('.brand strong').textContent.trim()`), 'Guild of Games');
-  assert(await evaluate(`document.querySelector('.brand-logo').naturalWidth > 0`), 'Guild of Games logo should load in the deckbuilder header');
-  assert.equal(await evaluate(`new URL(document.querySelector('.site-nav a:first-child').href).pathname`), '/gog/');
+  assert.equal(await evaluate(`document.querySelector('.gog-brand strong').textContent.trim()`), 'Guild of Games');
+  assert(await evaluate(`document.querySelector('.gog-brand img').naturalWidth > 0`), 'Guild of Games logo should load in the deckbuilder header');
+  assert.equal(await evaluate(`new URL(document.querySelector('.gog-primary-nav a:first-child').href).pathname`), '/gog/');
+  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.gog-primary-nav a')].map(a=>a.textContent.trim())`), ['Home','House Format','Deckbuilder']);
+  const deckHeader = await evaluate(`(() => { const header=document.querySelector('.gog-site-header').getBoundingClientRect(); const logo=document.querySelector('.gog-brand img').getBoundingClientRect(); const brand=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:header.height,logoWidth:logo.width,logoHeight:logo.height,brandLeft:brand.left,brandTop:brand.top}; })()`);
   assert.match(await evaluate(`document.querySelector('#library-total').textContent`), /ELIGIBLE/);
   assert.equal(await evaluate(`document.querySelector('#saved-label').textContent`), 'Saved on this device');
   assert.equal((await counts()).main, 0);
@@ -158,11 +160,13 @@ try {
   await screenshot('deckbuilder-desktop.png');
   evidence.desktop = desktopLayout;
 
+  let deckMobileHeader = null;
   for (const width of [320, 390, 768, 1024, 1440, 1920, 2048]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height: width < 768 ? 844 : 900, deviceScaleFactor: 1, mobile: width < 768 });
     await sleep(180);
     const layout = await evaluate(`({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,nav:getComputedStyle(document.querySelector('.mobile-nav')).display,workspace:getComputedStyle(document.querySelector('.workspace')).display})`);
     assert(layout.scrollWidth <= layout.width + 1, `${width}px horizontal overflow: ${layout.scrollWidth-layout.width}`);
+    if (width === 390) deckMobileHeader = await evaluate(`(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()`);
     if (width === 2048) await screenshot('deckbuilder-2048.png');
     evidence.checks.push(`${width}px no horizontal overflow`);
   }
@@ -185,28 +189,58 @@ try {
 
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: `${origin}/gog/` });
+  await waitFor(`document.readyState==='complete' && document.querySelectorAll('#event-grid .event-card').length>=2`, 'Guild of Games homepage events');
+  const homeBrand = await evaluate(`({
+    brand:document.querySelector('.gog-brand strong').textContent.trim(),
+    navigation:[...document.querySelectorAll('.gog-primary-nav a')].map(a=>a.textContent.trim()),
+    heading:document.querySelector('.hero-copy h1').textContent.trim(),
+    events:[...document.querySelectorAll('.event-card')].map(card=>card.textContent.trim()),
+    eventDates:[...document.querySelectorAll('.event-full-date')].map(e=>e.textContent.trim()),
+    logoLoaded:document.querySelector('.hero-emblem').naturalWidth>0,
+    overflow:document.documentElement.scrollWidth-innerWidth,
+    header:(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()
+  })`);
+  assert.equal(homeBrand.brand, 'Guild of Games');
+  assert.deepEqual(homeBrand.navigation, ['Home','House Format','Deckbuilder']);
+  assert(homeBrand.events.some(text=>text.includes('Yu-Gi-Oh! TCG Advanced')));
+  assert(homeBrand.events.some(text=>text.includes('Yu-Gi-Oh! TCG House')));
+  assert(homeBrand.eventDates.some(text=>text.startsWith('Thursday')));
+  assert(homeBrand.eventDates.some(text=>text.startsWith('Friday')));
+  assert(!homeBrand.events.some(text=>/every thursday|every friday/i.test(text)), 'Public cards should show one upcoming date, not promise a weekly schedule');
+  assert(homeBrand.logoLoaded);
+  assert(homeBrand.overflow <= 1, `Homepage horizontal overflow: ${homeBrand.overflow}`);
+  assert.deepEqual(homeBrand.header, deckHeader, 'Homepage and deckbuilder headers should have identical sizing and placement');
+  await click('#events-admin-link');
+  await waitFor(`document.querySelector('#events-admin-dialog').open`, 'event administrator dialog');
+  assert(await evaluate(`document.querySelector('#events-admin-login img').naturalWidth>0`));
+  await click('#events-admin-close');
+  await screenshot('gog-home.png');
+  evidence.home = homeBrand;
+
+  await send('Page.navigate', { url: `${origin}/gog/house-format/` });
   await waitFor(`document.readyState==='complete' && document.querySelectorAll('#card-list .card-row').length>0`, 'branded card list');
   const cardListBrand = await evaluate(`({
-    brand:document.querySelector('.brand strong').textContent.trim(),
+    brand:document.querySelector('.gog-brand strong').textContent.trim(),
     heading:document.querySelector('#format-name').textContent.trim(),
     subtitle:document.querySelector('.hero-subtitle').textContent.trim(),
     note:document.querySelector('.altered-list-note').textContent.trim(),
     logoLoaded:document.querySelector('.hero-logo').naturalWidth>0,
-    deckbuilderPath:new URL(document.querySelector('.site-nav a[href="/gog/deckbuilder/"]').href).pathname,
+    homePath:new URL(document.querySelector('.gog-primary-nav a[href="/gog/"]').href).pathname,
+    deckbuilderPath:new URL(document.querySelector('.gog-primary-nav a[href="/gog/deckbuilder/"]').href).pathname,
     overflow:document.documentElement.scrollWidth-innerWidth,
-    background:getComputedStyle(document.body).backgroundColor
+    background:getComputedStyle(document.body).backgroundColor,
+    header:(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()
   })`);
   assert.equal(cardListBrand.brand, 'Guild of Games');
   assert.equal(cardListBrand.heading, 'Yu-Gi-Oh! JUSH House Format');
   assert.equal(cardListBrand.subtitle, 'Justice Hunters House Format');
   assert.match(cardListBrand.note, /altered banlist based on the official JUSH-era list/i);
   assert(cardListBrand.logoLoaded, 'Guild of Games hero logo should load');
+  assert.equal(cardListBrand.homePath, '/gog/');
   assert.equal(cardListBrand.deckbuilderPath, '/gog/deckbuilder/');
   assert(cardListBrand.overflow <= 1, `Card-list horizontal overflow: ${cardListBrand.overflow}`);
-  await click('#rules-button');
-  await waitFor(`document.querySelector('#rules-modal').open`, 'format rules dialog');
-  assert.match(await evaluate(`document.querySelector('#rules-modal .rules-copy').textContent`), /altered banlist based on the official JUSH-era/i);
-  await click('[data-close-dialog="rules-modal"]');
+  assert.deepEqual(cardListBrand.header, deckHeader, 'House Format and deckbuilder headers should have identical sizing and placement');
+  assert.equal(await evaluate(`document.querySelector('#rules-button')`), null);
   await click('#admin-button');
   await waitFor(`document.querySelector('#admin-modal').open`, 'administrator dialog');
   assert(await evaluate(`document.querySelector('#admin-modal .brand-logo').naturalWidth>0`), 'Guild of Games logo should load in administrator login');
@@ -217,17 +251,36 @@ try {
   await sleep(180);
   const mobileCardList = await evaluate(`({
     overflow:document.documentElement.scrollWidth-innerWidth,
-    desktopNav:getComputedStyle(document.querySelector('.site-nav')).display,
-    deckLink:getComputedStyle(document.querySelector('.mobile-header-link')).display,
-    logoLoaded:document.querySelector('.brand-logo').naturalWidth>0
+    desktopNav:getComputedStyle(document.querySelector('.gog-primary-nav')).display,
+    mobileNav:getComputedStyle(document.querySelector('.gog-mobile-nav')).display,
+    logoLoaded:document.querySelector('.gog-brand img').naturalWidth>0,
+    header:(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()
   })`);
   assert(mobileCardList.overflow <= 1, `Mobile card-list horizontal overflow: ${mobileCardList.overflow}`);
   assert.equal(mobileCardList.desktopNav, 'none');
-  assert.notEqual(mobileCardList.deckLink, 'none');
+  assert.notEqual(mobileCardList.mobileNav, 'none');
   assert(mobileCardList.logoLoaded);
+  assert.deepEqual(mobileCardList.header, deckMobileHeader, 'Mobile House Format and deckbuilder headers should match');
   await screenshot('card-list-mobile.png');
+  await send('Page.navigate', { url: `${origin}/gog/` });
+  await waitFor(`document.readyState==='complete' && document.querySelectorAll('#event-grid .event-card').length>=2`, 'mobile homepage events');
+  const mobileHome = await evaluate(`({
+    overflow:document.documentElement.scrollWidth-innerWidth,
+    eventCards:document.querySelectorAll('#event-grid .event-card').length,
+    navigation:[...document.querySelectorAll('.gog-mobile-nav a')].map(a=>({text:a.textContent.trim(),left:a.getBoundingClientRect().left,right:a.getBoundingClientRect().right,display:getComputedStyle(a).display})),
+    admin:(() => { const a=document.querySelector('.gog-admin-link'); const r=a.getBoundingClientRect(); return {text:a.textContent.trim(),left:r.left,right:r.right,display:getComputedStyle(a).display}; })(),
+    header:(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()
+  })`);
+  assert(mobileHome.overflow <= 1, `Mobile homepage horizontal overflow: ${mobileHome.overflow}`);
+  assert.equal(mobileHome.eventCards >= 2, true);
+  assert.deepEqual(mobileHome.navigation.map(item=>item.text), ['Home','House Format','Deckbuilder']);
+  assert(mobileHome.navigation.every(item=>item.display!=='none' && item.left>=0 && item.right<=391));
+  assert(mobileHome.admin.display!=='none' && mobileHome.admin.left>=0 && mobileHome.admin.right<=391);
+  assert.deepEqual(mobileHome.header, deckMobileHeader, 'Mobile homepage and deckbuilder headers should match');
+  await screenshot('gog-home-mobile.png');
   evidence.cardListBrand = cardListBrand;
   evidence.mobileCardList = mobileCardList;
+  evidence.mobileHome = mobileHome;
   evidence.checks.push('shared Guild of Games branding and two-way navigation');
 
   const unexpectedFailures = failedResponses.filter(({ url, status }) => status >= 400 && !url.includes('/gog/api/cards/') && !url.endsWith('favicon.ico'));

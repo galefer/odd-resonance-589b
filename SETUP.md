@@ -29,9 +29,12 @@ odd-resonance-589b/                  <- existing repo root
 │  ├─ style.css                     <- your existing CSS; leave alone
 │  ├─ assets/ ...                   <- leave alone
 │  └─ gog/                          <- NEW
-│     ├─ index.html
-│     ├─ styles.css
-│     └─ app.js
+│     ├─ index.html                 <- store homepage and events
+│     ├─ home.css / home.js
+│     ├─ site-header.css            <- shared navigation
+│     ├─ styles.css / app.js        <- house-format list assets
+│     ├─ house-format/index.html
+│     └─ deckbuilder/ ...
 ├─ functions/                       <- NEW; must be sibling of public/
 │  └─ gog/api/[[path]].js            <- Cloudflare Pages Functions API
 ├─ database/                        <- NEW
@@ -83,7 +86,7 @@ Expected numbers: Forbidden **109**, Limited **82**, Semi-Limited **16**. (The S
 
 Do **not** reinitialise or delete the database after you've begun editing: it stores your list versions and administrator account.
 
-### Upgrade an existing populated database for the deckbuilder
+### Upgrade an existing populated database
 
 Never rerun `seed.sql` on an established site. Inspect first, apply the additive migration once, then generate and execute the catalogue import:
 
@@ -95,6 +98,14 @@ npx wrangler d1 execute gog-house-format --remote --file=./database/catalogue-im
 ```
 
 The migration and import enrich card metadata and may fill an unambiguous missing `entries.card_id`; they do not edit restriction statuses, notes, versions, draft state or administrator data. Fingerprint those records before and after a production migration.
+
+To add the Guild of Games homepage event schedule to an existing database, run the idempotent events migration once:
+
+```cmd
+npx wrangler d1 execute gog-house-format --remote --file=./database/migrations/0003_events.sql
+```
+
+This creates only the event tables and the two recurring series. It does not modify house-format versions, entries, card metadata, administrators, sessions, or R2 usage records.
 
 ## 3. Bind D1 to your existing Cloudflare Pages project
 
@@ -161,9 +172,13 @@ git push
 
 Do not add an unrelated `wrangler.toml` from the old app: this overlay is meant to use your **existing Pages project settings** without replacing them.
 
-Wait for Cloudflare's deployment to finish, then open:
+Wait for Cloudflare's deployment to finish, then open the Guild of Games homepage:
 
 **https://gravetalestudios.com/gog/**
+
+The house-format card list is available at:
+
+**https://gravetalestudios.com/gog/house-format/**
 
 The local deckbuilder is available at:
 
@@ -175,11 +190,13 @@ Your existing `/`, `/null/`, `/outworld/`, etc. remain unchanged.
 
 ## 7. Create your administrator
 
-1. Visit the deployed `/gog/` page.
-2. Click **Admin**.
+1. Visit the deployed `/gog/house-format/` page.
+2. Click **Manage the house list**.
 3. Enter your administrator email, a password of at least 12 characters, and the `GOG_SETUP_TOKEN` from step 4.
 4. After creation, the site logs you in and disables further public admin registration.
 5. Use **Draft editor** to change cards, **Review & publish** to make changes public, and **Version history** to restore a prior published snapshot.
+
+The same administrator account manages homepage events. Visit `/gog/`, click **Admin**, and edit the currently displayed Thursday or Friday occurrence. Those edits apply only to that date. Add one-off events in the same panel; they stop appearing publicly after their event date.
 
 The public **House tweaks** view and every `NEW` badge compare the current published status with the original `tcg-apr-2025` foundation. They do not reset when another house version is published. A card loses the marker only when its status matches that fixed baseline again.
 
@@ -196,6 +213,8 @@ The public **House tweaks** view and every `NEW` badge compare the current publi
 | Symptom | Fix |
 | --- | --- |
 | `/gog/` is 404 | Check the site output root is `public` and `public/gog/index.html` was pushed. |
+| Homepage events fail to load | Apply `database/migrations/0003_events.sql` to the bound production D1 database. |
+| `/gog/house-format/` is 404 | Check `public/gog/house-format/index.html` was pushed. |
 | `/gog/deckbuilder/` opens but the library is unavailable | Apply `0002_deckbuilder_catalogue.sql`, run the generated catalogue import, and verify `SELECT * FROM catalogue_meta;`. |
 | Website opens but reports `GOG_DB` missing | Add D1 Pages binding named exactly `GOG_DB` in Production; redeploy. |
 | Website reports the JUSH foundation is missing | Run both `schema.sql` and `seed.sql` with `--remote` against `gog-house-format`. |

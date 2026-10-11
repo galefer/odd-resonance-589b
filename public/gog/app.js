@@ -599,7 +599,6 @@ function showAdminSection(section) {
 }
 
 function wireEvents() {
-  $('#rules-button').addEventListener('click', () => $('#rules-modal').showModal());
   $('#admin-button').addEventListener('click', () => openAdmin().catch((error) => toast(error.message, 'error')));
   $$('[data-rule-filter]').forEach((button) => button.addEventListener('click', () => {
     const status = button.dataset.ruleFilter;
@@ -822,6 +821,9 @@ async function init() {
   catch (error) {
     $('#card-list').innerHTML = `<div class="empty-state"><h3>Could not load the house-format list</h3><p>${escapeHtml(error.message)}</p></div>`;
     toast(error.message, 'error');
+  }
+  if (new URLSearchParams(location.search).get('admin') === 'list') {
+    openAdmin().catch((error) => toast(error.message, 'error'));
   }
 }
 

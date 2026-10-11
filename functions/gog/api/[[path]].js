@@ -724,6 +724,65 @@ function checkedStatus(status) {
   if (!ALLOWED.has(status)) throw fail(400, 'Invalid card restriction status.');
   return status;
 }
+const EVENT_STATUSES = new Set(['scheduled', 'cancelled']);
+const EVENT_TIME = /^(?:|(?:[01]\d|2[0-3]):[0-5]\d)$/;
+function londonToday() {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date()).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+function addCalendarDays(date, days) {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+function weekdayFor(date) {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+function nextWeekday(date, targetWeekday) {
+  return addCalendarDays(date, (Number(targetWeekday) - weekdayFor(date) + 7) % 7);
+}
+function eventValues(body, fallback = {}) {
+  const title = String(body.title ?? fallback.title ?? '').trim().slice(0, 120);
+  const eventDate = String(body.eventDate ?? fallback.eventDate ?? '').trim();
+  const startTime = String(body.startTime ?? fallback.startTime ?? '').trim();
+  const location = String(body.location ?? fallback.location ?? 'Guild of Games, Rotherham').trim().slice(0, 180);
+  const description = String(body.description ?? fallback.description ?? '').trim().slice(0, 1200);
+  const status = String(body.status ?? fallback.status ?? 'scheduled');
+  if (!title) throw fail(400, 'Event title is required.');
+  const parsedDate = new Date(`${eventDate}T00:00:00Z`);
+  if (!VALID_DATE.test(eventDate) || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== eventDate)
+    throw fail(400, 'A valid event date is required.');
+  if (!EVENT_TIME.test(startTime)) throw fail(400, 'Event time must use 24-hour HH:MM format.');
+  if (!location) throw fail(400, 'Event location is required.');
+  if (!EVENT_STATUSES.has(status)) throw fail(400, 'Invalid event status.');
+  return { title, eventDate, startTime, location, description, status };
+}
+async function eventSchedule(db) {
+  const today = londonToday();
+  const [seriesResult, specialResult] = await Promise.all([
+    db.prepare(`SELECT id,slug,title,weekday,start_time AS startTime,location,description,sort_order AS sortOrder
+      FROM recurring_events WHERE active=1 ORDER BY sort_order,id`).all(),
+    db.prepare(`SELECT id,title,event_date AS eventDate,start_time AS startTime,location,description,status
+      FROM special_events WHERE event_date>=? ORDER BY event_date,start_time,id`).bind(today).all()
+  ]);
+  const recurring = await Promise.all(seriesResult.results.map(async (series) => {
+    const eventDate = nextWeekday(today, series.weekday);
+    const override = await db.prepare(`SELECT title,start_time AS startTime,location,description,status
+      FROM event_overrides WHERE recurring_event_id=? AND event_date=?`).bind(series.id, eventDate).first();
+    return {
+      id: `recurring-${series.id}-${eventDate}`, source: 'recurring', seriesId: series.id, slug: series.slug,
+      title: override?.title || series.title, eventDate,
+      startTime: override?.startTime ?? series.startTime, location: override?.location || series.location,
+      description: override?.description ?? series.description, status: override?.status || 'scheduled',
+      customised: !!override, sortOrder: series.sortOrder
+    };
+  }));
+  const special = specialResult.results.map((event) => ({ ...event, id: `special-${event.id}`, eventId: event.id, source: 'special' }));
+  return [...recurring, ...special].sort((a, b) => a.eventDate.localeCompare(b.eventDate)
+    || (a.startTime || '99:99').localeCompare(b.startTime || '99:99') || (a.sortOrder || 0) - (b.sortOrder || 0));
+}
 async function handle(context) {
   const { request, env } = context;
   const db = env.GOG_DB;
@@ -749,6 +808,9 @@ async function handle(context) {
     if (!version) throw fail(503, 'The JUSH foundation has not been seeded. See SETUP.md.');
     const house = await houseViewFor(db, version);
     return json({ version: versionView(version), baseline: house.baseline, entries: house.entries, changes: house.changes });
+  }
+  if (method === 'GET' && path === '/events') {
+    return json({ timezone: 'Europe/London', generatedFor: londonToday(), events: await eventSchedule(db) });
   }
   if (method === 'GET' && path === '/catalogue') return json(await cataloguePage(db, url));
   if (method === 'GET' && path === '/cards/search') {
@@ -826,6 +888,58 @@ async function handle(context) {
 
   if (path.startsWith('/admin/')) {
     const session = await requireAdmin(db, request, method !== 'GET');
+    if (method === 'GET' && path === '/admin/events') {
+      return json({ timezone: 'Europe/London', generatedFor: londonToday(), events: await eventSchedule(db) });
+    }
+    if (method === 'POST' && path === '/admin/events') {
+      const event = eventValues(await inputJson(request));
+      const timestamp = nowIso();
+      const result = await db.prepare(`INSERT INTO special_events
+        (title,event_date,start_time,location,description,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)`)
+        .bind(event.title,event.eventDate,event.startTime,event.location,event.description,event.status,timestamp,timestamp).run();
+      return json({ ok: true, eventId: result.meta?.last_row_id || null });
+    }
+    const recurringEvent = path.match(/^\/admin\/events\/recurring\/(\d+)$/);
+    if (method === 'PATCH' && recurringEvent) {
+      const series = await db.prepare('SELECT * FROM recurring_events WHERE id=? AND active=1').bind(Number(recurringEvent[1])).first();
+      if (!series) throw fail(404, 'Recurring event not found.');
+      const body = await inputJson(request);
+      const expectedDate = nextWeekday(londonToday(), series.weekday);
+      if (String(body.eventDate || '') !== expectedDate) throw fail(409, 'This occurrence has passed. Refresh to edit the next date.');
+      const event = eventValues(body, { title: series.title, eventDate: expectedDate, startTime: series.start_time,
+        location: series.location, description: series.description, status: 'scheduled' });
+      const timestamp = nowIso();
+      await db.prepare(`INSERT INTO event_overrides
+        (recurring_event_id,event_date,title,start_time,location,description,status,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(recurring_event_id,event_date) DO UPDATE SET
+        title=excluded.title,start_time=excluded.start_time,location=excluded.location,
+        description=excluded.description,status=excluded.status,updated_at=excluded.updated_at`)
+        .bind(series.id,event.eventDate,event.title,event.startTime,event.location,event.description,event.status,timestamp,timestamp).run();
+      return json({ ok: true });
+    }
+    const recurringReset = path.match(/^\/admin\/events\/recurring\/(\d+)\/override$/);
+    if (method === 'DELETE' && recurringReset) {
+      const eventDate = String(url.searchParams.get('date') || '');
+      if (!VALID_DATE.test(eventDate)) throw fail(400, 'A valid occurrence date is required.');
+      await db.prepare('DELETE FROM event_overrides WHERE recurring_event_id=? AND event_date=?')
+        .bind(Number(recurringReset[1]), eventDate).run();
+      return json({ ok: true });
+    }
+    const specialEvent = path.match(/^\/admin\/events\/(\d+)$/);
+    if ((method === 'PATCH' || method === 'DELETE') && specialEvent) {
+      const id = Number(specialEvent[1]);
+      const existing = await db.prepare(`SELECT id,title,event_date AS eventDate,start_time AS startTime,location,description,status
+        FROM special_events WHERE id=?`).bind(id).first();
+      if (!existing) throw fail(404, 'One-off event not found.');
+      if (method === 'DELETE') {
+        await db.prepare('DELETE FROM special_events WHERE id=?').bind(id).run();
+        return json({ ok: true });
+      }
+      const event = eventValues(await inputJson(request), existing);
+      await db.prepare(`UPDATE special_events SET title=?,event_date=?,start_time=?,location=?,description=?,status=?,updated_at=? WHERE id=?`)
+        .bind(event.title,event.eventDate,event.startTime,event.location,event.description,event.status,nowIso(),id).run();
+      return json({ ok: true });
+    }
     if (method === 'GET' && path === '/admin/draft') {
       const draft = await getDraft(db);
       const [changes, house] = await Promise.all([changesFor(db, draft), houseViewFor(db, draft)]);
