@@ -279,6 +279,9 @@ for (const row of catalogueCards) {
   const [id,name,sortName,category,subtype,cardType,tcgDate,placement,copyKey] = row;
   const artworks = id === 1111 ? '[1111,9111]' : `[${id}]`;
   upsertCatalogue.run(id,name,sortName,category,subtype,cardType,id,artworks,tcgDate,placement,copyKey,new Date().toISOString());
+  const searchWords = sortName.split(' ').filter(Boolean);
+  for (let index = 0; index < searchWords.length; index += 1)
+    db.prepare('INSERT OR IGNORE INTO card_name_search(search_text,card_id) VALUES(?,?)').run(searchWords.slice(index).join(' '),id);
   db.prepare('INSERT OR REPLACE INTO card_id_evidence(input_id,canonical_id,tcg_date,eligible,reason,updated_at) VALUES(?,?,?,1,\'eligible\',?)').run(id,id,tcgDate,new Date().toISOString());
   db.prepare('INSERT OR REPLACE INTO card_artworks(artwork_id,canonical_id,is_default,updated_at) VALUES(?,?,1,?)').run(id,id,new Date().toISOString());
 }
@@ -297,6 +300,8 @@ assert.equal(catalogue.cards[0].name,'Dracotail Lukias');
 assert.equal(catalogue.cards[0].status,'unlimited'); // unpublished draft ignored
 assert.equal(catalogue.cards[0].placement,'main');
 assert.deepEqual(catalogue.cards[0].artworkIds,[1111,9111]);
+const wordPartialCatalogue = await get('/catalogue?q=luk&limit=10');
+assert.equal(wordPartialCatalogue.cards[0].name,'Dracotail Lukias');
 
 const filteredCatalogue = await get('/catalogue?category=Monster&subtype=Fusion&attribute=DARK&limit=10');
 assert.equal(filteredCatalogue.cards.length,0);

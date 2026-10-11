@@ -43,6 +43,10 @@ const normalise = (value = '') => String(value)
   .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
   .replace(/[’‘]/g, "'").replace(/[–—]/g, '-')
   .replace(/[^a-zA-Z0-9]+/g, ' ').trim().toLowerCase();
+const searchSuffixes = (value = '') => {
+  const words = normalise(value).split(' ').filter(Boolean);
+  return words.map((_, index) => words.slice(index).join(' '));
+};
 const makeId = (length = 32) => {
   const array = new Uint8Array(length);
   crypto.getRandomValues(array);
@@ -251,6 +255,12 @@ function cardStoreStatements(db, card) {
       JSON.stringify(card.artworkIds), card.tcgDate, card.frameType, card.placement, card.linkRating,
       card.pendulumScale, card.archetype, card.treatedAs, card.copyLimitKey, card.poolVerified ? 1 : 0,
       updated, updated)];
+  if (card.poolVerified) {
+    for (const searchText of searchSuffixes(card.name)) {
+      statements.push(db.prepare('INSERT OR IGNORE INTO card_name_search(search_text,card_id) VALUES (?,?)')
+        .bind(searchText, card.canonicalId));
+    }
+  }
   for (const artworkId of card.artworkIds) {
     statements.push(db.prepare(`INSERT INTO card_artworks(artwork_id,canonical_id,is_default,updated_at) VALUES (?,?,?,?)
       ON CONFLICT(artwork_id) DO UPDATE SET canonical_id=excluded.canonical_id,is_default=excluded.is_default,updated_at=excluded.updated_at`)
@@ -305,9 +315,13 @@ async function catalogueComplete(db) {
   return row?.value === '1';
 }
 async function localSearch(db, query) {
-  const like = `%${normalise(query).replace(/[%_\\]/g, '\\$&')}%`;
+  const key = normalise(query);
+  const upper = `${key}\uffff`;
+  const like = `%${key.replace(/[%_\\]/g, '\\$&')}%`;
   const [cached, foundation] = await Promise.all([
-    db.prepare("SELECT * FROM cards_cache WHERE pool_verified=1 AND sort_name LIKE ? ESCAPE '\\' ORDER BY sort_name LIMIT 25").bind(like).all(),
+    db.prepare(`SELECT DISTINCT c.* FROM card_name_search s CROSS JOIN cards_cache c ON c.card_id=s.card_id
+      WHERE c.pool_verified=1 AND s.search_text>=? AND s.search_text<?
+      ORDER BY CASE WHEN c.sort_name=? THEN 0 ELSE 1 END,c.sort_name LIMIT 25`).bind(key, upper, key).all(),
     db.prepare(`SELECT name,card_id AS id,category,subtype,card_type AS cardType FROM entries
       WHERE version_id=(SELECT id FROM versions WHERE source='tcg-apr-2025' ORDER BY id LIMIT 1)
       AND sort_name LIKE ? ESCAPE '\\' ORDER BY sort_name LIMIT 25`).bind(like).all()
@@ -360,16 +374,32 @@ function restrictionStatus(map, card) {
   return keys.map((key) => map.get(key)).filter(Boolean)
     .sort((a, b) => cardCopies(a) - cardCopies(b))[0] || 'unlimited';
 }
-async function statusesFor(db, cards, capturedVersion = null) {
-  const [current, baseline] = await Promise.all([capturedVersion || currentVersion(db), foundationVersion(db)]);
-  const [entries, baselineEntries] = await Promise.all([entriesFor(db, current?.id), entriesFor(db, baseline?.id)]);
-  const map = new Map(entries.map((e) => [normalise(e.name), e.status]));
-  const baselineMap = new Map(baselineEntries.map((e) => [normalise(e.name), e.status]));
+async function restrictionMapForKeys(db, versionId, keys) {
+  if (!versionId || !keys.length) return new Map();
+  const map = new Map();
+  for (const group of chunks(keys, 80)) {
+    const { results } = await db.prepare(`SELECT sort_name,status FROM entries
+      WHERE version_id=? AND sort_name IN (${group.map(() => '?').join(',')})`).bind(versionId, ...group).all();
+    for (const entry of results) map.set(entry.sort_name, entry.status);
+  }
+  return map;
+}
+async function statusesFor(db, cards, capturedVersion = null, includeBaseline = true) {
+  if (!cards.length) return [];
+  const keys = [...new Set(cards.flatMap((card) =>
+    [normalise(card.name), normalise(card.treatedAs || ''), card.copyLimitKey].filter(Boolean)))];
+  const [current, baseline] = await Promise.all([
+    capturedVersion || currentVersion(db), includeBaseline ? foundationVersion(db) : null
+  ]);
+  const [map, baselineMap] = await Promise.all([
+    restrictionMapForKeys(db, current?.id, keys),
+    includeBaseline ? restrictionMapForKeys(db, baseline?.id, keys) : new Map()
+  ]);
   return cards.map((c) => {
     const status = restrictionStatus(map, c);
+    if (!includeBaseline) return { ...c, status, copies: cardCopies(status) };
     const baselineStatus = restrictionStatus(baselineMap, c);
-    return { ...c, status, copies: cardCopies(status), baselineStatus,
-      isHouseChange: status !== baselineStatus };
+    return { ...c, status, copies: cardCopies(status), baselineStatus, isHouseChange: status !== baselineStatus };
   });
 }
 async function catalogueMeta(db) {
@@ -399,8 +429,8 @@ async function cataloguePage(db, url) {
   const clauses = ['c.pool_verified=1'];
   const bindings = [];
   if (query) {
-    clauses.push("c.sort_name LIKE ? ESCAPE '\\'");
-    bindings.push(`%${query.replace(/[%_\\]/g, '\\$&')}%`);
+    clauses.push('search.search_text>=? AND search.search_text<?');
+    bindings.push(query, `${query}\uffff`);
   }
   if (category) { clauses.push('c.category=?'); bindings.push(category); }
   if (subtype) { clauses.push('c.subtype=?'); bindings.push(subtype.slice(0, 40)); }
@@ -426,10 +456,14 @@ async function cataloguePage(db, url) {
   let order = 'c.sort_name';
   const orderBindings = [];
   if (query) {
-    order = "CASE WHEN c.sort_name=? THEN 0 WHEN c.sort_name LIKE ? ESCAPE '\\' THEN 1 ELSE 2 END,c.sort_name";
-    orderBindings.push(query, `${query.replace(/[%_\\]/g, '\\$&')}%`);
+    order = 'CASE WHEN c.sort_name=? THEN 0 WHEN c.sort_name>=? AND c.sort_name<? THEN 1 ELSE 2 END,c.sort_name';
+    orderBindings.push(query, query, `${query}\uffff`);
   }
-  const { results } = await db.prepare(`SELECT c.*,${statusExpr} AS house_status FROM cards_cache c ${restrictionJoins}
+  // CROSS JOIN preserves the indexed search table as the outer loop. SQLite may
+  // otherwise start with all eligible cards before applying the narrow range.
+  const source = query ? 'card_name_search search CROSS JOIN cards_cache c ON c.card_id=search.card_id' : 'cards_cache c';
+  const distinct = query ? 'DISTINCT ' : '';
+  const { results } = await db.prepare(`SELECT ${distinct}c.*,${statusExpr} AS house_status FROM ${source} ${restrictionJoins}
     WHERE ${clauses.join(' AND ')} ORDER BY ${order} LIMIT ? OFFSET ?`)
     .bind(...selectBindings, ...bindings, ...orderBindings, limit + 1, page * limit).all();
   const hasMore = results.length > limit;
@@ -468,7 +502,7 @@ async function storeRawEvidence(db, raw) {
     .bind(inputId, canonicalId, tcgDate, eligible ? 1 : 0, reason, updated)));
   if (eligible) await storeCard(db, cardFromApi(raw));
 }
-async function resolveCardIds(db, inputIds, { allowUpstream = true, version = null } = {}) {
+async function resolveCardIds(db, inputIds, { allowUpstream = true, version = null, includeBaseline = true } = {}) {
   const ids = inputIds.map(Number);
   if (!ids.length || ids.length > MAX_RESOLVE_IDS || ids.some((id) => !validCardId(id)))
     throw fail(400, `Provide between 1 and ${MAX_RESOLVE_IDS} positive numeric card IDs.`);
@@ -496,16 +530,17 @@ async function resolveCardIds(db, inputIds, { allowUpstream = true, version = nu
     resolvedCards.push(card);
     return { inputId, outcome: 'resolved', card };
   });
-  const statusCards = await statusesFor(db, resolvedCards, version);
+  const statusCards = await statusesFor(db, resolvedCards, version, includeBaseline);
   let cardIndex = 0;
   return preliminary.map((result) => result.outcome === 'resolved'
     ? { inputId: result.inputId, outcome: 'resolved', canonicalId: statusCards[cardIndex].canonicalId,
       artworkId: result.inputId, card: statusCards[cardIndex++] }
     : result);
 }
-async function publishedRestrictionHash(version, entries) {
-  return sha256(JSON.stringify({ id: version.id, publishedAt: version.published_at,
-    entries: entries.map((entry) => [normalise(entry.name), entry.status]) }));
+async function publishedRestrictionHash(version) {
+  // Published versions are immutable; their ID and publication timestamp form a
+  // stable revision token without rereading every restriction on each edit.
+  return sha256(JSON.stringify({ id: version.id, publishedAt: version.published_at }));
 }
 async function validateDeck(db, body) {
   const version = await currentVersion(db);
@@ -524,7 +559,7 @@ async function validateDeck(db, body) {
   }
   if (flat.length > MAX_RESOLVE_IDS) throw fail(413, `Deck validation is limited to ${MAX_RESOLVE_IDS} entries.`);
   const validIds = flat.filter((item) => validCardId(item.inputId)).map((item) => item.inputId);
-  const resolved = validIds.length ? await resolveCardIds(db, validIds, { version }) : [];
+  const resolved = validIds.length ? await resolveCardIds(db, validIds, { version, includeBaseline: false }) : [];
   let resolvedIndex = 0;
   const issues = [];
   for (const item of flat) {
@@ -568,13 +603,12 @@ async function validateDeck(db, body) {
   for (const group of groups.values()) if (group.count > group.allowed) issues.push({ code: 'too_many_copies',
     copyLimitKey: group.key, name: group.name, count: group.count, allowed: group.allowed,
     message: `${group.name} allows ${group.allowed} ${group.allowed === 1 ? 'copy' : 'copies'} across Main, Extra and Side; this deck has ${group.count}.` });
-  const entries = await entriesFor(db, version.id);
   const metadataUnavailable = issues.some((issue) => issue.code === 'metadata_unavailable');
   const meta = await catalogueMeta(db);
   return {
     verified: !metadataUnavailable && meta.complete === '1',
     legal: issues.length === 0 && !metadataUnavailable && meta.complete === '1',
-    checkedAt: nowIso(), version: versionView(version), restrictionHash: await publishedRestrictionHash(version, entries),
+    checkedAt: nowIso(), version: versionView(version), restrictionHash: await publishedRestrictionHash(version),
     poolRevision: meta.revision || null, catalogueComplete: meta.complete === '1',
     counts: Object.fromEntries(Object.entries(zones).map(([zone, values]) => [zone, values.length])),
     issues, cards: flat.map((item) => ({ zone: item.zone, index: item.index, inputId: item.inputId,

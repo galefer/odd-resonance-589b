@@ -79,6 +79,11 @@ CREATE INDEX IF NOT EXISTS idx_cache_catalogue ON cards_cache(pool_verified,cate
 CREATE INDEX IF NOT EXISTS idx_cache_pool_sort ON cards_cache(pool_verified,sort_name);
 CREATE INDEX IF NOT EXISTS idx_cache_type ON cards_cache(pool_verified,card_type,sort_name);
 CREATE INDEX IF NOT EXISTS idx_cache_attribute ON cards_cache(pool_verified,attribute,sort_name);
+CREATE TABLE IF NOT EXISTS card_name_search (
+ search_text TEXT NOT NULL,
+ card_id INTEGER NOT NULL,
+ PRIMARY KEY (search_text, card_id)
+) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS card_artworks (
  artwork_id INTEGER PRIMARY KEY,
  canonical_id INTEGER NOT NULL,

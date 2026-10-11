@@ -113,6 +113,12 @@ Apply the catalogue read-efficiency index as well. This keeps the initial deckbu
 npx wrangler d1 execute gog-house-format --remote --file=./database/migrations/0004_catalogue_query_index.sql
 ```
 
+Then add the indexed partial-name search table. Run this after the catalogue import:
+
+```cmd
+npx wrangler d1 execute gog-house-format --remote --file=./database/migrations/0005_card_name_search.sql
+```
+
 ## 3. Bind D1 to your existing Cloudflare Pages project
 
 In Cloudflare **Workers & Pages → your Pages project → Settings → Bindings**, add a **D1 database** binding:

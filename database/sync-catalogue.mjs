@@ -71,7 +71,7 @@ while (offset < (expectedTotal ?? 1)) {
 }
 process.stdout.write('\n');
 
-const cacheRows = [], artworkRows = [], evidenceRows = [];
+const cacheRows = [], artworkRows = [], evidenceRows = [], searchRows = [];
 let eligibleCount = 0, artworkCount = 0, outsidePoolCount = 0, excludedCount = 0;
 for (const raw of cards.values()) {
   const canonicalId = checkedId(raw.id);
@@ -104,6 +104,9 @@ for (const raw of cards.values()) {
     number(raw.scale), sql(raw.archetype || null), sql(treated), sql(normalise(treated || raw.name)), 1,
     sql(revision), sql(revision)
   ]));
+  const words = normalise(raw.name).split(' ').filter(Boolean);
+  for (let index = 0; index < words.length; index += 1)
+    searchRows.push(tuple([sql(words.slice(index).join(' ')), canonicalId]));
 }
 
 statements.push('PRAGMA foreign_keys = ON;');
@@ -124,6 +127,9 @@ batchedInsert('card_artworks', ['artwork_id','canonical_id','is_default','update
   'ON CONFLICT(artwork_id) DO UPDATE SET canonical_id=excluded.canonical_id,is_default=excluded.is_default,updated_at=excluded.updated_at', 250);
 batchedInsert('card_id_evidence', ['input_id','canonical_id','tcg_date','eligible','reason','updated_at'], evidenceRows,
   'ON CONFLICT(input_id) DO UPDATE SET canonical_id=excluded.canonical_id,tcg_date=excluded.tcg_date,eligible=excluded.eligible,reason=excluded.reason,updated_at=excluded.updated_at', 180);
+statements.push('DELETE FROM card_name_search;');
+batchedInsert('card_name_search', ['search_text','card_id'], searchRows,
+  'ON CONFLICT(search_text,card_id) DO NOTHING', 250);
 statements.push(`UPDATE entries SET card_id=(SELECT c.card_id FROM cards_cache c WHERE c.pool_verified=1 AND c.sort_name=entries.sort_name ORDER BY c.card_id LIMIT 1)
 WHERE card_id IS NULL AND 1=(SELECT COUNT(*) FROM cards_cache c WHERE c.pool_verified=1 AND c.sort_name=entries.sort_name);`);
 for (const [key, value] of Object.entries({
