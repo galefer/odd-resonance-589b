@@ -1,0 +1,192 @@
+# Deploy the JUSH House Format at gravetalestudios.com/gog/
+
+This is a **Cloudflare Pages overlay** designed for your existing GRAVETALE Studios Git repository (`odd-resonance-589b`). It does not replace your current home page, CSS, or other routes.
+
+**Rules built into the site**
+
+- Card pool: Yu-Gi-Oh! **TCG first releases up to and including 1 August 2025**, the release of **Justice Hunters (JUSH)**.
+- Foundation banlist: official TCG Advanced Format **7 April 2025** restrictions, the list that was active on 1 August. There are **109 Forbidden, 82 Limited, 16 Semi-Limited** entries.
+- Cards in that pool that are not in your house restriction list may be used at **3 copies**.
+- Cards that first came out *after* JUSH are **not legal**, not 'Unlimited'. New cards cannot be added by an admin, including through a forged request; the server verifies against the TCG/date-filtered card API.
+- Cards first printed earlier remain eligible when reprinted later.
+
+Official release: https://www.yugioh-card.com/en/products/jush/  
+Contemporaneous banlist: https://yugiohblog.konami.com/2025/ycs/2025-04-ycs-houston/a-surprise-forbidden-limited-list/  
+Full historical restriction reference: https://www.yugiohcardguide.com/ban-list/limited-and-forbidden-card-list-2025-04-07.html
+
+## 1. Extract into the existing Git repository ROOT
+
+Your folder in the screenshot was approximately:
+
+`X:\GRAVETALE Studios\Website\odd-resonance-589b\`
+
+**Extract the contents of this ZIP directly into that directory**, not into `public` and not into the old Node app folder. This adds the following files:
+
+```text
+odd-resonance-589b/                  <- existing repo root
+├─ public/                          <- existing Pages output folder
+│  ├─ index.html                    <- your existing site; leave alone
+│  ├─ style.css                     <- your existing CSS; leave alone
+│  ├─ assets/ ...                   <- leave alone
+│  └─ gog/                          <- NEW
+│     ├─ index.html
+│     ├─ styles.css
+│     └─ app.js
+├─ functions/                       <- NEW; must be sibling of public/
+│  └─ gog/api/[[path]].js            <- Cloudflare Pages Functions API
+├─ database/                        <- NEW
+│  ├─ schema.sql
+│  ├─ seed.sql
+│  ├─ seed-source.txt
+│  └─ make-seed.py
+├─ tests/                           <- NEW
+│  └─ test-cloudflare.mjs
+└─ SETUP.md                         <- this document
+```
+
+Do NOT copy the previous standalone Node `server.js`, `start.bat`, or SQLite database into your Pages repository. Cloudflare Pages does not run them. This version uses **Cloudflare Pages Functions + D1**.
+
+## 2. Create a Cloudflare D1 database
+
+1. Log into https://dash.cloudflare.com/.
+2. Go to **Workers & Pages** / **Storage & databases** / **D1** (Cloudflare navigation wording changes from time to time).
+3. Create a D1 database named: **`gog-house-format`**.
+4. On Windows, open a terminal **in the root of `odd-resonance-589b`**. In File Explorer, click the address bar, type `cmd`, and press Enter.
+5. Run these commands **one at a time**:
+
+```cmd
+npx wrangler login
+npx wrangler d1 execute gog-house-format --remote --file=./database/schema.sql
+npx wrangler d1 execute gog-house-format --remote --file=./database/seed.sql
+```
+
+Wrangler may ask to install itself or confirm SQL execution. Accept the prompts if the account and database shown are yours.
+
+**Important:** `--remote` is required, otherwise you only initialise a local development copy. The `seed.sql` file supplies the historical April 2025 list; you do not have to enter individual cards.
+
+Verify that it worked:
+
+```cmd
+npx wrangler d1 execute gog-house-format --remote --command="SELECT status, COUNT(*) AS cards FROM entries GROUP BY status;"
+```
+
+Expected numbers: Forbidden **109**, Limited **82**, Semi-Limited **16**. (The SQL status names are `forbidden`, `limited`, `semi_limited`.)
+
+Do **not** reinitialise or delete the database after you've begun editing: it stores your list versions and administrator account.
+
+## 3. Bind D1 to your existing Cloudflare Pages project
+
+In Cloudflare **Workers & Pages → your Pages project → Settings → Bindings**, add a **D1 database** binding:
+
+| Setting | Enter |
+| --- | --- |
+| Variable name | `GOG_DB` |
+| Database | `gog-house-format` |
+| Environment | Production (add Preview too if wanted) |
+
+Save the binding. **Redeploy after changing bindings** so your Pages Functions see them.
+
+This database is independent of any database your GRAVETALE site may already use.
+
+## 4. Set up your private administrator creation token
+
+You must set **two** private Cloudflare Pages secrets before the FIRST administrator is created. The setup token prevents someone else registering first. The separate authentication pepper protects stored password proofs and is **permanently required for future logins**.
+
+In a Windows terminal, generate **two different** strong random values:
+
+```cmd
+node -e "const c=require('crypto'); console.log('SETUP TOKEN: '+c.randomBytes(32).toString('hex')); console.log('AUTH PEPPER: '+c.randomBytes(32).toString('hex'))"
+```
+
+Copy both values into a password manager. In **Workers & Pages → your Pages project → Settings → Variables and Secrets**, add **TWO encrypted secrets** (Production):
+
+| Secret name | Value | Lifetime |
+| --- | --- | --- |
+| `GOG_SETUP_TOKEN` | The first random token printed | First-run account creation only; may be removed afterward |
+| `GOG_AUTH_PEPPER` | The second random token printed | **Permanent: must be retained for all administrator logins and password changes** |
+
+**Never put either value into Git, HTML, browser JavaScript or screenshots.** The first token is entered only during admin setup; the pepper is never sent to browsers.
+
+Authentication deliberately uses PBKDF2-HMAC-SHA256 in the browser plus a server-side HMAC secured with `GOG_AUTH_PEPPER`. This preserves expensive password derivation without exceeding Cloudflare Free Workers' ~10 ms CPU budget. If you lose or rotate `GOG_AUTH_PEPPER` without a corresponding migration, **you won't be able to log in with an existing password**. Redeploy after creating or changing secrets.
+
+## 5. (Optional, recommended) Add card artwork storage via R2
+
+YGOPRODeck asks users **not to repeatedly hotlink card images**. The website uses a same-origin image endpoint, which fetches and stores a card image in your own Cloudflare R2 bucket on first request. Later requests use your own saved copy.
+
+1. In Cloudflare **R2 Object Storage**, create a private bucket named `gog-card-images`.
+2. In your Pages project's **Settings → Bindings**, add an **R2 bucket** binding:
+   - Variable name: **`GOG_IMAGES`**
+   - Bucket: **`gog-card-images`**
+3. Redeploy your Pages project after saving the binding.
+
+If R2 is not configured, the site still works normally for **search, card statuses and editing**, but displays styled placeholder artwork instead of fetching images. R2 might require enabling billing depending on your Cloudflare account.
+
+## 6. Push the overlay to your existing Cloudflare Pages Git repository
+
+Check in Cloudflare Pages that the **build output directory** is your existing **`public`** folder, and that Git deployment is used (the screenshots showed `.git` in your repo root).
+
+Using GitHub Desktop or your usual Git workflow, commit and push the files added by the ZIP. If you prefer commands (from the repo root):
+
+```cmd
+git add public/gog functions/gog database tests SETUP.md
+git commit -m "Add standalone JUSH house format"
+git push
+```
+
+Do not add an unrelated `wrangler.toml` from the old app: this overlay is meant to use your **existing Pages project settings** without replacing them.
+
+Wait for Cloudflare's deployment to finish, then open:
+
+**https://gravetalestudios.com/gog/**
+
+Your existing `/`, `/null/`, `/outworld/`, etc. remain unchanged.
+
+## 7. Create your administrator
+
+1. Visit the deployed `/gog/` page.
+2. Click **Admin**.
+3. Enter your administrator email, a password of at least 12 characters, and the `GOG_SETUP_TOKEN` from step 4.
+4. After creation, the site logs you in and disables further public admin registration.
+5. Use **Draft editor** to change cards, **Review & publish** to make changes public, and **Version history** to restore a prior published snapshot.
+
+**Sanity-check these cards:**
+
+- `Abyss Dweller` → **Forbidden** by the April 2025 foundation.
+- `Dimension Shifter` → **Limited**.
+- `Ext Ryzeal` → **Semi-Limited**.
+- `Dracotail Lukias` → **Unlimited** unless you intentionally restrict it (debuted in JUSH).
+- A card first released in a later set (September 2025 onward) → **not returned by search and cannot be added**.
+
+## 8. Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| `/gog/` is 404 | Check the site output root is `public` and `public/gog/index.html` was pushed. |
+| Website opens but reports `GOG_DB` missing | Add D1 Pages binding named exactly `GOG_DB` in Production; redeploy. |
+| Website reports the JUSH foundation is missing | Run both `schema.sql` and `seed.sql` with `--remote` against `gog-house-format`. |
+| Administrator setup says token required | Set encrypted `GOG_SETUP_TOKEN` **and** permanent `GOG_AUTH_PEPPER` and redeploy, then use the setup token in the form. |
+| Admin creation/login reports a missing pepper | Set the persistent encrypted `GOG_AUTH_PEPPER` secret in Production and redeploy. |
+| Search works but pictures are placeholders | Add the optional `GOG_IMAGES` R2 binding. |
+| A card doesn't appear | Only cards with a first TCG release on/before 2025-08-01 are in scope; YGOPRODeck sometimes lacks historical date metadata. Check its card database before assuming a legitimate card was excluded. |
+| Live list isn't changing | Admin changes stay in a **draft** until explicitly published. |
+| Cloudflare deploy fails | Check build logs and confirm `functions` is *outside* `public` and your project is Git-connected Pages, not static-only Direct Upload. |
+
+## 9. Back up the database
+
+D1 holds your published lists, drafts and admin account. Back it up periodically:
+
+```cmd
+npx wrangler d1 export gog-house-format --remote --output=./gog-backup.sql
+```
+
+The exported SQL contains administrator password hashes and session data; **keep it private and never commit it to Git**.
+
+## Local testing (optional)
+
+The JavaScript and SQL regression tests work with Node.js 22.5+:
+
+```cmd
+node tests/test-cloudflare.mjs
+```
+
+Tests simulate D1, HTTP requests and an API that enforces the 1 August cutoff; they do not require Cloudflare credentials. A live Cloudflare deployment and the live YGOPRODeck API cannot be verified until you deploy the package.
