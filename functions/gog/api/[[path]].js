@@ -399,13 +399,20 @@ async function cataloguePage(db, url) {
   if (archetype) { clauses.push("c.archetype LIKE ? ESCAPE '\\'"); bindings.push(`%${archetype.replace(/[%_\\]/g, '\\$&')}%`); }
   if (level !== null && level !== '') { clauses.push('c.level=?'); bindings.push(boundedInteger(level, -1, 0, 13)); }
   if (link !== null && link !== '') { clauses.push('c.link_rating=?'); bindings.push(boundedInteger(link, -1, 0, 8)); }
-  const statusExpr = `COALESCE((SELECT e.status FROM entries e WHERE e.version_id=?
-    AND (e.sort_name=c.sort_name OR e.sort_name=c.copy_limit_key)
-    ORDER BY CASE e.status WHEN 'forbidden' THEN 0 WHEN 'limited' THEN 1 ELSE 2 END LIMIT 1),'unlimited')`;
-  const selectBindings = [version.id];
+  // Resolve both possible restriction keys through indexed primary-key lookups.
+  // The former correlated OR subquery scanned the restriction list for every
+  // catalogue row and could consume millions of D1 row reads per page load.
+  const statusExpr = `CASE
+    WHEN name_entry.status='forbidden' OR copy_entry.status='forbidden' THEN 'forbidden'
+    WHEN name_entry.status='limited' OR copy_entry.status='limited' THEN 'limited'
+    WHEN name_entry.status='semi_limited' OR copy_entry.status='semi_limited' THEN 'semi_limited'
+    ELSE 'unlimited' END`;
+  const restrictionJoins = `LEFT JOIN entries name_entry ON name_entry.version_id=? AND name_entry.sort_name=c.sort_name
+    LEFT JOIN entries copy_entry ON copy_entry.version_id=? AND copy_entry.sort_name=c.copy_limit_key`;
+  const selectBindings = [version.id, version.id];
   if (statuses.length) {
     clauses.push(`${statusExpr} IN (${statuses.map(() => '?').join(',')})`);
-    bindings.push(version.id, ...statuses);
+    bindings.push(...statuses);
   }
   let order = 'c.sort_name';
   const orderBindings = [];
@@ -413,7 +420,7 @@ async function cataloguePage(db, url) {
     order = "CASE WHEN c.sort_name=? THEN 0 WHEN c.sort_name LIKE ? ESCAPE '\\' THEN 1 ELSE 2 END,c.sort_name";
     orderBindings.push(query, `${query.replace(/[%_\\]/g, '\\$&')}%`);
   }
-  const { results } = await db.prepare(`SELECT c.*,${statusExpr} AS house_status FROM cards_cache c
+  const { results } = await db.prepare(`SELECT c.*,${statusExpr} AS house_status FROM cards_cache c ${restrictionJoins}
     WHERE ${clauses.join(' AND ')} ORDER BY ${order} LIMIT ? OFFSET ?`)
     .bind(...selectBindings, ...bindings, ...orderBindings, limit + 1, page * limit).all();
   const hasMore = results.length > limit;

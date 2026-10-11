@@ -15,6 +15,7 @@ ALTER TABLE cards_cache ADD COLUMN pool_verified INTEGER NOT NULL DEFAULT 0 CHEC
 ALTER TABLE cards_cache ADD COLUMN metadata_revision TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_cache_catalogue ON cards_cache(pool_verified,category,sort_name);
+CREATE INDEX IF NOT EXISTS idx_cache_pool_sort ON cards_cache(pool_verified,sort_name);
 CREATE INDEX IF NOT EXISTS idx_cache_type ON cards_cache(pool_verified,card_type,sort_name);
 CREATE INDEX IF NOT EXISTS idx_cache_attribute ON cards_cache(pool_verified,attribute,sort_name);
 

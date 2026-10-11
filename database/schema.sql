@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS cards_cache (
 );
 CREATE INDEX IF NOT EXISTS idx_cache_sort ON cards_cache(sort_name);
 CREATE INDEX IF NOT EXISTS idx_cache_catalogue ON cards_cache(pool_verified,category,sort_name);
+CREATE INDEX IF NOT EXISTS idx_cache_pool_sort ON cards_cache(pool_verified,sort_name);
 CREATE INDEX IF NOT EXISTS idx_cache_type ON cards_cache(pool_verified,card_type,sort_name);
 CREATE INDEX IF NOT EXISTS idx_cache_attribute ON cards_cache(pool_verified,attribute,sort_name);
 CREATE TABLE IF NOT EXISTS card_artworks (

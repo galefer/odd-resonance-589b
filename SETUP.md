@@ -107,6 +107,12 @@ npx wrangler d1 execute gog-house-format --remote --file=./database/migrations/0
 
 This creates only the event tables and the two recurring series. It does not modify house-format versions, entries, card metadata, administrators, sessions, or R2 usage records.
 
+Apply the catalogue read-efficiency index as well. This keeps the initial deckbuilder page within a small D1 row-read budget:
+
+```cmd
+npx wrangler d1 execute gog-house-format --remote --file=./database/migrations/0004_catalogue_query_index.sql
+```
+
 ## 3. Bind D1 to your existing Cloudflare Pages project
 
 In Cloudflare **Workers & Pages → your Pages project → Settings → Bindings**, add a **D1 database** binding:
