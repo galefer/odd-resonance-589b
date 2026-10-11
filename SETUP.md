@@ -76,6 +76,8 @@ npx wrangler d1 execute gog-house-format --remote --file=./database/catalogue-im
 
 `sync-catalogue.mjs` downloads current metadata from YGOPRODeck, records evidence for known IDs, and writes only playable cards whose original TCG date is on or before the cutoff. The generated `database/catalogue-import.sql` is intentionally ignored by Git. Delete it after execution or regenerate it when a reviewed metadata refresh is needed.
 
+Do not add YGOPRODeck's `format=tcg` filter to this import or fallback lookup. That listing omits some historically released TCG cards, including Cyberdark Chimera. Fetch the full metadata catalogue and filter by the verified original `tcg_date` locally. Missing dates and first releases after 1 August 2025 remain excluded. The importer checks that it received the advertised number of unique cards before marking the catalogue complete. `node tests/gog/catalogue-import.mjs` covers this omission, the inclusive cutoff, later reprints, search/artwork indexes and restriction preservation.
+
 Verify that it worked:
 
 ```cmd

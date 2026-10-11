@@ -49,7 +49,9 @@ let offset = 0;
 let expectedTotal = null;
 while (offset < (expectedTotal ?? 1)) {
   const url = new URL(API);
-  url.searchParams.set('format', 'tcg');
+  // The provider's format=tcg listing omits some released TCG cards (including
+  // Cyberdark Chimera). Fetch all records and enforce original TCG dates below;
+  // current format membership is not the definition of our historical pool.
   url.searchParams.set('misc', 'yes');
   url.searchParams.set('num', PAGE_SIZE);
   url.searchParams.set('offset', offset);
@@ -70,6 +72,8 @@ while (offset < (expectedTotal ?? 1)) {
   if (offset < expectedTotal) await new Promise((done) => setTimeout(done, 100));
 }
 process.stdout.write('\n');
+if (cards.size !== expectedTotal)
+  throw new Error(`Incomplete catalogue: expected ${expectedTotal} unique cards, received ${cards.size}.`);
 
 const cacheRows = [], artworkRows = [], evidenceRows = [], searchRows = [];
 let eligibleCount = 0, artworkCount = 0, outsidePoolCount = 0, excludedCount = 0;

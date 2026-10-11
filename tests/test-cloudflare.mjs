@@ -74,7 +74,8 @@ const eligible = {
   1111: { id: 1111, name: 'Dracotail Lukias', type: 'Effect Monster', desc: 'Fusion material effect.', misc_info: [{tcg_date:'2025-08-01'}], card_images: [{ id:1111 }] },
   2222: { id: 2222, name: 'Ash Blossom & Joyous Spring', type: 'Tuner Monster', desc: 'Hand trap.', misc_info: [{tcg_date:'2017-05-04'}], card_images: [{ id:2222 }] },
   4444: { id: 4444, name: 'Pot of Greed', type: 'Spell Card', desc: 'Draw two cards.', misc_info: [{tcg_date:'2002-03-08'}], card_images: [{ id:4444 }] },
-  5555: { id: 5555, name: 'Droll & Lock Bird', type: 'Effect Monster', desc: 'Draw lock.', misc_info: [{tcg_date:'2010-05-25'}], card_images: [{ id:5555 }] }
+  5555: { id: 5555, name: 'Droll & Lock Bird', type: 'Effect Monster', desc: 'Draw lock.', misc_info: [{tcg_date:'2010-05-25'}], card_images: [{ id:5555 }] },
+  5370235: { id:5370235, name:'Cyberdark Chimera', type:'Effect Monster', desc:'Fixture effect.', misc_info:[{tcg_date:'2021-10-14'}], card_images:[{id:5370235}] }
 };
 const afterCutoff = { id: 3333, name: 'Post JUSH 2026 Card', type: 'Effect Monster', desc: 'Not in pool.', misc_info: [{tcg_date:'2026-02-07'}] };
 const fetchOriginal = globalThis.fetch;
@@ -85,7 +86,7 @@ globalThis.fetch = async (url, opts) => {
   if (!url.searchParams.size) throw new Error('Bad card API URL');
   // Enforce hard cutoff on *every* upstream request.
   assert.equal(url.searchParams.get('enddate'), '2025-08-01');
-  assert.equal(url.searchParams.get('format'), 'tcg');
+  assert.equal(url.searchParams.has('format'), false, 'Current-format filtering omits eligible historical cards');
   assert.equal(url.searchParams.get('dateregion'), 'tcg');
   assert.equal(url.searchParams.get('misc'), 'yes');
   fetchCount += 1;
@@ -247,6 +248,12 @@ assert.equal(jush.results[0].status,'unlimited');
 assert.equal(jush.results[0].isHouseChange,false);
 const excluded = await get('/cards/search?q=Post%20JUSH');
 assert.deepEqual(excluded.results,[]);
+const chimeraSearch = await get('/cards/search?q=Cyberdark%20Chimera');
+assert.equal(chimeraSearch.results[0].id,5370235);
+assert.equal(chimeraSearch.results[0].tcgDate,'2021-10-14');
+assert.equal(chimeraSearch.results[0].status,'unlimited');
+assert.equal((await get('/catalogue?q=Chimera')).cards[0].id,5370235);
+assert.equal((await req('/cards/resolve','POST',{ids:[5370235]})).status,200);
 const noBypass = await req('/admin/draft/entry', 'POST', {card:afterCutoff,status:'forbidden'});
 assert.equal(noBypass.status,422);
 const originalFetchForOffline = globalThis.fetch;

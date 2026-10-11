@@ -296,7 +296,8 @@ function cachedCardView(row, requestedArtworkId = null) {
 }
 async function ygoRequest(params, { cutoff = true } = {}) {
   const url = new URL('https://db.ygoprodeck.com/api/v7/cardinfo.php');
-  url.searchParams.set('format', 'tcg');
+  // Current format membership can omit historical TCG cards. Original TCG
+  // release metadata, checked by isJushEligible, is our eligibility authority.
   url.searchParams.set('misc', 'yes');
   if (cutoff) {
     url.searchParams.set('enddate', CUTOFF);
