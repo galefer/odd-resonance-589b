@@ -363,23 +363,26 @@ function scheduleSave() {
 }
 
 async function saveNow() {
-  clearTimeout(saveTimer);
-  if (!history) return;
-  if (!database) { setSaveState('error', 'Not saved — export a backup'); return; }
+  clearTimeout(saveTimer); saveTimer = 0;
+  if (!history) return false;
+  if (!database) { setSaveState('error', 'Not saved — export a backup'); return false; }
   const snapshot = clone(history.deck);
   try {
     await database.save(snapshot);
     setSaveState('saved', 'Saved on this device');
-    renderDeckMenu();
+    await renderDeckMenu();
+    return true;
   } catch (error) {
     if (error instanceof StorageConflictError) {
       const branch = sanitiseDeck({ ...snapshot, name: `${snapshot.name} (conflict copy)` }, { newIdentity: true });
       await database.save(branch, { force: true });
       await switchDeck(branch, false);
       showToast('Another tab saved a newer revision. Your edits were preserved as a conflict copy.', 'warning');
+      return true;
     } else {
       setSaveState('error', 'Could not save — export a backup');
       showToast(error.message || 'Local save failed. Export a backup before leaving.', 'error');
+      return false;
     }
   }
 }
@@ -468,7 +471,15 @@ function renderLibrary() {
     const badgeText = statusBadge(card.status);
     let badge = null;
     if (badgeText) { badge = document.createElement('span'); badge.className = `restriction-dot ${card.status}`; badge.textContent = badgeText; badge.title = statusLabel(card.status); }
-    inspect.title = `${card.name} — drag into a deck, or click to inspect`;
+    inspect.title = `${card.name} — right-click: ${zoneLabel(defaultZoneFor(card))}; Shift + right-click: Side Deck; click to inspect`;
+    // Handle the secondary mouse button directly so Shift works even in
+    // browsers that reserve Shift + contextmenu for their native menu.
+    inspect.addEventListener('pointerdown', (event) => {
+      if (event.button !== 2) return;
+      event.preventDefault();
+      addCard(card, event.shiftKey ? 'side' : defaultZoneFor(card));
+    });
+    inspect.addEventListener('contextmenu', (event) => event.preventDefault());
     inspect.addEventListener('pointerenter', () => { if (!selectedInstanceId) { selectedCard = card; renderInspector(); renderProbability(); } });
     inspect.addEventListener('focus', () => { if (!selectedInstanceId) { selectedCard = card; renderInspector(); renderProbability(); } });
     inspect.addEventListener('click', () => { selectedCard = card; selectedInstanceId = null; render(); if (matchMedia('(max-width:767px)').matches) setMobilePanel('card'); });
@@ -483,6 +494,7 @@ async function renderDeckMenu() {
   const decks = await database.list();
   $('deck-menu-list').replaceChildren(...decks.map((deck) => {
     const button = document.createElement('button'); button.type = 'button'; button.role = 'menuitem';
+    button.dataset.deckId = deck.id;
     if (deck.id === currentDeckId) button.classList.add('current');
     const name = document.createElement('span'); name.textContent = deck.name;
     const count = document.createElement('small'); count.textContent = `${deck.main.length + deck.extra.length + deck.side.length} cards`;
@@ -492,19 +504,19 @@ async function renderDeckMenu() {
 
 async function switchDeck(deck, flush = true) {
   if (flush && history) await saveNow();
-  const safe = sanitiseDeck(deck);
+  const safe = sanitiseDeck(await database.get(deck.id) || deck);
   currentDeckId = safe.id; await database.setCurrentId(safe.id);
   history = new DeckHistory(safe, 100); bindHistory();
   selectedCard = null; selectedInstanceId = null; validationResult = null; validationIssues = new Map(); resetHand();
-  closeMenus(); render(); scheduleValidation(); setSaveState('saved', 'Saved on this device');
+  closeMenus(); render(); scheduleValidation(); setSaveState('saved', 'Saved on this device'); await renderDeckMenu();
 }
 
 function bindHistory() {
   history.addEventListener('change', () => { /* Edits are rendered and persisted by dispatch(). */ });
 }
 
-async function createDeck(name = 'Untitled deck') {
-  await saveNow();
+async function createDeck(name = 'Untitled deck', { flush = true } = {}) {
+  if (flush) await saveNow();
   const deck = newDeck(name);
   if (!database) {
     history = new DeckHistory(deck, 100); bindHistory(); selectedCard = null; selectedInstanceId = null; render(); scheduleValidation();
@@ -520,7 +532,15 @@ function toggleMenu(element, trigger) {
 
 function closeMenus() {
   $('deck-menu').hidden = true; $('export-menu').hidden = true;
-  $('deck-menu-button').setAttribute('aria-expanded', 'false'); $('export-button').setAttribute('aria-expanded', 'false');
+  $('deck-menu-button').setAttribute('aria-expanded', 'false'); $('saved-decks-button').setAttribute('aria-expanded', 'false'); $('export-button').setAttribute('aria-expanded', 'false');
+}
+
+function openSaveDeck() {
+  closeMenus();
+  if (!database) { showToast('Local storage is unavailable. Export a backup to keep this deck.', 'error'); return; }
+  $('save-deck-name').value = history.deck.name === 'Untitled deck' ? '' : history.deck.name;
+  openDialog($('save-deck-dialog'), $('save-deck'));
+  $('save-deck-name').focus(); $('save-deck-name').select();
 }
 
 function openDialog(dialog, trigger = document.activeElement) {
@@ -756,9 +776,26 @@ function setMobilePanel(panel) {
 
 function wireEvents() {
   $('deck-menu-button').addEventListener('click', () => toggleMenu($('deck-menu'), $('deck-menu-button')));
+  $('saved-decks-button').addEventListener('click', () => toggleMenu($('deck-menu'), $('saved-decks-button')));
+  $('save-deck').addEventListener('click', openSaveDeck);
+  $('cancel-save-deck').addEventListener('click', () => closeDialog($('save-deck-dialog')));
+  $('save-deck-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const name = $('save-deck-name').value.trim();
+    if (!name) { $('save-deck-name').focus(); return; }
+    const button = $('confirm-save-deck'); button.disabled = true;
+    try {
+      if (name !== history.deck.name) dispatch({ type: 'RENAME_DECK', name });
+      setSaveState('saving', 'Saving…');
+      if (await saveNow()) {
+        closeDialog($('save-deck-dialog'));
+        showToast(`“${history.deck.name}” saved in this browser.`);
+      }
+    } finally { button.disabled = false; }
+  });
   $('export-button').addEventListener('click', () => toggleMenu($('export-menu'), $('export-button')));
   document.addEventListener('click', (event) => {
-    if (!$('deck-menu').contains(event.target) && !$('deck-menu-button').contains(event.target) && !$('export-menu').contains(event.target) && !$('export-button').contains(event.target)) closeMenus();
+    if (!$('deck-menu').contains(event.target) && !$('deck-menu-button').contains(event.target) && !$('saved-decks-button').contains(event.target) && !$('export-menu').contains(event.target) && !$('export-button').contains(event.target)) closeMenus();
   });
   $('new-deck').addEventListener('click', () => createDeck());
   $('duplicate-deck').addEventListener('click', async () => {
@@ -771,8 +808,9 @@ function wireEvents() {
   $('delete-deck').addEventListener('click', async () => {
     if (!database) { showToast('Local storage is unavailable. Start a new in-memory deck instead.', 'warning'); return; }
     if (!confirm(`Delete “${history.deck.name}” from this device? Download a JSON backup first if you need it elsewhere.`)) return;
+    clearTimeout(saveTimer); saveTimer = 0;
     const id = history.deck.id; await database.delete(id); const decks = await database.list();
-    if (decks.length) await switchDeck(decks[0], false); else await createDeck(); showToast('Local deck deleted.');
+    if (decks.length) await switchDeck(decks[0], false); else await createDeck('Untitled deck', { flush: false }); showToast('Local deck deleted.');
   });
   $('undo').addEventListener('click', () => { if (history.undo()) { resetHand(); render(); scheduleSave(); scheduleValidation(); } });
   $('redo').addEventListener('click', () => { if (history.redo()) { resetHand(); render(); scheduleSave(); scheduleValidation(); } });

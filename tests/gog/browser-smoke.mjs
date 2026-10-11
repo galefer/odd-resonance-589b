@@ -111,11 +111,18 @@ async function dragCard(source, target, operation) {
     await send('Input.setInterceptDrags', { enabled: false });
   }
 }
-async function rightClick(selector) {
+async function rightClick(selector, shift = false) {
   const at = await point(selector);
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at });
-  await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...at, button: 'right', buttons: 2, clickCount: 1 });
-  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...at, button: 'right', buttons: 0, clickCount: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...at, button: 'right', buttons: 2, clickCount: 1, modifiers: shift ? 8 : 0 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...at, button: 'right', buttons: 0, clickCount: 1, modifiers: shift ? 8 : 0 });
+}
+
+async function saveNamedDeck(name) {
+  await click('#save-deck');
+  await waitFor(`document.querySelector('#save-deck-dialog').open`, 'name and save dialog');
+  await setValue('#save-deck-name', name); await click('#confirm-save-deck');
+  await waitFor(`!document.querySelector('#save-deck-dialog').open && document.querySelector('#deck-name').textContent===${JSON.stringify(name)}`, 'named deck saved');
 }
 
 const evidence = { chrome: version.Browser, origin, checks: [], failedResponses, consoleErrors: errors };
@@ -133,6 +140,12 @@ try {
   assert.equal(await evaluate(`document.querySelector('#saved-label').textContent`), 'Saved on this device');
   assert.equal((await counts()).main, 0);
   evidence.checks.push('initial catalogue and IndexedDB state loaded');
+
+  const originalEmptyId = await evaluate(`document.querySelector('#deck-menu-list button').dataset.deckId`);
+  await click('#saved-decks-button'); await click('#delete-deck');
+  await waitFor(`document.querySelector('#deck-menu-list button')?.dataset.deckId!==${JSON.stringify(originalEmptyId)} && document.querySelector('#deck-menu-list button')`, 'last deck deletion creates fresh empty deck');
+  await sleep(350);
+  assert.equal(await evaluate(`document.querySelectorAll('#deck-menu-list button').length`), 1, 'Deleted last deck must not be saved again');
 
   assert.equal(await evaluate(`document.querySelector('.quick-add')`), null, 'Library hover add controls should be removed');
   await dragCard('.library-card img', '.deck-grid[data-zone="main"]', 'copy');
@@ -158,6 +171,23 @@ try {
   evidence.checks.push('native library drag to empty and populated zones; move between zones; invalid placement rejected');
   evidence.checks.push('right-click removes hovered copy, preserves selection, supports undo and grouped copies');
 
+  await rightClick('.library-card img');
+  assert.deepEqual(await counts(), { main: 2, extra: 0, side: 0 }, 'Right-click library spell adds one to Main');
+  await rightClick('.library-card img', true);
+  assert.deepEqual(await counts(), { main: 2, extra: 0, side: 1 }, 'Shift + right-click adds exactly one to Side');
+  await rightClick('.library-card img');
+  assert.deepEqual(await counts(), { main: 2, extra: 0, side: 1 }, 'Right-click enforces the combined three-copy limit');
+  await click('#undo'); await click('#undo');
+  assert.deepEqual(await counts(), { main: 1, extra: 0, side: 0 });
+  await setValue('#search', 'Number 39: Utopia');
+  await waitFor(`document.querySelector('.library-card button')?.getAttribute('aria-label').startsWith('Inspect Number 39: Utopia,')`, 'Extra Deck card search');
+  await rightClick('.library-card img');
+  assert.deepEqual(await counts(), { main: 1, extra: 1, side: 0 }, 'Right-click Xyz card adds to Extra');
+  await rightClick('.library-card img', true);
+  assert.deepEqual(await counts(), { main: 1, extra: 1, side: 1 }, 'Shift overrides Extra placement and adds to Side');
+  await click('#undo'); await click('#undo');
+  evidence.checks.push('library right-click adds to Main/Extra; Shift adds to Side; combined copy limits enforced');
+
   await setValue('#search', 'Pot of Greed');
   await waitFor(`[...document.querySelectorAll('.library-card button[aria-label]')].some(e=>e.getAttribute('aria-label').startsWith('Inspect Pot of Greed,'))`, 'Forbidden card search');
   await evaluate(`(() => { const e=[...document.querySelectorAll('.library-card button[aria-label]')].find(e=>e.getAttribute('aria-label').startsWith('Inspect Pot of Greed,')); e.click(); return true; })()`);
@@ -165,6 +195,8 @@ try {
   assert.equal(await evaluate(`document.querySelector('#add-auto').disabled`), true);
   await dragCard('.library-card img', '.deck-grid[data-zone="main"]', 'copy');
   assert.equal((await counts()).main, 1, 'Dragging cannot bypass Forbidden restrictions');
+  await rightClick('.library-card img'); await rightClick('.library-card img', true);
+  assert.deepEqual(await counts(), { main: 1, extra: 0, side: 0 }, 'Neither right-click shortcut can add Forbidden cards');
   evidence.checks.push('search and Forbidden add rejection');
 
   await click('#import-button'); await click('#paste-tab');
@@ -177,11 +209,23 @@ try {
   evidence.checks.push('YDK preview and lossless three-section import');
 
   await waitFor(`document.querySelector('#saved-label').textContent==='Saved on this device'`, 'autosave');
+  await saveNamedDeck('Browser QA deck');
+  await click('#saved-decks-button');
+  const savedDeckId = await evaluate(`document.querySelector('#deck-menu-list button.current').dataset.deckId`);
+  await click('#new-deck');
+  await waitFor(`document.querySelector('#count-main').textContent==='0' && document.querySelector('#deck-name').textContent==='Untitled deck'`, 'new separate deck');
+  await saveNamedDeck('Second QA deck');
+  await click('#saved-decks-button');
+  await click(`#deck-menu-list button[data-deck-id="${savedDeckId}"]`);
+  await waitFor(`document.querySelector('#deck-name').textContent==='Browser QA deck' && document.querySelector('#count-main').textContent==='3'`, 'reopen named deck');
+  assert.deepEqual(await counts(), { main: 3, extra: 1, side: 1 });
   const priorTimeOrigin = await evaluate('performance.timeOrigin');
   await send('Page.reload', { ignoreCache: true });
   await waitFor(`performance.timeOrigin!==${JSON.stringify(priorTimeOrigin)} && document.readyState==='complete' && document.querySelector('#count-main')?.textContent==='3'`, 'IndexedDB refresh restore', 20_000);
   assert.deepEqual(await counts(), { main: 3, extra: 1, side: 1 });
-  evidence.checks.push('refresh restores current local deck');
+  assert.equal(await evaluate(`document.querySelector('#deck-name').textContent`), 'Browser QA deck');
+  assert(await evaluate(`[...document.querySelectorAll('#deck-menu-list button')].some(e=>e.textContent.includes('Second QA deck'))`), 'Other saved decks survive refresh');
+  evidence.checks.push('named decks saved locally, switched, reopened and retained across reload without accounts');
 
   await click('#export-button'); await click('#copy-ydke');
   await waitFor(`(!document.querySelector('#toast').hidden && /YDKE/.test(document.querySelector('#toast').textContent)) || document.querySelector('#info-dialog').open`, 'YDKE copy or manual fallback');
@@ -226,6 +270,7 @@ try {
     await sleep(180);
     const layout = await evaluate(`({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,nav:getComputedStyle(document.querySelector('.mobile-nav')).display,workspace:getComputedStyle(document.querySelector('.workspace')).display})`);
     assert(layout.scrollWidth <= layout.width + 1, `${width}px horizontal overflow: ${layout.scrollWidth-layout.width}`);
+    assert(await evaluate(`['save-deck','saved-decks-button'].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.width>0 && r.left>=0 && r.right<=innerWidth;})`), 'Save and Saved decks controls should be visible at every width');
     if (width >= 1180) assert(await evaluate(`document.querySelector('.workspace').getBoundingClientRect().width >= innerWidth-20`), 'Workspace should use the available width');
     if (width === 390) deckMobileHeader = await evaluate(`(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()`);
     if (width === 2048) await screenshot('deckbuilder-2048.png');

@@ -34,12 +34,17 @@
 
   <section class="deck-toolbar" aria-label="Deck controls">
     <div class="deck-identity">
+      <div class="deck-title-row">
       <button id="deck-menu-button" class="deck-title-button" type="button" aria-haspopup="menu" aria-expanded="false">
         <span id="deck-name">Untitled deck</span><span aria-hidden="true">⌄</span>
       </button>
+      <button id="save-deck" class="button" type="button">Save deck</button>
+      <button id="saved-decks-button" class="button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="deck-menu">Saved decks</button>
+      </div>
       <div class="save-line"><span id="save-dot"></span><span id="saved-label" role="status">Opening local decks…</span></div>
       <div id="deck-menu" class="floating-menu deck-menu" role="menu" hidden>
-        <div class="menu-heading"><b>Your decks</b><span>Saved on this device</span></div>
+        <div class="menu-heading"><b>Saved decks</b><span>This browser</span></div>
+        <p>Decks save automatically here. No account needed. Export a backup to keep them when moving devices or clearing browser data.</p>
         <div id="deck-menu-list" class="deck-menu-list"></div>
         <hr>
         <button id="new-deck" type="button" role="menuitem">＋ New deck</button>
@@ -114,7 +119,7 @@
       <div class="canvas-heading"><div><p class="eyebrow">YU-GI-OH! JUSH HOUSE FORMAT</p><h1>Deckbuilder</h1><p id="mobile-count" class="mobile-count">Main 0 · Extra 0 · Side 0</p></div><div class="view-toggle" role="group" aria-label="Deck display"><button id="copies-view" class="active" type="button">▦ Copies</button><button id="grouped-view" type="button">▤ Grouped</button></div></div>
       <div id="validation-banner" class="validation-banner checking" role="status"><span id="validation-icon">…</span><div><strong id="validation-title">Checking published house rules</strong><p id="validation-summary">Waiting for the current catalogue and list.</p></div><button id="validation-info" type="button">Details</button></div>
       <div id="deck-zones"></div>
-      <div class="canvas-footer"><span>Drag cards from the library into your deck. Right-click a deck card to remove one copy. Click to inspect.</span><button id="keyboard-help" class="text-button" type="button">Keyboard help</button></div>
+      <div class="canvas-footer"><span>Library: right-click to add to Main / Extra; Shift + right-click to add to Side. Deck: right-click to remove. Drag to add or move; click to inspect.</span><button id="keyboard-help" class="text-button" type="button">Keyboard help</button></div>
     </section>
 
     <aside class="library-panel panel" data-workspace-panel="library">
@@ -149,6 +154,17 @@
     <hr><button id="backup" class="menu-row" type="button">Download complete backup <span>JSON</span></button>
     <p>Deck files do not carry the house banlist. Agree on room rules with your opponent.</p>
   </div>
+
+  <dialog id="save-deck-dialog" class="app-dialog narrow" aria-labelledby="save-deck-title">
+    <form id="save-deck-form">
+      <div class="modal-header"><h2 id="save-deck-title">Save deck</h2></div>
+      <div class="modal-content">
+        <label class="deck-name-field" for="save-deck-name">Deck name<input id="save-deck-name" type="text" maxlength="100" required autocomplete="off" placeholder="e.g. Friday Night Melodious"></label>
+        <p class="small muted">Saved in this browser, with no account needed. Later edits save automatically. Open it again from Saved decks.</p>
+      </div>
+      <div class="modal-actions"><button id="cancel-save-deck" class="button" type="button">Cancel</button><button id="confirm-save-deck" class="button primary" type="submit">Save deck</button></div>
+    </form>
+  </dialog>
 
   <dialog id="import-dialog" class="app-dialog">
     <form method="dialog" class="modal-header"><div><p class="eyebrow">BRING YOUR DECK</p><h2>Import deck</h2></div><button class="close-button" value="cancel" aria-label="Close import dialog">×</button></form>

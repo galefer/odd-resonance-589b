@@ -191,3 +191,25 @@ textarea{background:#0f0f11;border-color:#60483c}
  .workspace{grid-template-columns:clamp(260px,28vw,320px) minmax(0,1fr)}
  .deck-grid{grid-template-columns:repeat(6,minmax(0,1fr))}
 }
+
+/* Make the browser's saved deck collection visible beside the current name. */
+.deck-toolbar{gap:20px}
+.deck-identity{min-width:0}
+.deck-title-row{display:flex;align-items:center;gap:8px;min-width:0}
+.deck-title-row .deck-title-button{min-width:0;margin-right:8px}
+#deck-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.deck-title-row .button{flex-shrink:0;font-size:12px;height:34px}
+.toolbar-actions{flex-shrink:0}
+.deck-menu{top:calc(100% + 10px);left:0;width:360px;max-width:calc(100vw - 32px);max-height:calc(100dvh - 240px);overflow:auto}
+.deck-menu-list button>span{overflow-wrap:anywhere;min-width:0}
+.deck-menu-list small{flex-shrink:0}
+.deck-name-field{display:grid;gap:8px;font-size:13px;font-weight:600}
+.deck-name-field input{width:100%;min-width:0;padding:10px 12px;background:var(--raised);border:1px solid var(--line);border-radius:6px;color:var(--text)}
+#save-deck-dialog .small{font-size:12px;margin-top:14px}
+@media(max-width:767px){
+ .deck-toolbar{height:auto;min-height:154px;padding:14px 16px;gap:12px}
+ .deck-title-row{flex-wrap:wrap}
+ .deck-title-row .deck-title-button{flex-basis:100%;margin:0 0 2px}
+ .deck-title-row .button{height:36px}
+ .deck-menu{max-height:calc(100dvh - 300px)}
+}
