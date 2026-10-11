@@ -140,17 +140,17 @@ async function loadPublicData() {
 function applyConfig() {
   const settings = state.config?.settings || {};
   const version = state.config?.version;
-  $('#brand-short-name').textContent = settings.format_short_name || 'House F&L';
-  $('#brand-store-name').textContent = settings.store_name || 'Your Local Store';
-  $('#format-name').textContent = settings.format_name || 'Local Store House Format';
-  $('#format-description').textContent = settings.format_description || 'A standalone local format. Cards not listed here are Unlimited.';
-  $('#accent-label').textContent = settings.accent_label || 'Independent Format';
-  $('#footer-format-name').textContent = settings.format_name || 'Local Store House Format';
+  $('#brand-short-name').textContent = settings.format_short_name || 'Guild of Games';
+  $('#brand-store-name').textContent = settings.store_name || 'Yu-Gi-Oh! JUSH House Format';
+  $('#format-name').textContent = settings.format_name || 'Yu-Gi-Oh! JUSH House Format';
+  $('#format-description').textContent = settings.format_description || 'A Guild of Games format using the Justice Hunters card pool and an altered Forbidden & Limited List based on the JUSH-era banlist.';
+  $('#accent-label').textContent = settings.accent_label || 'Guild of Games';
+  $('#footer-format-name').textContent = settings.format_name || 'Yu-Gi-Oh! JUSH House Format';
   $('#version-label').textContent = version?.label || 'Foundation';
   $('#effective-date').textContent = formatDate(version?.effectiveDate);
   $('#effective-date').dateTime = version?.effectiveDate || '';
   $('#footer-version').textContent = `Version ${version?.label || 'Foundation'}`;
-  document.title = `${settings.format_name || 'House Format'} · Forbidden & Limited List`;
+  document.title = `${settings.format_name || 'Yu-Gi-Oh! JUSH House Format'} · Guild of Games`;
 }
 
 function currentDataset() {

@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#111827">
-  <meta name="description" content="Search and browse a standalone Yu-Gi-Oh! house-format Forbidden & Limited List.">
-  <title>House Format Forbidden & Limited List</title>
-  <link rel="icon" href="/assets/images/favicon.png" type="image/png">
+  <meta name="theme-color" content="#0b0b0c">
+  <meta name="description" content="Guild of Games Yu-Gi-Oh! JUSH House Format: Justice Hunters card pool, altered banlist, card search and deckbuilder.">
+  <title>Yu-Gi-Oh! JUSH House Format · Guild of Games</title>
+  <link rel="icon" href="/gog/assets/guild-of-games-logo.png" type="image/png">
   <link rel="stylesheet" href="/gog/styles.css">
 </head>
 <body>
@@ -14,23 +14,22 @@
 
   <header class="site-header">
     <div class="shell header-inner">
-      <a class="brand" href="/gog/" aria-label="House format home">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 64 64" role="img">
-            <path d="M32 4 55 17v30L32 60 9 47V17Z"/>
-            <path d="M32 13 47 22v20L32 51 17 42V22Z"/>
-            <path d="m32 19 4 9 10 1-8 7 3 10-9-5-9 5 3-10-8-7 10-1Z"/>
-          </svg>
-        </span>
+      <a class="brand" href="/gog/" aria-label="Guild of Games JUSH house format home">
+        <img class="brand-logo" src="/gog/assets/guild-of-games-logo.png" alt="" width="512" height="483">
         <span>
-          <strong id="brand-short-name">House F&amp;L</strong>
-          <small id="brand-store-name">Your Local Store</small>
+          <strong id="brand-short-name">Guild of Games</strong>
+          <small id="brand-store-name">Yu-Gi-Oh! JUSH House Format</small>
         </span>
       </a>
 
+      <nav class="site-nav" aria-label="JUSH house format">
+        <a class="active" aria-current="page" href="/gog/">Card list</a>
+        <a href="/gog/deckbuilder/">Deckbuilder</a>
+        <button id="rules-button" type="button">Format rules</button>
+      </nav>
+
       <div class="header-actions">
-        <a class="button ghost compact" href="/gog/deckbuilder/">Deckbuilder</a>
-        <button class="button ghost compact" id="rules-button" type="button">Format rules</button>
+        <a class="mobile-header-link" href="/gog/deckbuilder/">Deckbuilder</a>
         <button class="button gold compact" id="admin-button" type="button">
           <span class="button-icon" aria-hidden="true">⚙</span>
           Admin
@@ -43,9 +42,16 @@
     <section class="hero">
       <div class="shell hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow" id="accent-label">Independent Format</p>
-          <h1 id="format-name">Local Store House Format</h1>
-          <p class="hero-description" id="format-description">A standalone local format. Cards not listed here are Unlimited.</p>
+          <div class="hero-identity">
+            <img class="hero-logo" src="/gog/assets/guild-of-games-logo.png" alt="Guild of Games" width="512" height="483">
+            <div>
+              <p class="eyebrow" id="accent-label">Guild of Games</p>
+              <h1 id="format-name">Yu-Gi-Oh! JUSH House Format</h1>
+              <p class="hero-subtitle">Justice Hunters House Format</p>
+            </div>
+          </div>
+          <p class="hero-description" id="format-description">A Guild of Games format using the Justice Hunters card pool and an altered Forbidden &amp; Limited List based on the JUSH-era banlist.</p>
+          <p class="altered-list-note"><strong>House rules:</strong> this format uses an altered banlist based on the official JUSH-era list. Cards marked <span class="house-change-badge inline">NEW</span> show every Guild of Games change from that fixed baseline.</p>
           <div class="pool-note" aria-label="Eligible card pool"><span class="pool-dot" aria-hidden="true"></span> CARD POOL LOCKED · THROUGH JUSTICE HUNTERS (JUSH) · 01 AUG 2025</div>
           <div class="version-line" aria-label="Current format version">
             <span class="live-dot" aria-hidden="true"></span>
@@ -195,10 +201,10 @@
     <section class="about-strip" id="format-rules">
       <div class="shell about-grid">
         <div>
-          <p class="eyebrow">How this format works</p>
-          <h2>One independent list. No official-list overlap.</h2>
+          <p class="eyebrow">Guild of Games house rules</p>
+          <h2>Justice Hunters card pool. One altered banlist.</h2>
         </div>
-        <p>This house format fully replaces the standard Advanced Format list. Only cards first released in the TCG on or before Justice Hunters (1 August 2025) may be used. Eligible cards are only restricted when they appear here. Main Deck, Extra Deck, and Side Deck copies are counted together.</p>
+        <p>The Guild of Games house format is based on the JUSH-era banlist, with its own published changes. It fully replaces the standard Advanced Format list. Only cards first released in the TCG on or before Justice Hunters (1 August 2025) may be used. Eligible cards are only restricted when they appear here. Main Deck, Extra Deck, and Side Deck copies are counted together.</p>
       </div>
     </section>
   </main>
@@ -206,7 +212,7 @@
   <footer class="site-footer">
     <div class="shell footer-inner">
       <div>
-        <strong id="footer-format-name">Local Store House Format</strong>
+        <strong id="footer-format-name">Yu-Gi-Oh! JUSH House Format</strong>
         <p>Unofficial community format. Not affiliated with or endorsed by Konami Digital Entertainment.</p>
       </div>
       <div class="footer-meta">
@@ -255,7 +261,7 @@
       <p class="eyebrow dark">Format rules</p>
       <h2>Standalone house-format restrictions</h2>
       <div class="rules-copy">
-        <p>This list completely replaces the official Advanced Format Forbidden &amp; Limited List for events using this house format.</p>
+        <p>This Guild of Games list is an altered banlist based on the official JUSH-era Forbidden &amp; Limited List. It completely replaces the current Advanced Format list for events using this house format.</p>
         <ul>
           <li><strong>Forbidden:</strong> 0 copies.</li>
           <li><strong>Limited:</strong> up to 1 copy.</li>
@@ -275,9 +281,7 @@
 
       <section class="admin-auth" id="admin-auth">
         <div class="admin-auth-brand">
-          <span class="brand-mark large" aria-hidden="true">
-            <svg viewBox="0 0 64 64"><path d="M32 4 55 17v30L32 60 9 47V17Z"/><path d="M32 13 47 22v20L32 51 17 42V22Z"/><path d="m32 19 4 9 10 1-8 7 3 10-9-5-9 5 3-10-8-7 10-1Z"/></svg>
-          </span>
+          <img class="brand-logo large" src="/gog/assets/guild-of-games-logo.png" alt="Guild of Games" width="512" height="483">
           <p class="eyebrow dark">Restricted access</p>
           <h2 id="auth-title">Administrator login</h2>
           <p id="auth-description">Sign in to edit the draft list, review changes, and publish a new version.</p>
@@ -304,8 +308,8 @@
       <section class="admin-app" id="admin-app" hidden>
         <aside class="admin-sidebar">
           <div class="admin-sidebar-brand">
-            <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M32 4 55 17v30L32 60 9 47V17Z"/><path d="M32 13 47 22v20L32 51 17 42V22Z"/><path d="m32 19 4 9 10 1-8 7 3 10-9-5-9 5 3-10-8-7 10-1Z"/></svg></span>
-            <span><strong>List Control</strong><small id="admin-email"></small></span>
+            <img class="brand-logo" src="/gog/assets/guild-of-games-logo.png" alt="" width="512" height="483">
+            <span><strong>Guild of Games</strong><small id="admin-email"></small></span>
           </div>
           <nav class="admin-nav" aria-label="Administrator sections">
             <button class="active" data-admin-section="editor"><span>✦</span> List editor</button>

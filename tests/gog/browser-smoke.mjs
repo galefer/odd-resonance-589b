@@ -88,6 +88,9 @@ try {
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: `${origin}/gog/deckbuilder/` });
   await waitFor(`document.readyState==='complete' && document.querySelectorAll('.library-card').length>0`, 'initial card catalogue');
+  assert.equal(await evaluate(`document.querySelector('.brand strong').textContent.trim()`), 'Guild of Games');
+  assert(await evaluate(`document.querySelector('.brand-logo').naturalWidth > 0`), 'Guild of Games logo should load in the deckbuilder header');
+  assert.equal(await evaluate(`new URL(document.querySelector('.site-nav a:first-child').href).pathname`), '/gog/');
   assert.match(await evaluate(`document.querySelector('#library-total').textContent`), /ELIGIBLE/);
   assert.equal(await evaluate(`document.querySelector('#saved-label').textContent`), 'Saved on this device');
   assert.equal((await counts()).main, 0);
@@ -179,6 +182,53 @@ try {
   await waitFor(`document.querySelector('#saved-label').textContent==='Saved on this device'`, 'saved mobile screenshot state');
   await screenshot('deckbuilder-mobile.png');
   evidence.checks.push('mobile Library → Card → Add → Deck without drag');
+
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+  await send('Page.navigate', { url: `${origin}/gog/` });
+  await waitFor(`document.readyState==='complete' && document.querySelectorAll('#card-list .card-row').length>0`, 'branded card list');
+  const cardListBrand = await evaluate(`({
+    brand:document.querySelector('.brand strong').textContent.trim(),
+    heading:document.querySelector('#format-name').textContent.trim(),
+    subtitle:document.querySelector('.hero-subtitle').textContent.trim(),
+    note:document.querySelector('.altered-list-note').textContent.trim(),
+    logoLoaded:document.querySelector('.hero-logo').naturalWidth>0,
+    deckbuilderPath:new URL(document.querySelector('.site-nav a[href="/gog/deckbuilder/"]').href).pathname,
+    overflow:document.documentElement.scrollWidth-innerWidth,
+    background:getComputedStyle(document.body).backgroundColor
+  })`);
+  assert.equal(cardListBrand.brand, 'Guild of Games');
+  assert.equal(cardListBrand.heading, 'Yu-Gi-Oh! JUSH House Format');
+  assert.equal(cardListBrand.subtitle, 'Justice Hunters House Format');
+  assert.match(cardListBrand.note, /altered banlist based on the official JUSH-era list/i);
+  assert(cardListBrand.logoLoaded, 'Guild of Games hero logo should load');
+  assert.equal(cardListBrand.deckbuilderPath, '/gog/deckbuilder/');
+  assert(cardListBrand.overflow <= 1, `Card-list horizontal overflow: ${cardListBrand.overflow}`);
+  await click('#rules-button');
+  await waitFor(`document.querySelector('#rules-modal').open`, 'format rules dialog');
+  assert.match(await evaluate(`document.querySelector('#rules-modal .rules-copy').textContent`), /altered banlist based on the official JUSH-era/i);
+  await click('[data-close-dialog="rules-modal"]');
+  await click('#admin-button');
+  await waitFor(`document.querySelector('#admin-modal').open`, 'administrator dialog');
+  assert(await evaluate(`document.querySelector('#admin-modal .brand-logo').naturalWidth>0`), 'Guild of Games logo should load in administrator login');
+  assert.match(await evaluate(`getComputedStyle(document.querySelector('#admin-modal')).backgroundColor`), /^rgb\((1[0-9]|2[0-9]),/);
+  await click('[data-close-dialog="admin-modal"]');
+  await screenshot('card-list-branded.png');
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await sleep(180);
+  const mobileCardList = await evaluate(`({
+    overflow:document.documentElement.scrollWidth-innerWidth,
+    desktopNav:getComputedStyle(document.querySelector('.site-nav')).display,
+    deckLink:getComputedStyle(document.querySelector('.mobile-header-link')).display,
+    logoLoaded:document.querySelector('.brand-logo').naturalWidth>0
+  })`);
+  assert(mobileCardList.overflow <= 1, `Mobile card-list horizontal overflow: ${mobileCardList.overflow}`);
+  assert.equal(mobileCardList.desktopNav, 'none');
+  assert.notEqual(mobileCardList.deckLink, 'none');
+  assert(mobileCardList.logoLoaded);
+  await screenshot('card-list-mobile.png');
+  evidence.cardListBrand = cardListBrand;
+  evidence.mobileCardList = mobileCardList;
+  evidence.checks.push('shared Guild of Games branding and two-way navigation');
 
   const unexpectedFailures = failedResponses.filter(({ url, status }) => status >= 400 && !url.includes('/gog/api/cards/') && !url.endsWith('favicon.ico'));
   if (failedResponses.length || errors.length) console.log(JSON.stringify({ failedResponses, consoleErrors: errors }, null, 2));

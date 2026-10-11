@@ -1,11 +1,11 @@
 -- Seed: JUSH-era TCG banlist, effective 2025-04-07. Card pool capped 2025-08-01.
 -- This file is idempotent: run it once on a NEW database after schema.sql.
 INSERT OR IGNORE INTO settings(key,value) VALUES
-  ('format_name','Justice Hunters House Format'),
-  ('format_short_name','JUSH Format'),
-  ('format_description','Independent TCG format with a hard card-pool cutoff at Justice Hunters (1 August 2025). All eligible cards not on this list are Unlimited.'),
-  ('store_name','Your Local Store'),
-  ('accent_label','JUSH-era House Format');
+  ('format_name','Yu-Gi-Oh! JUSH House Format'),
+  ('format_short_name','Guild of Games'),
+  ('format_description','A Guild of Games format using the Justice Hunters card pool and an altered Forbidden & Limited List based on the official JUSH-era banlist. All eligible cards not on this list are Unlimited.'),
+  ('store_name','Yu-Gi-Oh! JUSH House Format'),
+  ('accent_label','Guild of Games');
 INSERT OR IGNORE INTO versions(id,version_label,effective_date,summary,status,source,created_at,published_at)
  VALUES (1,'April 2025 TCG Foundation','2025-04-07','Official April 7, 2025 TCG Advanced list, frozen as the starting point for a standalone JUSH-era house format.','published','tcg-apr-2025',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 INSERT OR IGNORE INTO entries(version_id,name,sort_name,card_id,category,subtype,card_type,status,note) VALUES
