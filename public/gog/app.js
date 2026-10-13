@@ -758,6 +758,9 @@ function wireEvents() {
         summary: $('#publish-summary').value
       }});
       toast('New house-format version published.');
+      // Invalidate open deckbuilders only after a successful publication.
+      // Draft edits remain private and never trigger public rule refreshes.
+      try { localStorage.setItem('gog-published-list', String(Date.now())); } catch { /* Focus refresh also covers browsers without storage. */ }
       $('#publish-version').value = '';
       $('#publish-summary').value = '';
       await loadPublicData();

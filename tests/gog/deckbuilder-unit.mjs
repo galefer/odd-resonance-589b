@@ -74,6 +74,38 @@ test('physical copies enforce one combined limit across Main, Extra and Side', (
   assert.equal(addIssue(deck, ordinary, 'main'), null);
 });
 
+test('published metadata refresh repairs saved badges and limits without changing deck edits or undo', () => {
+  const deck = newDeck('Saved while Limited');
+  deck.notes = 'Keep these notes'; deck.groups = [{ id: 'group', name: 'Starters', canonicalIds: [1001] }];
+  const first = instanceFromCard(card({ status: 'limited', copies: 1, artworkId: 9001 }), 9001);
+  deck.main = [first];
+  const history = new DeckHistory(deck);
+  history.dispatch({ type: 'MOVE_INSTANCE', instanceId: first.instanceId, zone: 'side' });
+  history.undo();
+  const before = structuredClone(history.deck);
+  const pastLength = history.past.length, futureLength = history.future.length;
+  history.refreshCardMetadata([{ inputId: 9001, outcome: 'resolved', card: card(), artworkId: 9001 }], 7);
+  assert.equal(history.deck.main[0].status, 'unlimited');
+  assert.equal(history.deck.main[0].allowedCopies, 3);
+  assert.equal(history.deck.main[0].instanceId, first.instanceId);
+  assert.equal(history.deck.main[0].artworkId, 9001);
+  assert.equal(history.deck.main[0].originalImportId, 9001);
+  assert.equal(history.deck.revision, before.revision);
+  assert.equal(history.deck.updatedAt, before.updatedAt);
+  assert.equal(history.deck.notes, before.notes);
+  assert.deepEqual(history.deck.groups, before.groups);
+  assert.equal(history.past.length, pastLength); assert.equal(history.future.length, futureLength);
+  assert.equal(addIssue(history.deck, history.deck.main[0], 'side'), null);
+  history.redo();
+  assert.equal(history.deck.side[0].status, 'unlimited');
+  history.undo();
+  assert.equal(history.deck.main[0].status, 'unlimited');
+  history.refreshCardMetadata([{ inputId: 9001, outcome: 'resolved', card: card({ status: 'forbidden', copies: 0 }) }], 8);
+  assert.equal(history.deck.main.length, 1, 'A new restriction must not remove deck copies');
+  assert.match(addIssue(history.deck, history.deck.main[0], 'side'), /Forbidden/);
+  history.redo(); assert.equal(history.deck.side[0].status, 'forbidden');
+});
+
 test('move/reorder/remove, grouped view and 100-step undo retain instance identity', () => {
   const deck = newDeck('History');
   const first = instanceFromCard(card()), second = instanceFromCard(card());

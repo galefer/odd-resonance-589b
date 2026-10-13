@@ -131,6 +131,8 @@ This additive migration totals existing image records once. Triggers maintain th
 
 Deck validation reuses its current result when only card order or presentation changes, remapping warning positions to the displayed cards. Changes to IDs, copy counts or deck sections still validate on the server. Imports retain their independent server checks, and exports retain their draft warnings. Deck saves remain local to the browser; Undo/Redo advances the save revision so it does not create a false conflict copy.
 
+Saved card restrictions are a cache, not the current rule authority. Every server validation refreshes card metadata and copy limits in the open deck and its undo/redo snapshots, preserving card identities, artwork, ordering and edits. The deckbuilder checks for published versions when returning to the tab or reconnecting; a successful manager publication also notifies other same-origin tabs. Checks are coalesced, unchanged versions do not reload the catalogue or revalidate, and there is no background polling. Draft changes do not broadcast. `node tests/gog/browser-rules-refresh.mjs` exercises saved Limited-to-Unlimited cards, publication updates, history and request counts using mocked API responses in a real local browser.
+
 ### Event finish times and the refreshed public pages
 
 For an existing event database, apply `0007_event_end_times.sql` **once**, before deploying the updated function. First check `PRAGMA table_info(recurring_events);` for the `end_time` column; skip this migration if it has already been applied. Fresh databases already include it in `schema.sql` and `seed.sql`.

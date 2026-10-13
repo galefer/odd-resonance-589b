@@ -46,6 +46,11 @@ let handRemaining = [];
 let toastTimer = 0;
 let activeDrag = null;
 let deckRenderPending = false;
+let publishedVersionId = null;
+let rulesCheck = null;
+let lastRulesCheck = 0;
+let rulesMayHaveChanged = false;
+const PUBLISHED_LIST_SIGNAL = 'gog-published-list';
 
 function setSaveState(state, message) {
   const line = $('saved-label').parentElement;
@@ -461,15 +466,15 @@ async function saveNow() {
   }
 }
 
-function scheduleValidation() {
+function scheduleValidation({ force = false } = {}) {
   const key = `${history.deck.id}:${validationKey(history.deck)}`;
-  if (validationResult && validationSnapshot &&
+  if (!force && validationResult && validationSnapshot &&
       key === `${validationSnapshot.id}:${validationKey(validationSnapshot)}`) {
     applyValidation(validationResult, validationSnapshot);
     return;
   }
   // Reordering during the debounce or request must not restart it or discard it.
-  if (key === pendingValidationKey) return;
+  if (!force && key === pendingValidationKey) return;
   clearTimeout(validationTimer);
   pendingValidationKey = key;
   const sequence = ++validationSequence;
@@ -479,7 +484,25 @@ function scheduleValidation() {
 }
 
 function applyValidation(result, snapshot) {
+  if (publishedVersionId && result.version?.id < publishedVersionId) {
+    scheduleValidation({ force: true }); return;
+  }
+  const changedVersion = publishedVersionId && result.version?.id > publishedVersionId;
+  publishedVersionId = result.version?.id || publishedVersionId;
   validationResult = remapValidation(result, snapshot, history.deck);
+  history.refreshCardMetadata(validationResult.cards || [], result.version?.id || null);
+  // Catalogue selections are separate objects; keep their copy controls and
+  // badges aligned with the same authoritative response used for deck copies.
+  const refreshed = new Map((validationResult.cards || []).filter(item => item.card)
+    .map(item => [item.card.canonicalId, item.card]));
+  let libraryChanged = false;
+  for (const card of [...catalogueCards, selectedCard].filter(Boolean)) {
+    const current = refreshed.get(card.canonicalId);
+    if (current && (card.status !== current.status || card.copies !== current.copies)) {
+      Object.assign(card, { status: current.status, copies: current.copies });
+      libraryChanged = true;
+    }
+  }
   validationSnapshot = clone(history.deck);
   validationIssues = new Map();
   for (const issue of validationResult.issues || []) if (issue.zone && Number.isInteger(issue.index)) {
@@ -488,7 +511,53 @@ function applyValidation(result, snapshot) {
   }
   renderValidation(result.verified ? (result.legal ? 'legal' : 'invalid') : 'unverified');
   renderDeck();
+  renderInspector();
+  if (changedVersion) { loadCatalogue(); refreshSelectedCatalogueCard(); }
+  else if (libraryChanged) renderLibrary();
   $('footer-version').textContent = result.version ? `${result.version.label} · published rules` : 'Published list unavailable';
+}
+
+async function refreshSelectedCatalogueCard() {
+  // A status filter may remove the inspected library card from the new page.
+  // Resolve that one selection so its inspector cannot retain an old limit.
+  const selected = selectedCard;
+  const versionId = publishedVersionId;
+  if (!selected) return;
+  try {
+    const data = await api('/cards/resolve', { method: 'POST', body: JSON.stringify({ ids: [selected.canonicalId] }) });
+    if (selectedCard?.canonicalId !== selected.canonicalId || publishedVersionId !== versionId) return;
+    if (data.results[0]?.outcome === 'resolved') selectedCard = data.results[0].card;
+    else selectedCard = { ...selected, status: 'unverified', copies: 0, poolVerified: false };
+    renderInspector();
+  } catch { /* The validation banner reports service availability. */ }
+}
+
+async function checkPublishedRules() {
+  if (!history || document.hidden || rulesCheck) return;
+  if (!rulesMayHaveChanged && Date.now() - lastRulesCheck < 5000) return;
+  rulesMayHaveChanged = false;
+  lastRulesCheck = Date.now();
+  // Check on return/reconnect/publication, never on a background polling loop.
+  // Config is a small indexed read; only a new version refreshes deck/library.
+  rulesCheck = api('/config');
+  try {
+    const { version } = await rulesCheck;
+    if (version?.id && (!publishedVersionId || version.id > publishedVersionId)) {
+      publishedVersionId = version.id;
+      scheduleValidation({ force: true });
+      loadCatalogue();
+      refreshSelectedCatalogueCard();
+    } else if (!validationResult?.verified && !pendingValidationKey) {
+      scheduleValidation({ force: true });
+    }
+  } catch (error) {
+    validationSnapshot = null;
+    validationResult = { verified: false, legal: false, issues: [{ code: 'service_unavailable', message: error.message }] };
+    renderValidation('unverified');
+  } finally {
+    rulesCheck = null;
+    if (rulesMayHaveChanged) checkPublishedRules();
+  }
 }
 
 async function validateCurrentDeck(key, sequence) {
@@ -537,13 +606,25 @@ async function loadCatalogue({ append = false } = {}) {
   try {
     const data = await api(`/catalogue?${params}`, { signal: request.signal });
     if (request !== catalogueRequest) return;
+    if (publishedVersionId && data.version?.id < publishedVersionId) { loadCatalogue(); return; }
+    if (data.version?.id > (publishedVersionId || 0)) {
+      const changedVersion = publishedVersionId !== null;
+      publishedVersionId = data.version.id;
+      if (changedVersion) { scheduleValidation({ force: true }); refreshSelectedCatalogueCard(); }
+      if (append && changedVersion) { loadCatalogue(); return; }
+    }
     catalogueCards = append ? catalogueCards.concat(data.cards) : data.cards;
+    if (selectedCard) {
+      const current = catalogueCards.find(card => card.canonicalId === selectedCard.canonicalId);
+      if (current) selectedCard = current;
+    }
     catalogueHasMore = data.hasMore; catalogueMeta = data.catalogue;
     $('library-total').textContent = data.catalogue.eligibleCards ? `${data.catalogue.eligibleCards.toLocaleString()} ELIGIBLE` : `${catalogueCards.length} LOADED`;
     $('library-state').hidden = catalogueCards.length > 0;
     $('library-state').textContent = catalogueCards.length ? '' : 'No eligible cards match these filters.';
     $('load-more').hidden = !catalogueHasMore;
     renderLibrary();
+    renderInspector();
   } catch (error) {
     if (error.name === 'AbortError') return;
     $('library-grid').replaceChildren(); $('load-more').hidden = true;
@@ -970,6 +1051,13 @@ function wireEvents() {
     }
   });
   window.addEventListener('beforeunload', () => { if (saveTimer) saveNow(); });
+  window.addEventListener('focus', checkPublishedRules);
+  window.addEventListener('pageshow', checkPublishedRules);
+  document.addEventListener('visibilitychange', checkPublishedRules);
+  window.addEventListener('online', () => { rulesMayHaveChanged = true; checkPublishedRules(); });
+  window.addEventListener('storage', event => {
+    if (event.key === PUBLISHED_LIST_SIGNAL) { rulesMayHaveChanged = true; checkPublishedRules(); }
+  });
 }
 
 async function start() {

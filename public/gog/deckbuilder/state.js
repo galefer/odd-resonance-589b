@@ -148,6 +148,26 @@ export class DeckHistory extends EventTarget {
     if (record) this.past.push(clone(this.deck)); else this.past = [];
     this.future = []; this.deck = clone(deck); this.#change('REPLACE');
   }
+  refreshCardMetadata(results, versionId) {
+    const byInput = new Map(results.map(result => [Number(result.inputId), result]));
+    // Published metadata is not a deck edit. Refresh undo/redo snapshots too,
+    // preserving physical copies, artwork, order, notes and save revisions.
+    for (const deck of [this.deck, ...this.past, ...this.future]) {
+      for (const zone of ZONES) for (const item of deck[zone]) {
+        const result = byInput.get(Number(item.originalImportId || item.canonicalId));
+        if (!result) continue;
+        if (result.outcome === 'resolved' && result.card) {
+          const metadata = instanceFromCard({ ...result.card,
+            artworkId: item.artworkId || result.artworkId || result.card.artworkId }, item.originalImportId);
+          Object.assign(item, metadata, { instanceId: item.instanceId });
+        } else {
+          item.resolution = result.outcome;
+          item.status = 'unverified'; item.allowedCopies = 0;
+        }
+      }
+    }
+    this.deck.lastCheckedVersionId = versionId;
+  }
   undo() {
     if (!this.past.length) return false;
     const revision = Number(this.deck.revision || 0) + 1;
