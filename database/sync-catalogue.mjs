@@ -6,6 +6,7 @@
  */
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { RELEASE_EVIDENCE_OVERRIDES, reviewedCardNameFor, reviewedTcgDateFor } from '../functions/gog/api/release-evidence-overrides.js';
 
 const CUTOFF = '2025-08-01';
 const PAGE_SIZE = 1000;
@@ -18,10 +19,10 @@ const normalise = (value = '') => String(value)
   .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
   .replace(/[’‘]/g, "'").replace(/[–—]/g, '-')
   .replace(/[^a-zA-Z0-9]+/g, ' ').trim().toLowerCase();
-const playable = (raw) => raw?.type && !['Skill Card', 'Token'].includes(raw.type) && raw.name !== '???';
+const playable = (raw) => raw?.type && !['Skill Card', 'Token'].includes(raw.type) && reviewedCardNameFor(raw) !== '???';
 // Original TCG release in any region, including North America (BLMM: 2025-06-13).
 // Do not substitute a later European release or an earlier OCG-only release.
-const firstTcgDate = (raw) => raw?.misc_info?.find((item) => typeof item?.tcg_date === 'string')?.tcg_date || null;
+const firstTcgDate = reviewedTcgDateFor;
 const treatedAs = (raw) => raw?.misc_info?.find((item) => typeof item?.treated_as === 'string')?.treated_as || null;
 const category = (type = '') => /spell/i.test(type) ? 'Spell' : /trap/i.test(type) ? 'Trap' : 'Monster';
 const subtype = (type = '') => {
@@ -78,9 +79,10 @@ if (cards.size !== expectedTotal)
   throw new Error(`Incomplete catalogue: expected ${expectedTotal} unique cards, received ${cards.size}.`);
 
 const cacheRows = [], artworkRows = [], evidenceRows = [], searchRows = [];
-let eligibleCount = 0, artworkCount = 0, outsidePoolCount = 0, excludedCount = 0;
+let eligibleCount = 0, artworkCount = 0, outsidePoolCount = 0, excludedCount = 0, reviewedOverrideCount = 0;
 for (const raw of cards.values()) {
   const canonicalId = checkedId(raw.id);
+  const cardName = reviewedCardNameFor(raw);
   const tcgDate = firstTcgDate(raw);
   const dateVerified = /^\d{4}-\d{2}-\d{2}$/.test(tcgDate || '');
   const isPlayable = playable(raw);
@@ -89,6 +91,7 @@ for (const raw of cards.values()) {
   if (eligible) eligibleCount += 1;
   else if (reason === 'outside_pool') outsidePoolCount += 1;
   else excludedCount += 1;
+  if (eligible && RELEASE_EVIDENCE_OVERRIDES[canonicalId]) reviewedOverrideCount += 1;
   const images = [...new Set((raw.card_images || []).map((image) => checkedId(image.id)).filter(Boolean))];
   if (!images.includes(canonicalId)) images.unshift(canonicalId);
   for (const imageId of images) {
@@ -103,14 +106,14 @@ for (const raw of cards.values()) {
   const treated = treatedAs(raw);
   const imageId = images[0] || canonicalId;
   cacheRows.push(tuple([
-    canonicalId, sql(raw.name), sql(normalise(raw.name)), sql(category(type)), sql(subtype(type)), sql(type),
+    canonicalId, sql(cardName), sql(normalise(cardName)), sql(category(type)), sql(subtype(type)), sql(type),
     sql(raw.race || null), sql(raw.attribute || null), number(raw.level), number(raw.atk), number(raw.def),
     sql(raw.desc || ''), sql(`https://images.ygoprodeck.com/images/cards_small/${imageId}.jpg`), canonicalId,
     sql(JSON.stringify(images)), sql(tcgDate), sql(raw.frameType || null), sql(placement(type)), number(raw.linkval),
-    number(raw.scale), sql(raw.archetype || null), sql(treated), sql(normalise(treated || raw.name)), 1,
+    number(raw.scale), sql(raw.archetype || null), sql(treated), sql(normalise(treated || cardName)), 1,
     sql(revision), sql(revision)
   ]));
-  const words = normalise(raw.name).split(' ').filter(Boolean);
+  const words = normalise(cardName).split(' ').filter(Boolean);
   for (let index = 0; index < words.length; index += 1)
     searchRows.push(tuple([sql(words.slice(index).join(' ')), canonicalId]));
 }
@@ -140,8 +143,8 @@ statements.push(`UPDATE entries SET card_id=(SELECT c.card_id FROM cards_cache c
 WHERE card_id IS NULL AND 1=(SELECT COUNT(*) FROM cards_cache c WHERE c.pool_verified=1 AND c.sort_name=entries.sort_name);`);
 for (const [key, value] of Object.entries({
   complete: '1', revision, cutoff: CUTOFF, eligible_cards: String(eligibleCount),
-  evidence_cards: String(cards.size), artwork_ids: String(artworkCount), source: 'YGOPRODeck API v7'
+  evidence_cards: String(cards.size), artwork_ids: String(artworkCount), source: 'YGOPRODeck API v7 + reviewed TCG release evidence'
 })) statements.push(`INSERT INTO catalogue_meta(key,value) VALUES (${sql(key)},${sql(value)}) ON CONFLICT(key) DO UPDATE SET value=excluded.value;`);
 await writeFile(output, `${statements.join('\n\n')}\n`, 'utf8');
 console.log(JSON.stringify({ output, revision, fetched: cards.size, eligible: eligibleCount, artworkIds: artworkCount,
-  outsidePool: outsidePoolCount, excluded: excludedCount }, null, 2));
+  outsidePool: outsidePoolCount, excluded: excludedCount, reviewedOverrides: reviewedOverrideCount }, null, 2));

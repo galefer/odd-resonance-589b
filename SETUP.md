@@ -74,7 +74,7 @@ node database/sync-catalogue.mjs database/catalogue-import.sql
 npx wrangler d1 execute gog-house-format --remote --file=./database/catalogue-import.sql
 ```
 
-`sync-catalogue.mjs` downloads current metadata from YGOPRODeck, records evidence for known IDs, and writes only playable cards whose original TCG date is on or before the cutoff. The generated `database/catalogue-import.sql` is intentionally ignored by Git. Delete it after execution or regenerate it when a reviewed metadata refresh is needed.
+`sync-catalogue.mjs` downloads current metadata from YGOPRODeck, records evidence for known IDs, and writes only playable cards whose original TCG date is on or before the cutoff. When the provider omits an original TCG date or replaces it with a later reprint date, the importer and API share the reviewed evidence in `functions/gog/api/release-evidence-overrides.js`. Add an override only after checking a first-party release source and cover it in `tests/gog/catalogue-import.mjs`. The generated `database/catalogue-import.sql` is intentionally ignored by Git. Delete it after execution or regenerate it when a reviewed metadata refresh is needed.
 
 Do not add YGOPRODeck's `format=tcg` filter to this import or fallback lookup. That listing omits some historically released TCG cards, including Cyberdark Chimera. Fetch the full metadata catalogue and filter by the verified original `tcg_date` locally. The date is the original TCG release across regions, not a UK/European-only date; BLMM records correctly use 13 June 2025. Missing dates and first TCG releases after 1 August 2025 remain excluded, regardless of earlier OCG releases. The importer checks that it received the advertised number of unique cards before marking the catalogue complete. `node tests/gog/catalogue-import.mjs` covers this omission, the inclusive cutoff, later reprints, search/artwork indexes and restriction preservation.
 
@@ -100,6 +100,14 @@ npx wrangler d1 execute gog-house-format --remote --file=./database/catalogue-im
 ```
 
 The migration and import enrich card metadata and may fill an unambiguous missing `entries.card_id`; they do not edit restriction statuses, notes, versions, draft state or administrator data. Fingerprint those records before and after a production migration.
+
+If an established catalogue predates the reviewed release-evidence overrides, apply the additive repair after deploying the matching function code:
+
+```cmd
+npx wrangler d1 execute gog-house-format --remote --file=./database/migrations/0008_release_evidence_overrides.sql
+```
+
+`0008_release_evidence_overrides.sql` restores the 31 eligible Duelist's Advance cards and `Migratory Zereort` that were hidden by missing or overwritten provider dates. It upserts only catalogue evidence, search and artwork rows, refreshes catalogue metadata, and clears stale search responses. It does not change house restrictions, versions, drafts, events, administrators or sessions. The migration is repeat-safe.
 
 To add the Guild of Games homepage event schedule to an existing database, run the idempotent events migration once:
 
@@ -261,7 +269,7 @@ The public **House tweaks** view and every `NEW` badge compare the current publi
 | Administrator setup says token required | Set encrypted `GOG_SETUP_TOKEN` **and** permanent `GOG_AUTH_PEPPER` and redeploy, then use the setup token in the form. |
 | Admin creation/login reports a missing pepper | Set the persistent encrypted `GOG_AUTH_PEPPER` secret in Production and redeploy. |
 | Search works but pictures are placeholders | Add the optional `GOG_IMAGES` R2 binding. |
-| A card doesn't appear | Only cards with a first TCG release on/before 2025-08-01 are in scope; YGOPRODeck sometimes lacks historical date metadata. Check its card database before assuming a legitimate card was excluded. |
+| A card doesn't appear | Only cards with a first TCG release on/before 2025-08-01 are in scope. Check the provider metadata and the reviewed evidence map; missing dates and later-reprint dates can otherwise hide eligible cards. Apply `0008_release_evidence_overrides.sql` if the live catalogue predates that repair. |
 | Live list isn't changing | Admin changes stay in a **draft** until explicitly published. |
 | Cloudflare deploy fails | Check build logs and confirm `functions` is *outside* `public` and your project is Git-connected Pages, not static-only Direct Upload. |
 

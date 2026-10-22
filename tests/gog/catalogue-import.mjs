@@ -23,6 +23,10 @@ try {
     raw(4444,'No proven TCG release',null),
     raw(5555,'Skill fixture','2020-01-01','Skill Card'),
     raw(6666,'Token fixture','2020-01-01','Token'),
+    raw(59983249,'Monarchic Perfection',null,'Trap Card'),
+    raw(12067160,'Gorgon of Zilofthonia','2026-07-15','Link Monster'),
+    raw(87640391,'Migratory Zereort',null),
+    raw(98349765,'Layer 19: "Preventing the Invasion! The Pitch-Black Super Quantum!!"',null,'Spell Card'),
     ...blmmCards
   ];
   // A later printing must never replace the original TCG release as the cutoff.
@@ -53,17 +57,24 @@ try {
   }
   assert.equal(chimera.pool_verified,1);
   assert.equal(chimera.tcg_date,'2021-10-14');
+  assert.equal(db.prepare('SELECT tcg_date FROM cards_cache WHERE card_id=59983249').get().tcg_date,'2025-07-03');
+  assert.equal(db.prepare('SELECT tcg_date FROM cards_cache WHERE card_id=12067160').get().tcg_date,'2025-07-03');
+  assert.equal(db.prepare('SELECT tcg_date FROM cards_cache WHERE card_id=87640391').get().tcg_date,'2025-05-01');
+  assert.equal(db.prepare('SELECT name FROM cards_cache WHERE card_id=98349765').get().name,
+    'Layer 19 "Sudden Incursion! Super Quantum Black!!"');
   assert(db.prepare("SELECT 1 FROM card_name_search WHERE search_text='chimera' AND card_id=5370235").get());
   assert(db.prepare('SELECT 1 FROM card_artworks WHERE artwork_id=5370235').get());
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM cards_cache WHERE pool_verified=1').get().n,6);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM cards_cache WHERE pool_verified=1').get().n,10);
   assert.equal(db.prepare('SELECT reason FROM card_id_evidence WHERE input_id=3333').get().reason,'outside_pool');
   assert.equal(db.prepare('SELECT reason FROM card_id_evidence WHERE input_id=4444').get().reason,'missing_tcg_date');
-  assert.equal(db.prepare("SELECT value FROM catalogue_meta WHERE key='eligible_cards'").get().value,'6');
+  assert.equal(db.prepare("SELECT value FROM catalogue_meta WHERE key='eligible_cards'").get().value,'10');
+  assert.equal(db.prepare("SELECT value FROM catalogue_meta WHERE key='source'").get().value,
+    'YGOPRODeck API v7 + reviewed TCG release evidence');
   assert.equal(JSON.stringify(db.prepare('SELECT * FROM entries ORDER BY version_id,sort_name').all()),restrictions);
   db.exec(generated);
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM cards_cache WHERE pool_verified=1').get().n,6);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM cards_cache WHERE pool_verified=1').get().n,10);
   db.close();
-  console.log('Passed: omitted historical TCG card, search/artwork indexes, inclusive cutoff, later reprints, unknown dates, non-playable exclusions, restriction preservation and repeat import.');
+  console.log('Passed: reviewed release evidence, omitted historical TCG card, search/artwork indexes, inclusive cutoff, later reprints, unknown dates, non-playable exclusions, restriction preservation and repeat import.');
 } finally {
   const tempRoot=resolve(tmpdir()).replace(/[\\/]+$/,'');
   if(directory.startsWith(`${tempRoot}${sep}`)) await rm(directory,{recursive:true,force:true});

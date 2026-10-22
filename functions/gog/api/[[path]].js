@@ -2,6 +2,8 @@
 // The historical card pool is LOCKED to TCG first releases on/before 2025-08-01.
 // Frontend paths all live under /gog/; this function only handles /gog/api/*.
 
+import { reviewedCardNameFor, reviewedTcgDateFor } from './release-evidence-overrides.js';
+
 const BASE = '/gog/api';
 const CUTOFF = '2025-08-01';
 const ALLOWED = new Set(['forbidden', 'limited', 'semi_limited', 'unlimited']);
@@ -81,7 +83,7 @@ const cardSubtype = (type = '') => {
 };
 const cardPlacement = (type = '') => EXTRA_TYPES.has(type) ? 'extra' : 'main';
 const playableType = (type = '') => !!type && type !== 'Skill Card' && type !== 'Token';
-const tcgDateFor = (raw) => raw?.misc_info?.find((info) => typeof info?.tcg_date === 'string')?.tcg_date || null;
+const tcgDateFor = reviewedTcgDateFor;
 const treatedAsFor = (raw) => raw?.misc_info?.find((info) => typeof info?.treated_as === 'string')?.treated_as || null;
 const validCardId = (value) => Number.isSafeInteger(Number(value)) && Number(value) > 0 && Number(value) <= 0xffffffff;
 function json(data, status = 200, extra = {}) {
@@ -214,11 +216,12 @@ async function getDraft(db) {
 // disqualify a card. OCG dates alone never qualify; fail closed without TCG evidence.
 function isJushEligible(raw) {
   const tcgDate = tcgDateFor(raw);
-  return playableType(raw?.type) && raw?.name !== '???' && /^\d{4}-\d{2}-\d{2}$/.test(tcgDate || '') && tcgDate <= CUTOFF;
+  return playableType(raw?.type) && reviewedCardNameFor(raw) !== '???' && /^\d{4}-\d{2}-\d{2}$/.test(tcgDate || '') && tcgDate <= CUTOFF;
 }
 function cardFromApi(raw, requestedArtworkId = null) {
   const category = cardCategory(raw.type || '');
   const canonicalId = Number(raw.id);
+  const cardName = reviewedCardNameFor(raw);
   const artworkIds = [...new Set((raw.card_images || []).map((image) => Number(image.id)).filter(validCardId))];
   if (!artworkIds.includes(canonicalId)) artworkIds.unshift(canonicalId);
   const artworkId = validCardId(requestedArtworkId) && artworkIds.includes(Number(requestedArtworkId))
@@ -226,13 +229,13 @@ function cardFromApi(raw, requestedArtworkId = null) {
   const treatedAs = treatedAsFor(raw);
   return {
     id: canonicalId, canonicalId, portableId: canonicalId, artworkId, artworkIds,
-    name: String(raw.name || ''), category, subtype: cardSubtype(raw.type || ''),
+    name: cardName, category, subtype: cardSubtype(raw.type || ''),
     cardType: raw.type || '', race: raw.race || null, attribute: raw.attribute || null,
     level: raw.level ?? null, linkRating: raw.linkval ?? null, pendulumScale: raw.scale ?? null,
     atk: raw.atk ?? null, def: raw.def ?? null, description: raw.desc || '',
     archetype: raw.archetype || null, frameType: raw.frameType || null,
     tcgDate: tcgDateFor(raw), placement: cardPlacement(raw.type || ''), treatedAs,
-    copyLimitKey: normalise(treatedAs || raw.name), poolVerified: isJushEligible(raw),
+    copyLimitKey: normalise(treatedAs || cardName), poolVerified: isJushEligible(raw),
     imageUrl: `${BASE}/cards/${artworkId}/image?size=thumb&v=${ASSET_REVISION}`,
     fullImageUrl: `${BASE}/cards/${artworkId}/image?size=full&v=${ASSET_REVISION}`
   };

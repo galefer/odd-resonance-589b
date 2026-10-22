@@ -77,7 +77,11 @@ const eligible = {
   2222: { id: 2222, name: 'Ash Blossom & Joyous Spring', type: 'Tuner Monster', desc: 'Hand trap.', misc_info: [{tcg_date:'2017-05-04'}], card_images: [{ id:2222 }] },
   4444: { id: 4444, name: 'Pot of Greed', type: 'Spell Card', desc: 'Draw two cards.', misc_info: [{tcg_date:'2002-03-08'}], card_images: [{ id:4444 }] },
   5555: { id: 5555, name: 'Droll & Lock Bird', type: 'Effect Monster', desc: 'Draw lock.', misc_info: [{tcg_date:'2010-05-25'}], card_images: [{ id:5555 }] },
-  5370235: { id:5370235, name:'Cyberdark Chimera', type:'Effect Monster', desc:'Fixture effect.', misc_info:[{tcg_date:'2021-10-14'}], card_images:[{id:5370235}] }
+  5370235: { id:5370235, name:'Cyberdark Chimera', type:'Effect Monster', desc:'Fixture effect.', misc_info:[{tcg_date:'2021-10-14'}], card_images:[{id:5370235}] },
+  59983249: { id:59983249, name:'Monarchic Perfection', type:'Trap Card', desc:'Fixture effect.', misc_info:[{ocg_date:'2025-04-26'}], card_images:[{id:59983249}] },
+  12067160: { id:12067160, name:'Gorgon of Zilofthonia', type:'Link Monster', desc:'Fixture effect.', misc_info:[{tcg_date:'2026-07-15'}], card_images:[{id:12067160}] },
+  87640391: { id:87640391, name:'Migratory Zereort', type:'Effect Monster', desc:'Fixture effect.', misc_info:[{ocg_date:'2024-08-21'}], card_images:[{id:87640391}] },
+  98349765: { id:98349765, name:'Layer 19: "Preventing the Invasion! The Pitch-Black Super Quantum!!"', type:'Spell Card', desc:'Fixture effect.', misc_info:[{ocg_date:'2025-04-26'}], card_images:[{id:98349765}] }
 };
 const afterCutoff = { id: 3333, name: 'Post JUSH 2026 Card', type: 'Effect Monster', desc: 'Not in pool.', misc_info: [{tcg_date:'2026-02-07',ocg_date:'2024-01-01'}] };
 const fetchOriginal = globalThis.fetch;
@@ -257,6 +261,18 @@ assert.equal(chimeraSearch.results[0].tcgDate,'2021-10-14');
 assert.equal(chimeraSearch.results[0].status,'unlimited');
 assert.equal((await get('/catalogue?q=Chimera')).cards[0].id,5370235);
 assert.equal((await req('/cards/resolve','POST',{ids:[5370235]})).status,200);
+for (const [name,id,date] of [
+  ['Monarchic Perfection',59983249,'2025-07-03'],
+  ['Gorgon of Zilofthonia',12067160,'2025-07-03'],
+  ['Migratory Zereort',87640391,'2025-05-01']
+]) {
+  const found=await get(`/cards/search?q=${encodeURIComponent(name)}`);
+  assert.equal(found.results[0].id,id);
+  assert.equal(found.results[0].tcgDate,date);
+}
+const translatedLayer=await get('/cards/search?q=Preventing%20the%20Invasion');
+assert.equal(translatedLayer.results[0].name,'Layer 19 "Sudden Incursion! Super Quantum Black!!"');
+assert.equal(translatedLayer.results[0].tcgDate,'2025-07-03');
 // BLMM's North American date qualifies in search, the editor and deck resolution.
 for (const card of blmmCards) {
   const found=await get(`/cards/search?q=${encodeURIComponent(card.name)}`);
