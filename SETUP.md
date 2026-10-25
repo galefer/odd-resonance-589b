@@ -151,9 +151,19 @@ This repository uses dashboard-managed Pages bindings, so use the verified produ
 npx wrangler d1 execute aec66a35-3c9b-460d-8721-abeea167770a --remote --file=./database/migrations/0007_event_end_times.sql
 ```
 
-The migration adds finish times to recurring events, occurrence overrides and one-off events. Thursday Advanced and Friday House default to **17:30–21:00, Europe/London**. Existing cancellations and descriptions are preserved; an explicitly customised start time remains unchanged. Administrators can edit both times for the displayed occurrence or a one-off event. A finish time must follow its start time on the same day; leave both blank for an unannounced one-off schedule.
+The migration adds finish times to recurring events, occurrence overrides and one-off events. Both recurring series default to **17:30–21:00, Europe/London**. Existing cancellations and descriptions are preserved; an explicitly customised start time remains unchanged. Administrators can edit both times for the displayed occurrence or a one-off event. A finish time must follow its start time on the same day; leave both blank for an unannounced one-off schedule.
 
 The event illustrations in `public/gog/assets/` are static Pages assets with source credits in `CREDITS.md`. They do not use the card-image function, D1 or R2. The public-page browser check is `node tests/gog/browser-public-pages.mjs [origin]`; it checks responsive layouts, matching headers, event times, combined filters and card lookup without editing production data.
+
+### Monthly Thursday event schedule
+
+The monthly carousel code is backward-compatible with the existing event schema. To normalize the stored series rules as well, apply `0009_monthly_event_schedule.sql` once to an existing event database:
+
+```cmd
+npx wrangler d1 execute aec66a35-3c9b-460d-8721-abeea167770a --remote --file=./database/migrations/0009_monthly_event_schedule.sql
+```
+
+This adds the recurrence pattern field, schedules Advanced Format on each Thursday except the last, and moves House Format to the final Thursday. Existing per-date overrides remain in the database; only dates belonging to the new current-month schedule are displayed.
 
 ## 3. Bind D1 to your existing Cloudflare Pages project
 
@@ -244,7 +254,7 @@ Your existing `/`, `/null/`, `/outworld/`, etc. remain unchanged.
 4. After creation, the site logs you in and disables further public admin registration.
 5. Use **Draft editor** to change cards, **Review & publish** to make changes public, and **Version history** to restore a prior published snapshot.
 
-The same administrator account manages homepage events. Visit `/gog/`, click **Admin**, and edit the currently displayed Thursday or Friday occurrence. Those edits apply only to that date. Add one-off events in the same panel; they stop appearing publicly after their event date.
+The same administrator account manages homepage events. Visit `/gog/`, click **Admin**, and edit any Thursday displayed for the current month. Those edits apply only to that date. Add one-off events in the same panel; they appear on the homepage during their event month.
 
 The public **House tweaks** view and every `NEW` badge compare the current published status with the original `tcg-apr-2025` foundation. They do not reset when another house version is published. A card loses the marker only when its status matches that fixed baseline again.
 

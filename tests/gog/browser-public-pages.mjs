@@ -94,7 +94,7 @@ try {
         const h=document.querySelector('.gog-site-header').getBoundingClientRect();
         const b=document.querySelector('.gog-brand').getBoundingClientRect();
         return {overflow:document.documentElement.scrollWidth-innerWidth,header:{height:h.height,left:b.left,top:b.top},
-          clipped:[...document.querySelectorAll('main button,main input,main a,main h1,main h2,main h3')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&(r.left<0||r.right>innerWidth+1)}).map(e=>e.id||e.className),
+          clipped:[...document.querySelectorAll('main button,main input,main a,main h1,main h2,main h3')].filter(e=>{const r=e.getBoundingClientRect();return !e.closest('.event-carousel')&&r.width>0&&(r.left<0||r.right>innerWidth+1)}).map(e=>e.id||e.className),
           font:getComputedStyle(document.querySelector('main h2')).fontFamily};
       })()`);
       assert(geometry.overflow<=1,`${route} ${width}px overflow`);
@@ -106,8 +106,20 @@ try {
         await evaluate(`document.querySelector('#event-grid').scrollIntoView({block:'center'})`);
         await waitFor(`[...document.querySelectorAll('.event-artwork')].every(img=>img.complete&&img.naturalWidth>0)`,'artwork');
         const times=await evaluate(`[...document.querySelectorAll('.event-card:not(.special) .event-time')].map(e=>e.textContent)`);
-        assert.equal(times.length,2);
+        assert(times.length>=4 && times.length<=5);
         assert(times.every(t=>t.includes('5:30pm – 9:00pm')));
+        assert.equal(await evaluate(`[...document.querySelectorAll('.event-full-date')].every(e=>e.textContent.trim().startsWith('Thursday'))`),true);
+        assert.equal(await evaluate(`document.querySelector('#events-title').textContent.trim()`),'Events this month');
+        if (width===375 || width===1440) {
+          const before=await evaluate(`document.querySelector('#event-grid').scrollLeft`);
+          await click('#events-next');
+          await waitFor(`document.querySelector('#event-grid').scrollLeft>${before}`,'carousel advance');
+          assert.equal(await evaluate(`document.querySelector('#events-previous').disabled`),false);
+        }
+        if (width===1440) {
+          await evaluate(`document.querySelector('.event-card.house').scrollIntoView({inline:'end',block:'nearest'})`);
+          assert.match(await evaluate(`document.querySelector('.event-card.house').textContent`),/JUSH House Format/);
+        }
       } else {
         await evaluate(`document.querySelector('.list-toolbar').scrollIntoView()`);
         const panel = await evaluate(`getComputedStyle(document.querySelector('#filters-panel')).display`);

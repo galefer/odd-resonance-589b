@@ -105,9 +105,7 @@ try {
   await waitFor(`!document.querySelector(${JSON.stringify(recurringSelector)})?.querySelector('[data-reset-override]') && ![...document.querySelectorAll('.event-card')].some(e=>e.classList.contains('cancelled'))`, 'recurring reset');
 
   const schedule = await (await fetch(`${origin}/gog/api/events`)).json();
-  const tomorrow = new Date(`${schedule.generatedFor}T12:00:00Z`);
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-  const eventDate = tomorrow.toISOString().slice(0, 10);
+  const eventDate = schedule.generatedFor;
   await setValue('#add-event-form input[name="title"]', 'Browser QA one-off event');
   await setValue('#add-event-form input[name="eventDate"]', eventDate);
   await setValue('#add-event-form input[name="startTime"]', '14:00');

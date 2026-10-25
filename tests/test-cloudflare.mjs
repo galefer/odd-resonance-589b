@@ -27,7 +27,9 @@ assert.equal(upgradeDb.prepare('SELECT size_bytes FROM image_storage_usage').get
 upgradeDb.close();
 // Upgrade real pre-end-time tables without changing event customisations.
 const eventUpgrade = new DatabaseSync(':memory:');
-eventUpgrade.exec(schemaSql.replaceAll(" end_time TEXT NOT NULL DEFAULT '',\n", ''));
+eventUpgrade.exec(schemaSql
+  .replaceAll(" end_time TEXT NOT NULL DEFAULT '',\n", '')
+  .replace(/ recurrence_pattern[^\r\n]*\r?\n/, ''));
 eventUpgrade.exec(`INSERT INTO recurring_events(slug,title,weekday,start_time,created_at,updated_at) VALUES
   ('yugioh-advanced-thursday','Advanced',4,'','fixture','fixture'),
   ('yugioh-house-friday','House',5,'','fixture','fixture'),
@@ -38,6 +40,7 @@ eventUpgrade.exec(`INSERT INTO recurring_events(slug,title,weekday,start_time,cr
   INSERT INTO special_events(title,event_date,start_time,created_at,updated_at)
   VALUES ('One-off','2030-01-05','12:00','fixture','fixture');`);
 eventUpgrade.exec(readFileSync(new URL('../database/migrations/0007_event_end_times.sql', import.meta.url), 'utf8'));
+eventUpgrade.exec(readFileSync(new URL('../database/migrations/0009_monthly_event_schedule.sql', import.meta.url), 'utf8'));
 assert.deepEqual(eventUpgrade.prepare('SELECT start_time,end_time FROM recurring_events WHERE id=1').get(),
   Object.assign(Object.create(null), {start_time:'17:30',end_time:'21:00'}));
 assert.deepEqual({...eventUpgrade.prepare('SELECT title,status,start_time,end_time FROM event_overrides WHERE recurring_event_id=1').get()},
@@ -46,6 +49,10 @@ assert.deepEqual({...eventUpgrade.prepare('SELECT start_time,end_time FROM event
   {start_time:'18:00',end_time:''});
 assert.equal(eventUpgrade.prepare('SELECT start_time FROM recurring_events WHERE id=3').get().start_time,'10:00');
 assert.equal(eventUpgrade.prepare('SELECT start_time FROM special_events').get().start_time,'12:00');
+assert.deepEqual({...eventUpgrade.prepare("SELECT weekday,recurrence_pattern FROM recurring_events WHERE slug='yugioh-advanced-thursday'").get()},
+  {weekday:4,recurrence_pattern:'weekly_except_last'});
+assert.deepEqual({...eventUpgrade.prepare("SELECT weekday,recurrence_pattern FROM recurring_events WHERE slug='yugioh-house-friday'").get()},
+  {weekday:4,recurrence_pattern:'last'});
 eventUpgrade.close();
 
 db.exec(readFileSync(new URL('../database/schema.sql', import.meta.url), 'utf8'));
@@ -155,10 +162,16 @@ assert(!starting.entries.some(e=>e.isHouseChange));
 
 const eventsAtStart = await get('/events');
 assert.equal(eventsAtStart.timezone, 'Europe/London');
-assert.equal(eventsAtStart.events.length, 2);
-assert.deepEqual(eventsAtStart.events.map(event=>event.title).sort(), ['Yu-Gi-Oh! TCG Advanced','Yu-Gi-Oh! TCG House'].sort());
-assert.equal(new Date(`${eventsAtStart.events.find(event=>event.slug==='yugioh-advanced-thursday').eventDate}T12:00:00Z`).getUTCDay(), 4);
-assert.equal(new Date(`${eventsAtStart.events.find(event=>event.slug==='yugioh-house-friday').eventDate}T12:00:00Z`).getUTCDay(), 5);
+const [eventYear,eventMonth] = eventsAtStart.generatedFor.split('-').map(Number);
+const monthEnd = new Date(Date.UTC(eventYear,eventMonth,0)).getUTCDate();
+const thursdays = Array.from({length:monthEnd},(_,index)=>`${eventYear}-${String(eventMonth).padStart(2,'0')}-${String(index+1).padStart(2,'0')}`)
+  .filter(date=>new Date(`${date}T12:00:00Z`).getUTCDay()===4);
+assert.equal(eventsAtStart.events.length, thursdays.length);
+assert.equal(eventsAtStart.events.filter(event=>event.slug==='yugioh-advanced-thursday').length, thursdays.length-1);
+assert.equal(eventsAtStart.events.filter(event=>event.slug==='yugioh-house-friday').length, 1);
+assert(eventsAtStart.events.every(event=>new Date(`${event.eventDate}T12:00:00Z`).getUTCDay()===4));
+assert.equal(eventsAtStart.events.find(event=>event.slug==='yugioh-house-friday').eventDate, thursdays.at(-1));
+assert.deepEqual([...new Set(eventsAtStart.events.map(event=>event.eventDate))], thursdays);
 assert(eventsAtStart.events.every(event=>event.source==='recurring' && event.status==='scheduled'));
 
 const unauthed = await req('/admin/draft');
@@ -181,8 +194,8 @@ const duplicate = await req('/setup', 'POST', { email:'other@example.com',passwo
 assert.equal(duplicate.status, 409);
 assert.equal((await get('/auth/session')).authenticated, true);
 
-// Homepage events: recurring edits are occurrence-specific, one-off events are
-// manageable by the same protected admin session, and past dates disappear.
+// Homepage events: recurring edits are occurrence-specific and one-off events
+// are manageable by the same protected admin session for the displayed month.
 const eventAdmin = await get('/admin/events');
 const advancedOccurrence = eventAdmin.events.find(event=>event.slug==='yugioh-advanced-thursday');
 assert(eventAdmin.events.filter(event=>event.source==='recurring').every(event=>event.startTime==='17:30' && event.endTime==='21:00'));
@@ -209,10 +222,8 @@ assert.equal((await req(`/admin/events/recurring/${advancedOccurrence.seriesId}/
 publicEvents = await get('/events');
 assert.equal(publicEvents.events.find(event=>event.slug==='yugioh-advanced-thursday').status, 'scheduled');
 
-const tomorrow = new Date(`${eventsAtStart.generatedFor}T12:00:00Z`);
-tomorrow.setUTCDate(tomorrow.getUTCDate()+1);
-const tomorrowDate = tomorrow.toISOString().slice(0,10);
-const createdEvent = await req('/admin/events', 'POST', { title:'One-off championship', eventDate:tomorrowDate,
+const currentMonthDate = eventsAtStart.generatedFor;
+const createdEvent = await req('/admin/events', 'POST', { title:'One-off championship', eventDate:currentMonthDate,
   startTime:'12:00', endTime:'16:00', location:'Guild of Games, Rotherham', description:'Single date.', status:'scheduled' });
 assert.equal(createdEvent.status, 200);
 const createdEventId = (await createdEvent.json()).eventId;
@@ -224,18 +235,22 @@ for (const values of [{endTime:'11:00'}, {endTime:'12:00'}, {endTime:'24:00'}, {
 assert.equal((await req(`/admin/events/${createdEventId}`,'PATCH',{endTime:'17:00'})).status,200);
 assert.equal((await get('/events')).events.find(event=>event.eventId===createdEventId).endTime,'17:00');
 
-assert.equal((await req(`/admin/events/${createdEventId}`, 'PATCH', { title:'Updated championship', eventDate:tomorrowDate,
+assert.equal((await req(`/admin/events/${createdEventId}`, 'PATCH', { title:'Updated championship', eventDate:currentMonthDate,
   startTime:'13:00', location:'Guild of Games, Rotherham', description:'Updated.', status:'cancelled' })).status, 200);
 assert.equal((await get('/events')).events.find(event=>event.eventId===createdEventId).status, 'cancelled');
-const yesterday = new Date(`${eventsAtStart.generatedFor}T12:00:00Z`);
-yesterday.setUTCDate(yesterday.getUTCDate()-1);
-const expiredEvent = await req('/admin/events', 'POST', { title:'Expired fixture', eventDate:yesterday.toISOString().slice(0,10),
+const earlierThisMonth = `${eventYear}-${String(eventMonth).padStart(2,'0')}-01`;
+const earlierEvent = await req('/admin/events', 'POST', { title:'Earlier fixture', eventDate:earlierThisMonth,
+  startTime:'', location:'Guild of Games, Rotherham', description:'', status:'scheduled' });
+assert.equal(earlierEvent.status, 200);
+assert((await get('/events')).events.some(event=>event.title==='Earlier fixture'));
+const previousMonth = new Date(Date.UTC(eventYear,eventMonth-1,0)).toISOString().slice(0,10);
+const expiredEvent = await req('/admin/events', 'POST', { title:'Previous month fixture', eventDate:previousMonth,
   startTime:'', location:'Guild of Games, Rotherham', description:'', status:'scheduled' });
 assert.equal(expiredEvent.status, 200);
-assert(!(await get('/events')).events.some(event=>event.title==='Expired fixture'));
+assert(!(await get('/events')).events.some(event=>event.title==='Previous month fixture'));
 assert.equal((await req(`/admin/events/${createdEventId}`, 'DELETE')).status, 200);
 assert(!(await get('/events')).events.some(event=>event.eventId===createdEventId));
-assert.equal((await req('/admin/events', 'POST', { title:'Blocked', eventDate:tomorrowDate, location:'Shop' }, {token:'wrong'})).status, 403);
+assert.equal((await req('/admin/events', 'POST', { title:'Blocked', eventDate:currentMonthDate, location:'Shop' }, {token:'wrong'})).status, 403);
 assert.equal((await req('/admin/events', 'POST', { title:'Impossible date', eventDate:'2026-02-31', location:'Shop' })).status, 400);
 
 const blockedCsrf = await req('/admin/settings', 'PATCH', {store_name:'Evil'}, {token:'wrong'});

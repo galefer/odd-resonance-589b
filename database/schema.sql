@@ -134,6 +134,7 @@ CREATE TABLE IF NOT EXISTS recurring_events (
  slug TEXT NOT NULL UNIQUE,
  title TEXT NOT NULL,
  weekday INTEGER NOT NULL CHECK(weekday BETWEEN 0 AND 6),
+ recurrence_pattern TEXT NOT NULL DEFAULT 'weekly' CHECK(recurrence_pattern IN ('weekly','weekly_except_last','last')),
  start_time TEXT NOT NULL DEFAULT '',
  end_time TEXT NOT NULL DEFAULT '',
  location TEXT NOT NULL DEFAULT 'Guild of Games, Rotherham',

@@ -380,8 +380,10 @@ try {
     brand:document.querySelector('.gog-brand strong').textContent.trim(),
     navigation:[...document.querySelectorAll('.gog-primary-nav a')].map(a=>a.textContent.trim()),
     heading:document.querySelector('.hero-copy h1').textContent.trim(),
+    eventsHeading:document.querySelector('#events-title').textContent.trim(),
     events:[...document.querySelectorAll('.event-card')].map(card=>card.textContent.trim()),
     eventDates:[...document.querySelectorAll('.event-full-date')].map(e=>e.textContent.trim()),
+    advancedArtwork:document.querySelector('.event-card.advanced .event-artwork')?.getAttribute('src'),
     logoLoaded:document.querySelector('.hero-emblem').naturalWidth>0,
     overflow:document.documentElement.scrollWidth-innerWidth,
     header:(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()
@@ -390,9 +392,10 @@ try {
   assert.deepEqual(homeBrand.navigation, ['Home','House Format','Deckbuilder']);
   assert(homeBrand.events.some(text=>text.includes('Yu-Gi-Oh! TCG Advanced')));
   assert(homeBrand.events.some(text=>text.includes('Yu-Gi-Oh! TCG House')));
-  assert(homeBrand.eventDates.some(text=>text.startsWith('Thursday')));
-  assert(homeBrand.eventDates.some(text=>text.startsWith('Friday')));
-  assert(!homeBrand.events.some(text=>/every thursday|every friday/i.test(text)), 'Public cards should show one upcoming date, not promise a weekly schedule');
+  assert.equal(homeBrand.eventsHeading, 'Events this month');
+  assert(homeBrand.eventDates.length>=4 && homeBrand.eventDates.length<=5);
+  assert(homeBrand.eventDates.every(text=>text.startsWith('Thursday')));
+  assert.equal(homeBrand.advancedArtwork, '/gog/assets/magician-of-black-chaos-art.jpg');
   assert(homeBrand.logoLoaded);
   assert.equal(await evaluate(`document.querySelector('a[href="#upcoming-events"]')`),null);
   assert.equal(await evaluate(`document.querySelectorAll('#add-event-form input[name=endTime]').length`),1);

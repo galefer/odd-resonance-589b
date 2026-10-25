@@ -1,6 +1,6 @@
 const API_BASE = '/gog/api';
 const $ = (selector, root = document) => root.querySelector(selector);
-const state = { csrf: null, email: null, events: [] };
+const state = { csrf: null, email: null, events: [], generatedFor: null };
 
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -40,7 +40,7 @@ function displayTime(value) {
 }
 
 const eventArtwork = {
-  'yugioh-advanced-thursday': { image: 'blue-eyes-art.jpg', label: 'Advanced Format', theme: 'advanced' },
+  'yugioh-advanced-thursday': { image: 'magician-of-black-chaos-art.jpg', label: 'Advanced Format', theme: 'advanced' },
   'yugioh-house-friday': { image: 'dracotail-art.jpg', label: 'JUSH House Format', theme: 'house' }
 };
 const eventIcon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${name === 'clock'
@@ -52,6 +52,8 @@ function eventCard(event) {
   const cancelled = event.status === 'cancelled';
   const artwork = eventArtwork[event.slug];
   const time = displayTime(event.startTime) + (event.endTime ? ` – ${displayTime(event.endTime)}` : '');
+  const earlierThisMonth = state.generatedFor && event.eventDate < state.generatedFor;
+  const timingLabel = event.source === 'special' ? 'One-off event' : earlierThisMonth ? 'Earlier this month' : 'Thursday at the shop';
   return `<article class="event-card ${artwork?.theme || 'special'} ${cancelled ? 'cancelled' : ''}">
     <div class="event-visual">
       ${artwork ? `<img class="event-artwork" src="/gog/assets/${artwork.image}" alt="" width="624" height="624" loading="lazy" decoding="async">`
@@ -61,7 +63,7 @@ function eventCard(event) {
       ${cancelled ? '<p class="event-status">Cancelled</p>' : ''}
     </div>
     <div class="event-body">
-      <p class="event-type">${event.source === 'special' ? 'One-off event' : 'Next at the shop'}</p>
+      <p class="event-type">${timingLabel}</p>
       <h3>${escapeHtml(event.title)}</h3>
       <p class="event-full-date"><time datetime="${escapeHtml(event.eventDate)}">${escapeHtml(displayDate(event.eventDate))}</time></p>
       <div class="event-meta"><p class="event-time">${eventIcon('clock')}<span>${escapeHtml(time)}</span></p><p>${eventIcon('location')}<span>${escapeHtml(event.location)}</span></p></div>
@@ -71,13 +73,53 @@ function eventCard(event) {
   </article>`;
 }
 
+function updateCarouselState() {
+  const carousel = $('#event-grid');
+  const previous = $('#events-previous');
+  const next = $('#events-next');
+  const cards = [...carousel.querySelectorAll('.event-card')];
+  const viewport = carousel.getBoundingClientRect();
+  const hasOverflow = carousel.scrollWidth > carousel.clientWidth + 2;
+  previous.disabled = !hasOverflow || carousel.scrollLeft <= 2;
+  next.disabled = !hasOverflow || carousel.scrollLeft + carousel.clientWidth >= carousel.scrollWidth - 2;
+  const firstVisible = cards.findIndex((card) => card.getBoundingClientRect().right > viewport.left + 8);
+  const visibleCount = cards.filter((card) => {
+    const bounds = card.getBoundingClientRect();
+    return bounds.left < viewport.right - 8 && bounds.right > viewport.left + 8;
+  }).length;
+  $('#events-carousel-status').textContent = cards.length
+    ? `Showing ${Math.max(1, firstVisible + 1)}–${Math.min(cards.length, Math.max(1, firstVisible + 1) + Math.max(1, visibleCount) - 1)} of ${cards.length} events`
+    : '';
+}
+
+function moveCarousel(direction) {
+  const carousel = $('#event-grid');
+  const card = carousel.querySelector('.event-card');
+  if (!card) return;
+  const gap = Number.parseFloat(getComputedStyle(carousel).columnGap) || 0;
+  carousel.scrollBy({ left: direction * (card.getBoundingClientRect().width + gap), behavior: 'smooth' });
+}
+
+$('#events-previous').addEventListener('click', () => moveCarousel(-1));
+$('#events-next').addEventListener('click', () => moveCarousel(1));
+$('#event-grid').addEventListener('scroll', updateCarouselState, { passive: true });
+$('#event-grid').addEventListener('keydown', (event) => {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+  event.preventDefault();
+  moveCarousel(event.key === 'ArrowLeft' ? -1 : 1);
+});
+window.addEventListener('resize', updateCarouselState);
+
 async function loadEvents() {
   const payload = await api('/events');
   state.events = payload.events || [];
+  state.generatedFor = payload.generatedFor || null;
   const grid = $('#event-grid');
   grid.setAttribute('aria-busy', 'false');
   grid.innerHTML = state.events.length ? state.events.map(eventCard).join('')
-    : '<p class="empty-events">No upcoming events are currently listed. Please check back soon.</p>';
+    : '<p class="empty-events">No events are currently listed for this month. Please check back soon.</p>';
+  grid.scrollLeft = 0;
+  requestAnimationFrame(updateCarouselState);
 }
 
 let toastTimer;
@@ -234,7 +276,8 @@ $('#events-admin-app').addEventListener('click', async (event) => {
 loadEvents().catch((error) => {
   const grid = $('#event-grid');
   grid.setAttribute('aria-busy', 'false');
-  grid.innerHTML = `<p class="empty-events">Upcoming events could not be loaded. ${escapeHtml(error.message)}</p>`;
+  grid.innerHTML = `<p class="empty-events">This month's events could not be loaded. ${escapeHtml(error.message)}</p>`;
+  updateCarouselState();
 });
 
 if (new URLSearchParams(location.search).get('admin') === 'events') {
