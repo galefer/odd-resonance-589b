@@ -162,16 +162,38 @@ assert(!starting.entries.some(e=>e.isHouseChange));
 
 const eventsAtStart = await get('/events');
 assert.equal(eventsAtStart.timezone, 'Europe/London');
-const [eventYear,eventMonth] = eventsAtStart.generatedFor.split('-').map(Number);
-const monthEnd = new Date(Date.UTC(eventYear,eventMonth,0)).getUTCDate();
-const thursdays = Array.from({length:monthEnd},(_,index)=>`${eventYear}-${String(eventMonth).padStart(2,'0')}-${String(index+1).padStart(2,'0')}`)
-  .filter(date=>new Date(`${date}T12:00:00Z`).getUTCDay()===4);
-assert.equal(eventsAtStart.events.length, thursdays.length);
-assert.equal(eventsAtStart.events.filter(event=>event.slug==='yugioh-advanced-thursday').length, thursdays.length-1);
-assert.equal(eventsAtStart.events.filter(event=>event.slug==='yugioh-house-friday').length, 1);
-assert(eventsAtStart.events.every(event=>new Date(`${event.eventDate}T12:00:00Z`).getUTCDay()===4));
-assert.equal(eventsAtStart.events.find(event=>event.slug==='yugioh-house-friday').eventDate, thursdays.at(-1));
-assert.deepEqual([...new Set(eventsAtStart.events.map(event=>event.eventDate))], thursdays);
+const HOUSE_FORMAT_DEBUT = '2026-11-26';
+const addDays = (date, days) => {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate()+days);
+  return value.toISOString().slice(0,10);
+};
+const weekday = date => new Date(`${date}T12:00:00Z`).getUTCDay();
+const lastThursday = date => {
+  const [year,month] = date.split('-').map(Number);
+  const value = new Date(Date.UTC(year,month,0));
+  value.setUTCDate(value.getUTCDate()-(value.getUTCDay()-4+7)%7);
+  return value.toISOString().slice(0,10);
+};
+let advancedCursor = addDays(eventsAtStart.generatedFor,(4-weekday(eventsAtStart.generatedFor)+7)%7);
+const expectedAdvancedDates = [];
+while (expectedAdvancedDates.length<4) {
+  if (!(advancedCursor>=HOUSE_FORMAT_DEBUT && advancedCursor===lastThursday(advancedCursor))) expectedAdvancedDates.push(advancedCursor);
+  advancedCursor=addDays(advancedCursor,7);
+}
+const recurringEvents = eventsAtStart.events.filter(event=>event.source==='recurring');
+const advancedEvents = recurringEvents.filter(event=>event.slug==='yugioh-advanced-thursday');
+const houseEvents = recurringEvents.filter(event=>event.slug==='yugioh-house-friday');
+assert.equal(recurringEvents.length,5);
+assert.equal(advancedEvents.length,4);
+assert.equal(houseEvents.length,1);
+assert.deepEqual(advancedEvents.map(event=>event.eventDate),expectedAdvancedDates);
+assert(recurringEvents.every(event=>weekday(event.eventDate)===4));
+assert(recurringEvents.every(event=>event.eventDate>=eventsAtStart.generatedFor));
+assert.equal(houseEvents[0].eventDate,lastThursday(houseEvents[0].eventDate));
+assert(houseEvents[0].eventDate>=HOUSE_FORMAT_DEBUT);
+if (eventsAtStart.generatedFor<=HOUSE_FORMAT_DEBUT) assert.equal(houseEvents[0].eventDate,HOUSE_FORMAT_DEBUT);
+assert(!advancedEvents.some(event=>event.eventDate===houseEvents[0].eventDate));
 assert(eventsAtStart.events.every(event=>event.source==='recurring' && event.status==='scheduled'));
 
 const unauthed = await req('/admin/draft');
@@ -195,7 +217,7 @@ assert.equal(duplicate.status, 409);
 assert.equal((await get('/auth/session')).authenticated, true);
 
 // Homepage events: recurring edits are occurrence-specific and one-off events
-// are manageable by the same protected admin session for the displayed month.
+// are manageable by the same protected admin session for the upcoming schedule.
 const eventAdmin = await get('/admin/events');
 const advancedOccurrence = eventAdmin.events.find(event=>event.slug==='yugioh-advanced-thursday');
 assert(eventAdmin.events.filter(event=>event.source==='recurring').every(event=>event.startTime==='17:30' && event.endTime==='21:00'));
@@ -222,8 +244,8 @@ assert.equal((await req(`/admin/events/recurring/${advancedOccurrence.seriesId}/
 publicEvents = await get('/events');
 assert.equal(publicEvents.events.find(event=>event.slug==='yugioh-advanced-thursday').status, 'scheduled');
 
-const currentMonthDate = eventsAtStart.generatedFor;
-const createdEvent = await req('/admin/events', 'POST', { title:'One-off championship', eventDate:currentMonthDate,
+const upcomingDate = eventsAtStart.generatedFor;
+const createdEvent = await req('/admin/events', 'POST', { title:'One-off championship', eventDate:upcomingDate,
   startTime:'12:00', endTime:'16:00', location:'Guild of Games, Rotherham', description:'Single date.', status:'scheduled' });
 assert.equal(createdEvent.status, 200);
 const createdEventId = (await createdEvent.json()).eventId;
@@ -235,22 +257,17 @@ for (const values of [{endTime:'11:00'}, {endTime:'12:00'}, {endTime:'24:00'}, {
 assert.equal((await req(`/admin/events/${createdEventId}`,'PATCH',{endTime:'17:00'})).status,200);
 assert.equal((await get('/events')).events.find(event=>event.eventId===createdEventId).endTime,'17:00');
 
-assert.equal((await req(`/admin/events/${createdEventId}`, 'PATCH', { title:'Updated championship', eventDate:currentMonthDate,
+assert.equal((await req(`/admin/events/${createdEventId}`, 'PATCH', { title:'Updated championship', eventDate:upcomingDate,
   startTime:'13:00', location:'Guild of Games, Rotherham', description:'Updated.', status:'cancelled' })).status, 200);
 assert.equal((await get('/events')).events.find(event=>event.eventId===createdEventId).status, 'cancelled');
-const earlierThisMonth = `${eventYear}-${String(eventMonth).padStart(2,'0')}-01`;
-const earlierEvent = await req('/admin/events', 'POST', { title:'Earlier fixture', eventDate:earlierThisMonth,
+const pastDate = addDays(eventsAtStart.generatedFor,-1);
+const earlierEvent = await req('/admin/events', 'POST', { title:'Earlier fixture', eventDate:pastDate,
   startTime:'', location:'Guild of Games, Rotherham', description:'', status:'scheduled' });
 assert.equal(earlierEvent.status, 200);
-assert((await get('/events')).events.some(event=>event.title==='Earlier fixture'));
-const previousMonth = new Date(Date.UTC(eventYear,eventMonth-1,0)).toISOString().slice(0,10);
-const expiredEvent = await req('/admin/events', 'POST', { title:'Previous month fixture', eventDate:previousMonth,
-  startTime:'', location:'Guild of Games, Rotherham', description:'', status:'scheduled' });
-assert.equal(expiredEvent.status, 200);
-assert(!(await get('/events')).events.some(event=>event.title==='Previous month fixture'));
+assert(!(await get('/events')).events.some(event=>event.title==='Earlier fixture'));
 assert.equal((await req(`/admin/events/${createdEventId}`, 'DELETE')).status, 200);
 assert(!(await get('/events')).events.some(event=>event.eventId===createdEventId));
-assert.equal((await req('/admin/events', 'POST', { title:'Blocked', eventDate:currentMonthDate, location:'Shop' }, {token:'wrong'})).status, 403);
+assert.equal((await req('/admin/events', 'POST', { title:'Blocked', eventDate:upcomingDate, location:'Shop' }, {token:'wrong'})).status, 403);
 assert.equal((await req('/admin/events', 'POST', { title:'Impossible date', eventDate:'2026-02-31', location:'Shop' })).status, 400);
 
 const blockedCsrf = await req('/admin/settings', 'PATCH', {store_name:'Evil'}, {token:'wrong'});

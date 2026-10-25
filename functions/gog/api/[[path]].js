@@ -801,28 +801,39 @@ function weekdayFor(date) {
   const [year, month, day] = date.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
 }
-function monthBounds(date) {
-  const [year, month] = date.split('-').map(Number);
-  return {
-    start: `${year}-${String(month).padStart(2, '0')}-01`,
-    end: new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10)
-  };
+function nextWeekday(date, targetWeekday) {
+  return addCalendarDays(date, (Number(targetWeekday) - weekdayFor(date) + 7) % 7);
 }
-function recurrenceDatesFor(date, targetWeekday, pattern = 'weekly') {
-  const { start, end } = monthBounds(date);
-  const first = addCalendarDays(start, (Number(targetWeekday) - weekdayFor(start) + 7) % 7);
+function firstDayOfNextMonth(date) {
+  const [year, month] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+}
+function lastWeekdayOfMonth(date, targetWeekday) {
+  const [year, month] = date.split('-').map(Number);
+  const last = new Date(Date.UTC(year, month, 0));
+  last.setUTCDate(last.getUTCDate() - (last.getUTCDay() - Number(targetWeekday) + 7) % 7);
+  return last.toISOString().slice(0, 10);
+}
+const HOUSE_FORMAT_DEBUT = '2026-11-26';
+function isHouseFormatDate(date) {
+  return date >= HOUSE_FORMAT_DEBUT && date === lastWeekdayOfMonth(date, 4);
+}
+function nextHouseFormatDate(date) {
+  const firstEligibleDate = date < HOUSE_FORMAT_DEBUT ? HOUSE_FORMAT_DEBUT : date;
+  const thisMonth = lastWeekdayOfMonth(firstEligibleDate, 4);
+  return thisMonth >= firstEligibleDate ? thisMonth : lastWeekdayOfMonth(firstDayOfNextMonth(firstEligibleDate), 4);
+}
+function nextAdvancedDates(date, count = 4) {
   const dates = [];
-  for (let eventDate = first; eventDate <= end; eventDate = addCalendarDays(eventDate, 7)) dates.push(eventDate);
-  if (pattern === 'last') return dates.slice(-1);
-  if (pattern === 'weekly_except_last') return dates.slice(0, -1);
+  for (let eventDate = nextWeekday(date, 4); dates.length < count; eventDate = addCalendarDays(eventDate, 7)) {
+    if (!isHouseFormatDate(eventDate)) dates.push(eventDate);
+  }
   return dates;
 }
-function recurrenceForSeries(series) {
-  // Keep the live schedule compatible with event databases created before the
-  // recurrence_pattern migration. The slugs are stable series identifiers.
-  if (series.slug === 'yugioh-advanced-thursday') return { weekday: 4, pattern: 'weekly_except_last' };
-  if (series.slug === 'yugioh-house-friday') return { weekday: 4, pattern: 'last' };
-  return { weekday: series.weekday, pattern: series.recurrencePattern || series.recurrence_pattern || 'weekly' };
+function upcomingDatesForSeries(date, series) {
+  if (series.slug === 'yugioh-advanced-thursday') return nextAdvancedDates(date);
+  if (series.slug === 'yugioh-house-friday') return [nextHouseFormatDate(date)];
+  return [nextWeekday(date, series.weekday)];
 }
 function eventValues(body, fallback = {}) {
   const title = String(body.title ?? fallback.title ?? '').trim().slice(0, 120);
@@ -844,16 +855,14 @@ function eventValues(body, fallback = {}) {
 }
 async function eventSchedule(db) {
   const today = londonToday();
-  const month = monthBounds(today);
   const [seriesResult, specialResult] = await Promise.all([
     db.prepare(`SELECT id,slug,title,weekday,start_time AS startTime,end_time AS endTime,location,description,sort_order AS sortOrder
       FROM recurring_events WHERE active=1 ORDER BY sort_order,id`).all(),
     db.prepare(`SELECT id,title,event_date AS eventDate,start_time AS startTime,end_time AS endTime,location,description,status
-      FROM special_events WHERE event_date BETWEEN ? AND ? ORDER BY event_date,start_time,id`).bind(month.start, month.end).all()
+      FROM special_events WHERE event_date>=? ORDER BY event_date,start_time,id`).bind(today).all()
   ]);
   const recurring = (await Promise.all(seriesResult.results.map(async (series) => {
-    const recurrence = recurrenceForSeries(series);
-    return Promise.all(recurrenceDatesFor(today, recurrence.weekday, recurrence.pattern).map(async (eventDate) => {
+    return Promise.all(upcomingDatesForSeries(today, series).map(async (eventDate) => {
       const override = await db.prepare(`SELECT title,start_time AS startTime,end_time AS endTime,location,description,status
         FROM event_overrides WHERE recurring_event_id=? AND event_date=?`).bind(series.id, eventDate).first();
       return {
@@ -991,8 +1000,7 @@ async function handle(context) {
       if (!series) throw fail(404, 'Recurring event not found.');
       const body = await inputJson(request);
       const expectedDate = String(body.eventDate || '');
-      const recurrence = recurrenceForSeries(series);
-      const validDates = recurrenceDatesFor(londonToday(), recurrence.weekday, recurrence.pattern);
+      const validDates = upcomingDatesForSeries(londonToday(), series);
       if (!validDates.includes(expectedDate)) throw fail(409, 'This occurrence is outside the current schedule. Refresh and try again.');
       const existing = await db.prepare(`SELECT title,start_time AS startTime,end_time AS endTime,location,description,status
         FROM event_overrides WHERE recurring_event_id=? AND event_date=?`).bind(series.id, expectedDate).first();

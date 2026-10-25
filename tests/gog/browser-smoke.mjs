@@ -392,12 +392,12 @@ try {
   assert.deepEqual(homeBrand.navigation, ['Home','House Format','Deckbuilder']);
   assert(homeBrand.events.some(text=>text.includes('Yu-Gi-Oh! TCG Advanced')));
   assert(homeBrand.events.some(text=>text.includes('Yu-Gi-Oh! TCG House')));
-  assert.equal(homeBrand.eventsHeading, 'Events this month');
-  assert(homeBrand.eventDates.length>=4 && homeBrand.eventDates.length<=5);
+  assert.equal(homeBrand.eventsHeading, 'Upcoming events');
+  assert.equal(homeBrand.eventDates.length,5);
   assert(homeBrand.eventDates.every(text=>text.startsWith('Thursday')));
   assert.equal(homeBrand.advancedArtwork, '/gog/assets/magician-of-black-chaos-art.jpg');
   assert.equal(homeBrand.events.some(text=>text.includes('Earlier this month')),false);
-  assert.equal(await evaluate(`document.querySelectorAll('#advanced-event-grid .event-card.advanced').length>=3`),true);
+  assert.equal(await evaluate(`document.querySelectorAll('#advanced-event-grid .event-card.advanced').length`),4);
   assert.equal(await evaluate(`document.querySelectorAll('#special-event-grid .event-card.house').length`),1);
   assert(homeBrand.logoLoaded);
   assert.equal(await evaluate(`document.querySelector('a[href="#upcoming-events"]')`),null);

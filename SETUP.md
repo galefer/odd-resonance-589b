@@ -155,15 +155,15 @@ The migration adds finish times to recurring events, occurrence overrides and on
 
 The event illustrations in `public/gog/assets/` are static Pages assets with source credits in `CREDITS.md`. They do not use the card-image function, D1 or R2. The public-page browser check is `node tests/gog/browser-public-pages.mjs [origin]`; it checks responsive layouts, matching headers, event times, combined filters and card lookup without editing production data.
 
-### Monthly Thursday event schedule
+### Upcoming Thursday event schedule
 
-The monthly event layout is backward-compatible with the existing event schema. To normalize the stored series rules as well, apply `0009_monthly_event_schedule.sql` once to an existing event database:
+The upcoming event layout is backward-compatible with the existing event schema. To normalize the stored series rules as well, apply `0009_monthly_event_schedule.sql` once to an existing event database:
 
 ```cmd
 npx wrangler d1 execute aec66a35-3c9b-460d-8721-abeea167770a --remote --file=./database/migrations/0009_monthly_event_schedule.sql
 ```
 
-This adds the recurrence pattern field, schedules Advanced Format on each Thursday except the last, and moves House Format to the final Thursday. Existing per-date overrides remain in the database; only dates belonging to the new current-month schedule are displayed.
+This adds the recurrence pattern field for stored schedule metadata. The application shows the next four Advanced Thursdays, starts House Format on 26 November 2026, and then reserves each month's final Thursday for House Format. Existing per-date overrides remain in the database, and only upcoming dates are displayed.
 
 ## 3. Bind D1 to your existing Cloudflare Pages project
 
@@ -254,7 +254,7 @@ Your existing `/`, `/null/`, `/outworld/`, etc. remain unchanged.
 4. After creation, the site logs you in and disables further public admin registration.
 5. Use **Draft editor** to change cards, **Review & publish** to make changes public, and **Version history** to restore a prior published snapshot.
 
-The same administrator account manages homepage events. Visit `/gog/`, click **Admin**, and edit any Thursday displayed for the current month. Those edits apply only to that date. Add one-off events in the same panel; they appear on the homepage during their event month.
+The same administrator account manages homepage events. Visit `/gog/`, click **Admin**, and edit any displayed upcoming Thursday. Those edits apply only to that date. Add one-off events in the same panel; future one-offs appear in the Special Events row.
 
 The public **House tweaks** view and every `NEW` badge compare the current published status with the original `tcg-apr-2025` foundation. They do not reset when another house version is published. A card loses the marker only when its status matches that fixed baseline again.
 

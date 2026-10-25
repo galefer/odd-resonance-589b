@@ -83,8 +83,8 @@ async function loadEvents() {
   state.events = payload.events || [];
   const advanced = state.events.filter((event) => event.slug === 'yugioh-advanced-thursday');
   const special = state.events.filter((event) => event.slug !== 'yugioh-advanced-thursday');
-  renderEventGroup('#advanced-event-grid', advanced, 'No Advanced TCG events are listed for this month.');
-  renderEventGroup('#special-event-grid', special, 'No special events are listed for this month.');
+  renderEventGroup('#advanced-event-grid', advanced, 'No upcoming Advanced TCG events are currently listed.');
+  renderEventGroup('#special-event-grid', special, 'No upcoming special events are currently listed.');
 }
 
 let toastTimer;
@@ -239,7 +239,7 @@ $('#events-admin-app').addEventListener('click', async (event) => {
 });
 
 loadEvents().catch((error) => {
-  const message = `This month's events could not be loaded. ${escapeHtml(error.message)}`;
+  const message = `Upcoming events could not be loaded. ${escapeHtml(error.message)}`;
   renderEventGroup('#advanced-event-grid', [], message);
   renderEventGroup('#special-event-grid', [], message);
 });
