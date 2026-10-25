@@ -1,6 +1,6 @@
 const API_BASE = '/gog/api';
 const $ = (selector, root = document) => root.querySelector(selector);
-const state = { csrf: null, email: null, events: [], generatedFor: null };
+const state = { csrf: null, email: null, events: [] };
 
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -52,8 +52,7 @@ function eventCard(event) {
   const cancelled = event.status === 'cancelled';
   const artwork = eventArtwork[event.slug];
   const time = displayTime(event.startTime) + (event.endTime ? ` – ${displayTime(event.endTime)}` : '');
-  const earlierThisMonth = state.generatedFor && event.eventDate < state.generatedFor;
-  const timingLabel = event.source === 'special' ? 'One-off event' : earlierThisMonth ? 'Earlier this month' : 'Thursday at the shop';
+  const timingLabel = artwork?.theme === 'advanced' ? 'Advanced TCG' : 'Special event';
   return `<article class="event-card ${artwork?.theme || 'special'} ${cancelled ? 'cancelled' : ''}">
     <div class="event-visual">
       ${artwork ? `<img class="event-artwork" src="/gog/assets/${artwork.image}" alt="" width="624" height="624" loading="lazy" decoding="async">`
@@ -73,53 +72,19 @@ function eventCard(event) {
   </article>`;
 }
 
-function updateCarouselState() {
-  const carousel = $('#event-grid');
-  const previous = $('#events-previous');
-  const next = $('#events-next');
-  const cards = [...carousel.querySelectorAll('.event-card')];
-  const viewport = carousel.getBoundingClientRect();
-  const hasOverflow = carousel.scrollWidth > carousel.clientWidth + 2;
-  previous.disabled = !hasOverflow || carousel.scrollLeft <= 2;
-  next.disabled = !hasOverflow || carousel.scrollLeft + carousel.clientWidth >= carousel.scrollWidth - 2;
-  const firstVisible = cards.findIndex((card) => card.getBoundingClientRect().right > viewport.left + 8);
-  const visibleCount = cards.filter((card) => {
-    const bounds = card.getBoundingClientRect();
-    return bounds.left < viewport.right - 8 && bounds.right > viewport.left + 8;
-  }).length;
-  $('#events-carousel-status').textContent = cards.length
-    ? `Showing ${Math.max(1, firstVisible + 1)}–${Math.min(cards.length, Math.max(1, firstVisible + 1) + Math.max(1, visibleCount) - 1)} of ${cards.length} events`
-    : '';
+function renderEventGroup(selector, events, emptyMessage) {
+  const grid = $(selector);
+  grid.setAttribute('aria-busy', 'false');
+  grid.innerHTML = events.length ? events.map(eventCard).join('') : `<p class="empty-events">${emptyMessage}</p>`;
 }
-
-function moveCarousel(direction) {
-  const carousel = $('#event-grid');
-  const card = carousel.querySelector('.event-card');
-  if (!card) return;
-  const gap = Number.parseFloat(getComputedStyle(carousel).columnGap) || 0;
-  carousel.scrollBy({ left: direction * (card.getBoundingClientRect().width + gap), behavior: 'smooth' });
-}
-
-$('#events-previous').addEventListener('click', () => moveCarousel(-1));
-$('#events-next').addEventListener('click', () => moveCarousel(1));
-$('#event-grid').addEventListener('scroll', updateCarouselState, { passive: true });
-$('#event-grid').addEventListener('keydown', (event) => {
-  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-  event.preventDefault();
-  moveCarousel(event.key === 'ArrowLeft' ? -1 : 1);
-});
-window.addEventListener('resize', updateCarouselState);
 
 async function loadEvents() {
   const payload = await api('/events');
   state.events = payload.events || [];
-  state.generatedFor = payload.generatedFor || null;
-  const grid = $('#event-grid');
-  grid.setAttribute('aria-busy', 'false');
-  grid.innerHTML = state.events.length ? state.events.map(eventCard).join('')
-    : '<p class="empty-events">No events are currently listed for this month. Please check back soon.</p>';
-  grid.scrollLeft = 0;
-  requestAnimationFrame(updateCarouselState);
+  const advanced = state.events.filter((event) => event.slug === 'yugioh-advanced-thursday');
+  const special = state.events.filter((event) => event.slug !== 'yugioh-advanced-thursday');
+  renderEventGroup('#advanced-event-grid', advanced, 'No Advanced TCG events are listed for this month.');
+  renderEventGroup('#special-event-grid', special, 'No special events are listed for this month.');
 }
 
 let toastTimer;
@@ -274,10 +239,9 @@ $('#events-admin-app').addEventListener('click', async (event) => {
 });
 
 loadEvents().catch((error) => {
-  const grid = $('#event-grid');
-  grid.setAttribute('aria-busy', 'false');
-  grid.innerHTML = `<p class="empty-events">This month's events could not be loaded. ${escapeHtml(error.message)}</p>`;
-  updateCarouselState();
+  const message = `This month's events could not be loaded. ${escapeHtml(error.message)}`;
+  renderEventGroup('#advanced-event-grid', [], message);
+  renderEventGroup('#special-event-grid', [], message);
 });
 
 if (new URLSearchParams(location.search).get('admin') === 'events') {

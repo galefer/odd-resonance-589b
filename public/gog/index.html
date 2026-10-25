@@ -53,18 +53,22 @@
       <div class="home-shell">
         <div class="section-heading">
           <div><p class="eyebrow">Make a night of it</p><h2 id="events-title">Events this month</h2></div>
-          <div class="events-heading-aside">
-            <p>See every Thursday at the shop, with House Format on the final Thursday of the month.</p>
-            <div class="carousel-controls" aria-label="Event carousel controls">
-              <button id="events-previous" type="button" aria-label="Previous event" disabled><span aria-hidden="true">&#8592;</span></button>
-              <button id="events-next" type="button" aria-label="Next event" disabled><span aria-hidden="true">&#8594;</span></button>
+          <p>See every Thursday at the shop, with House Format on the final Thursday of the month.</p>
+        </div>
+        <div class="event-groups">
+          <section class="event-group" aria-labelledby="advanced-events-title">
+            <div class="event-group-heading"><p>Regular Thursdays</p><h3 id="advanced-events-title">Advanced TCG</h3></div>
+            <div class="event-grid" id="advanced-event-grid" aria-live="polite" aria-busy="true">
+              <div class="event-skeleton"></div><div class="event-skeleton"></div><div class="event-skeleton"></div>
             </div>
-          </div>
+          </section>
+          <section class="event-group" aria-labelledby="special-events-title">
+            <div class="event-group-heading"><p>House Format and one-offs</p><h3 id="special-events-title">Special Events</h3></div>
+            <div class="event-grid special-event-grid" id="special-event-grid" aria-live="polite" aria-busy="true">
+              <div class="event-skeleton"></div>
+            </div>
+          </section>
         </div>
-        <div class="event-grid event-carousel" id="event-grid" role="region" aria-label="Events this month" aria-live="polite" aria-busy="true" tabindex="0">
-          <div class="event-skeleton"></div><div class="event-skeleton"></div><div class="event-skeleton"></div>
-        </div>
-        <p class="carousel-status" id="events-carousel-status" aria-live="polite"></p>
       </div>
     </section>
 

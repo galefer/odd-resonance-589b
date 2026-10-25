@@ -157,7 +157,7 @@ The event illustrations in `public/gog/assets/` are static Pages assets with sou
 
 ### Monthly Thursday event schedule
 
-The monthly carousel code is backward-compatible with the existing event schema. To normalize the stored series rules as well, apply `0009_monthly_event_schedule.sql` once to an existing event database:
+The monthly event layout is backward-compatible with the existing event schema. To normalize the stored series rules as well, apply `0009_monthly_event_schedule.sql` once to an existing event database:
 
 ```cmd
 npx wrangler d1 execute aec66a35-3c9b-460d-8721-abeea167770a --remote --file=./database/migrations/0009_monthly_event_schedule.sql

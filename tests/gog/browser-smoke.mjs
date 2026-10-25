@@ -375,7 +375,7 @@ try {
 
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: `${origin}/gog/` });
-  await waitFor(`document.readyState==='complete' && document.querySelectorAll('#event-grid .event-card').length>=2`, 'Guild of Games homepage events');
+  await waitFor(`document.readyState==='complete' && document.querySelectorAll('.event-groups .event-card').length>=2`, 'Guild of Games homepage events');
   const homeBrand = await evaluate(`({
     brand:document.querySelector('.gog-brand strong').textContent.trim(),
     navigation:[...document.querySelectorAll('.gog-primary-nav a')].map(a=>a.textContent.trim()),
@@ -396,6 +396,9 @@ try {
   assert(homeBrand.eventDates.length>=4 && homeBrand.eventDates.length<=5);
   assert(homeBrand.eventDates.every(text=>text.startsWith('Thursday')));
   assert.equal(homeBrand.advancedArtwork, '/gog/assets/magician-of-black-chaos-art.jpg');
+  assert.equal(homeBrand.events.some(text=>text.includes('Earlier this month')),false);
+  assert.equal(await evaluate(`document.querySelectorAll('#advanced-event-grid .event-card.advanced').length>=3`),true);
+  assert.equal(await evaluate(`document.querySelectorAll('#special-event-grid .event-card.house').length`),1);
   assert(homeBrand.logoLoaded);
   assert.equal(await evaluate(`document.querySelector('a[href="#upcoming-events"]')`),null);
   assert.equal(await evaluate(`document.querySelectorAll('#add-event-form input[name=endTime]').length`),1);
@@ -458,10 +461,10 @@ try {
   assert.deepEqual(mobileCardList.header, deckMobileHeader, 'Mobile House Format and deckbuilder headers should match');
   await screenshot('card-list-mobile.png');
   await send('Page.navigate', { url: `${origin}/gog/` });
-  await waitFor(`document.readyState==='complete' && document.querySelectorAll('#event-grid .event-card').length>=2`, 'mobile homepage events');
+  await waitFor(`document.readyState==='complete' && document.querySelectorAll('.event-groups .event-card').length>=2`, 'mobile homepage events');
   const mobileHome = await evaluate(`({
     overflow:document.documentElement.scrollWidth-innerWidth,
-    eventCards:document.querySelectorAll('#event-grid .event-card').length,
+    eventCards:document.querySelectorAll('.event-groups .event-card').length,
     navigation:[...document.querySelectorAll('.gog-mobile-nav a')].map(a=>({text:a.textContent.trim(),left:a.getBoundingClientRect().left,right:a.getBoundingClientRect().right,display:getComputedStyle(a).display})),
     admin:(() => { const a=document.querySelector('.gog-admin-link'); const r=a.getBoundingClientRect(); return {text:a.textContent.trim(),left:r.left,right:r.right,display:getComputedStyle(a).display}; })(),
     header:(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()
