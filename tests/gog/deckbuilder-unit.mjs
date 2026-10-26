@@ -74,6 +74,19 @@ test('physical copies enforce one combined limit across Main, Extra and Side', (
   assert.equal(addIssue(deck, ordinary, 'main'), null);
 });
 
+test('stored copy allowances survive normalization and rapid additions across sections', () => {
+  let deck = newDeck('Semi-limited copies');
+  const semiLimited = card({ status: 'semi_limited', copies: undefined, allowedCopies: 2 });
+  const first = instanceFromCard(semiLimited);
+  assert.equal(first.allowedCopies, 2, 'a stored instance keeps its authoritative allowance when copied');
+  deck = reduceDeck(deck, { type: 'ADD_INSTANCE', zone: 'main', instance: first });
+  assert.equal(addIssue(deck, first, 'side'), null);
+  const second = instanceFromCard(first);
+  assert.equal(second.allowedCopies, 2);
+  deck = reduceDeck(deck, { type: 'ADD_INSTANCE', zone: 'side', instance: second });
+  assert.match(addIssue(deck, first, 'main'), /limited to 2 copies/, 'a third immediate addition is blocked across sections');
+});
+
 test('published metadata refresh repairs saved badges and limits without changing deck edits or undo', () => {
   const deck = newDeck('Saved while Limited');
   deck.notes = 'Keep these notes'; deck.groups = [{ id: 'group', name: 'Starters', canonicalIds: [1001] }];

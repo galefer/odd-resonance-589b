@@ -21,7 +21,7 @@ export function instanceFromCard(card, originalImportId = null) {
     originalImportId: Number(originalImportId || card.canonicalId || card.id), resolution: 'resolved',
     name: String(card.name || ''), category: card.category || 'Monster', subtype: card.subtype || 'Effect',
     cardType: card.cardType || '', placement: card.placement || 'main', copyLimitKey: card.copyLimitKey || '',
-    status: card.status || 'unlimited', allowedCopies: Number(card.copies ?? 3),
+    status: card.status || 'unlimited', allowedCopies: Number(card.copies ?? card.allowedCopies ?? 3),
     attribute: card.attribute || null, race: card.race || null, level: card.level ?? null,
     linkRating: card.linkRating ?? null, pendulumScale: card.pendulumScale ?? null,
     atk: card.atk ?? null, def: card.def ?? null, description: card.description || ''

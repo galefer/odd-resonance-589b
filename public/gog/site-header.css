@@ -131,3 +131,29 @@
   .gog-brand strong { font-size: .62rem; }
   .gog-brand small { display: none; }
 }
+
+/* The deckbuilder uses its own compact editing chrome on phones. */
+@media (max-width: 767px) {
+  body.deckbuilder-page { --mobile-site-header: 48px; }
+  .deckbuilder-page .gog-site-header {
+    position: relative;
+    height: var(--mobile-site-header);
+    min-height: var(--mobile-site-header);
+  }
+  .deckbuilder-page .gog-header-inner {
+    height: var(--mobile-site-header);
+    padding: 0 10px;
+  }
+  .deckbuilder-page .gog-brand { gap: 8px; }
+  .deckbuilder-page .gog-brand img { width: 32px; height: 32px; }
+  .deckbuilder-page .gog-brand strong { font-size: .67rem; letter-spacing: .045em; }
+  .deckbuilder-page .gog-brand small,
+  .deckbuilder-page .gog-primary-nav,
+  .deckbuilder-page .gog-mobile-nav,
+  .deckbuilder-page .gog-admin-link { display: none; }
+}
+
+@media (max-width: 767px) and (max-height: 520px) {
+  body.deckbuilder-page { --mobile-site-header: 0px; }
+  .deckbuilder-page .gog-site-header { display: none; }
+}

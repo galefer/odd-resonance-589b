@@ -77,7 +77,8 @@ async function waitFor(expression, label, timeout = 15_000) {
     if (value) return value;
     await sleep(100);
   }
-  throw new Error(`Timed out waiting for ${label}. Last value: ${JSON.stringify(value)}`);
+  const debug = await evaluate(`(() => {const g=document.querySelector('.deck-grid[data-zone="main"]'),r=g?.getBoundingClientRect();return {url:location.href,title:document.title,ready:document.readyState,body:document.body?.innerText?.slice(0,300),library:document.querySelector('#library-state')?.textContent,libraryClass:document.querySelector('#library-state')?.className,saved:document.querySelector('#saved-label')?.textContent,counts:[...document.querySelectorAll('#count-main,#count-extra,#count-side')].map(e=>e.textContent),toast:document.querySelector('#toast')?.textContent,drag:document.body?.dataset.dragDebug,grid:r&&{left:r.left,top:r.top,width:r.width,height:r.height,at:document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.className}}})()`).catch(() => null);
+  throw new Error(`Timed out waiting for ${label}. Last value: ${JSON.stringify(value)}. Debug: ${JSON.stringify(debug)}. Failed responses: ${JSON.stringify(failedResponses)}. Console: ${errors.join(' | ')}`);
 }
 const click = (selector) => evaluate(`(() => { const e=document.querySelector(${JSON.stringify(selector)}); if(!e) throw new Error('Missing ${selector}'); e.click(); return true; })()`);
 const setValue = (selector, value) => evaluate(`(() => { const e=document.querySelector(${JSON.stringify(selector)}); if(!e) throw new Error('Missing ${selector}'); e.value=${JSON.stringify(value)}; e.dispatchEvent(new Event('input',{bubbles:true})); e.dispatchEvent(new Event('change',{bubbles:true})); return true; })()`);
@@ -138,6 +139,18 @@ async function rightClick(selector, shift = false) {
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at });
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...at, button: 'right', buttons: 2, clickCount: 1, modifiers: shift ? 8 : 0 });
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...at, button: 'right', buttons: 0, clickCount: 1, modifiers: shift ? 8 : 0 });
+}
+
+async function touchDrag(source, target, { hold = 520 } = {}) {
+  const from = await point(source), to = await point(target);
+  const touch = (x, y) => ({ x, y, id: 0, radiusX: 3, radiusY: 3, force: .8 });
+  await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [touch(from.x, from.y)] });
+  await sleep(hold);
+  for (let step = 1; step <= 5; step++) {
+    await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [touch(from.x + (to.x - from.x) * step / 5, from.y + (to.y - from.y) * step / 5)] });
+    await sleep(24);
+  }
+  await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 
 async function saveNamedDeck(name) {
@@ -345,33 +358,108 @@ try {
   evidence.desktop = desktopLayout;
 
   let deckMobileHeader = null;
-  for (const width of [320, 390, 768, 1024, 1180, 1440, 1920, 2048, 2560]) {
+  for (const width of [320, 390, 430, 767, 768, 1179, 1180, 1440, 1920, 2048]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height: width < 768 ? 844 : 900, deviceScaleFactor: 1, mobile: width < 768 });
     await sleep(180);
-    const layout = await evaluate(`({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,nav:getComputedStyle(document.querySelector('.mobile-nav')).display,workspace:getComputedStyle(document.querySelector('.workspace')).display})`);
+    const layout = await evaluate(`(() => {const visible=e=>{const r=e.getBoundingClientRect();return getComputedStyle(e).display!=='none'&&r.width>0&&r.height>0},tracks=e=>getComputedStyle(e).gridTemplateColumns.split(' ').filter(Boolean).length,card=document.querySelector('.library-card');return {width:innerWidth,scrollWidth:document.documentElement.scrollWidth,workspace:getComputedStyle(document.querySelector('.workspace')).display,oldNav:document.querySelector('.mobile-nav'),library:visible(document.querySelector('.library-panel')),deck:visible(document.querySelector('.deck-canvas')),actions:visible(document.querySelector('#mobile-actions-button')),save:visible(document.querySelector('#save-deck')),libraryColumns:tracks(document.querySelector('.library-grid')),deckColumns:tracks(document.querySelector('.deck-grid')),libraryCardWidth:card?.getBoundingClientRect().width||0}})()`);
     assert(layout.scrollWidth <= layout.width + 1, `${width}px horizontal overflow: ${layout.scrollWidth-layout.width}`);
-    assert(await evaluate(`['save-deck','saved-decks-button'].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.width>0 && r.left>=0 && r.right<=innerWidth;})`), 'Save and Saved decks controls should be visible at every width');
+    assert.equal(layout.oldNav, null, 'The retired Deck / Library / Card / Tools navigation should not remain');
+    if (width < 768) {
+      assert(layout.library && layout.deck && layout.actions && !layout.save, `${width}px should show the split workspace and compact action menu`);
+      assert(await evaluate(`['deck-menu-button','undo','mobile-actions-button'].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.width>=40&&r.left>=0&&r.right<=innerWidth;})`), 'Compact mobile header controls should stay reachable');
+      assert(layout.libraryCardWidth > 0 && layout.libraryCardWidth <= 80, `${width}px catalogue cards should remain compact`);
+    } else {
+      assert(layout.save, `${width}px should retain the desktop/tablet save controls`);
+    }
+    if (width === 320) assert.equal(layout.libraryColumns, 4, 'The narrowest phone should retain four readable catalogue columns');
+    if (width === 390) assert.equal(layout.libraryColumns, 5, 'A typical phone should show five compact catalogue columns');
+    if (width === 767) assert(layout.libraryColumns >= 9 && layout.deckColumns >= 9, 'Wide mobile layouts should add columns instead of stretching cards');
     if (width >= 1180) assert(await evaluate(`document.querySelector('.workspace').getBoundingClientRect().width >= innerWidth-20`), 'Workspace should use the available width');
     if (width === 390) deckMobileHeader = await evaluate(`(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()`);
     if (width === 2048) await screenshot('deckbuilder-2048.png');
     evidence.checks.push(`${width}px no horizontal overflow`);
   }
 
+  await send('Emulation.setDeviceMetricsOverride', { width: 740, height: 390, deviceScaleFactor: 1, mobile: true });
+  await sleep(180);
+  const landscape = await evaluate(`(() => {const w=document.querySelector('.workspace').getBoundingClientRect(),l=document.querySelector('.library-panel').getBoundingClientRect(),d=document.querySelector('.deck-canvas').getBoundingClientRect(),s=document.querySelector('.search-box').getBoundingClientRect(),f=document.querySelector('.library-filters').getBoundingClientRect(),m=document.querySelector('#load-more').getBoundingClientRect(),tracks=e=>getComputedStyle(e).gridTemplateColumns.split(' ').filter(Boolean).length;return {overflow:document.documentElement.scrollWidth-innerWidth,header:getComputedStyle(document.querySelector('.gog-site-header')).display,workspace:w.height,library:l.height,deck:d.height,libraryColumns:tracks(document.querySelector('.library-grid')),deckColumns:tracks(document.querySelector('.deck-grid')),controlsDelta:Math.abs(s.top-f.top),loadMoreWidth:m.width}})()`);
+  assert(landscape.overflow <= 1 && landscape.header === 'none' && landscape.library > 80 && landscape.deck > 80, 'Short landscape keeps both panes usable and removes nonessential site chrome');
+  assert(landscape.libraryColumns >= 9 && landscape.deckColumns >= 9 && landscape.controlsDelta <= 1 && landscape.loadMoreWidth <= 120, 'Landscape keeps cards compact and places catalogue controls on one row');
+  await screenshot('deckbuilder-mobile-landscape.png');
+  evidence.checks.push('740×390 short landscape split workspace');
+
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
-  await sleep(150); await click('.mobile-nav button[data-panel="library"]');
-  assert.equal(await evaluate(`document.body.dataset.panel`), 'library');
+  await sleep(180);
   await setValue('#search', '1st Movement Solo');
   await waitFor(`document.querySelectorAll('.library-card').length===1`, 'mobile library result');
   const beforeMobile = await counts();
-  await click('.library-card > button:first-child');
-  assert.equal(await evaluate(`document.body.dataset.panel`), 'card');
-  await click('#add-auto'); await click('.mobile-nav button[data-panel="deck"]');
-  await waitFor(`document.body.dataset.panel==='deck'`, 'mobile deck panel');
-  assert.equal((await counts()).main, beforeMobile.main + 1);
+  const inspectedIdentity = await evaluate(`document.querySelector('.library-card').dataset.cardIdentity`);
+  await touchDrag('.library-card .library-inspect', '#search', { hold: 40 });
+  await sleep(180);
+  assert.deepEqual(await counts(), beforeMobile, 'An ordinary card-list swipe scrolls without editing the deck');
+  assert.equal(await evaluate(`document.querySelector('#card-inspector-dialog').open`), false, 'A scrolling gesture does not inspect the card');
+  await touchDrag('.library-card .library-inspect', '#zone-tab-side');
+  await waitFor(`document.querySelector('#count-side').textContent===${JSON.stringify(String(beforeMobile.side + 1))}`, 'deliberate touch hold drag to Side');
+  assert.equal(await evaluate(`document.querySelector('#card-inspector-dialog').open`), false, 'A completed touch drag does not also inspect');
+  await click('#undo');
+  await waitFor(`document.querySelector('#count-side').textContent===${JSON.stringify(String(beforeMobile.side))}`, 'undo touch drag');
+  await sleep(600);
+  await click('.library-card .library-inspect');
+  assert(await evaluate(`document.querySelector('#card-inspector-dialog').open`), 'Library artwork opens the shared mobile inspector');
+  assert(await evaluate(`['library-panel','deck-canvas'].every(c=>document.querySelector('.'+c).getBoundingClientRect().height>0)`), 'Split workspace remains mounted behind the inspector');
+  await screenshot('deckbuilder-mobile-inspector.png');
+  await click('.inspector-quantity-row .quantity-step.add');
+  await waitFor(`document.querySelector('#count-main').textContent===${JSON.stringify(String(beforeMobile.main + 1))}`, 'inspector plus adds one Main Deck copy');
+  assert(await evaluate(`document.querySelector('#card-inspector-dialog').open`), 'Inspector remains open after adding');
+  assert.equal(await evaluate(`document.querySelector('.library-quantity').textContent`), '×1');
+  await click('.inspector-quantity-row .quantity-step:not(.add)');
+  await waitFor(`document.querySelector('#count-main').textContent===${JSON.stringify(String(beforeMobile.main))}`, 'inspector minus removes one copy');
+  assert(await evaluate(`document.querySelector('#card-inspector-dialog').open && document.querySelector('#mobile-inspector-title').textContent.includes('1st Movement Solo')`), 'Removing the final copy keeps the same card inspectable');
+  await click('.inspector-quantity-row .quantity-step.add');
+  await click('#card-inspector-dialog .close-button');
+  await waitFor(`!document.querySelector('#card-inspector-dialog').open`, 'mobile inspector close');
+  await click('#zone-tab-side');
+  const beforeSideQuickAdd = (await counts()).side;
+  await click('.library-card .library-quick-add');
+  await waitFor(`document.querySelector('#count-side').textContent===${JSON.stringify(String(beforeSideQuickAdd + 1))}`, 'Side-selected quick add destination');
+  assert.equal(await evaluate(`document.body.dataset.deckZone`), 'side');
+  assert.equal(await evaluate(`document.querySelector('#search').value`), '1st Movement Solo');
+  assert.equal(await evaluate(`document.querySelector('#card-inspector-dialog').open`), false, 'Quick add does not open the inspector');
+  await click('#undo');
+  await waitFor(`document.querySelector('#count-side').textContent===${JSON.stringify(String(beforeSideQuickAdd))}`, 'Undo side quick add');
+  assert.equal(await evaluate(`document.querySelector('.library-quantity').textContent`), '×1', 'Undo refreshes the live library quantity');
+  await click('#zone-tab-main');
+  await click('.library-card .library-quick-add');
+  await waitFor(`document.querySelector('#count-main').textContent===${JSON.stringify(String(beforeMobile.main + 2))}`, 'Main quick add uses legal default destination');
+  await click('#mobile-zone-menu-button'); await click('#mobile-grouped-view');
+  await evaluate(`[...document.querySelectorAll('.card-tile')].find(e=>e.dataset.cardIdentity===${JSON.stringify(inspectedIdentity)}).click()`);
+  await waitFor(`document.querySelector('#card-inspector-dialog').open`, 'grouped deck card opens shared inspector');
+  const groupedBefore = (await counts()).main;
+  await click('.inspector-quantity-row .quantity-step:not(.add)');
+  await waitFor(`document.querySelector('#count-main').textContent===${JSON.stringify(String(groupedBefore - 1))}`, 'grouped inspector decrement removes one physical copy');
+  assert(await evaluate(`document.querySelector('#card-inspector-dialog').open`), 'Grouped decrement keeps inspector open');
+  await click('#card-inspector-dialog .close-button');
+  await click('#mobile-actions-button');
+  assert(await evaluate(`document.querySelector('#mobile-actions-dialog').open && document.querySelectorAll('[data-mobile-command]').length>=10`), 'Compact menu exposes deck actions and tools');
+  await click('[data-mobile-command="overview"]');
+  await waitFor(`document.querySelector('#mobile-tools-dialog').open && document.querySelector('#overview').hidden===false`, 'mobile overview and probability tools');
+  await click('#mobile-tools-dialog .close-button');
+  await click('#mobile-zone-menu-button'); await click('#mobile-copies-view');
+  await setValue('#search', '');
+  await waitFor(`document.querySelectorAll('.library-card').length>=12`, 'restored mobile catalogue');
   await waitFor(`document.querySelector('#validation-title').textContent!=='Checking published house rules'`, 'mobile validation result');
+  await evaluate(`document.querySelector('#toast').hidden=true`);
+  await screenshot('deckbuilder-mobile-split.png');
+  assert(await evaluate(`document.scrollingElement.scrollHeight<=innerHeight+1`), 'Normal mobile editing view has no competing page scrollbar');
+  const normalDeckHeight = await evaluate(`document.querySelector('.deck-canvas').getBoundingClientRect().height`);
+  await evaluate(`document.body.classList.add('search-keyboard-open')`);
+  const keyboardLayout = await evaluate(`({deck:document.querySelector('.deck-canvas').getBoundingClientRect().height,zones:getComputedStyle(document.querySelector('#deck-zones')).display,search:document.querySelector('#search').getBoundingClientRect().top,zone:document.body.dataset.deckZone})`);
+  assert(keyboardLayout.deck <= 52 && keyboardLayout.zones === 'none' && keyboardLayout.search >= 0, 'Search keyboard state keeps results/input visible and compacts the deck');
+  await evaluate(`document.body.classList.remove('search-keyboard-open')`); await sleep(100);
+  assert(await evaluate(`document.querySelector('.deck-canvas').getBoundingClientRect().height >= ${normalDeckHeight - 1} && document.body.dataset.deckZone==='main'`), 'Closing the keyboard state restores the split and active section');
   await waitFor(`document.querySelector('#saved-label').textContent==='Saved on this device'`, 'saved mobile screenshot state');
   await screenshot('deckbuilder-mobile.png');
-  evidence.checks.push('mobile Library → Card → Add → Deck without drag');
+  evidence.checks.push('mobile split workspace, shared inspector, quantity controls, touch hold drag, active-zone quick add, grouped decrement, Undo, tools and keyboard-compact state');
 
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: `${origin}/gog/` });
@@ -458,7 +546,8 @@ try {
   assert.equal(mobileCardList.desktopNav, 'none');
   assert.notEqual(mobileCardList.mobileNav, 'none');
   assert(mobileCardList.logoLoaded);
-  assert.deepEqual(mobileCardList.header, deckMobileHeader, 'Mobile House Format and deckbuilder headers should match');
+  assert(mobileCardList.header.height > deckMobileHeader.height && mobileCardList.header.logoWidth > deckMobileHeader.logoWidth,
+    'Only the deckbuilder should use the compact mobile editing header');
   await screenshot('card-list-mobile.png');
   await send('Page.navigate', { url: `${origin}/gog/` });
   await waitFor(`document.readyState==='complete' && document.querySelectorAll('.event-groups .event-card').length>=2`, 'mobile homepage events');
@@ -474,7 +563,7 @@ try {
   assert.deepEqual(mobileHome.navigation.map(item=>item.text), ['Home','House Format','Deckbuilder']);
   assert(mobileHome.navigation.every(item=>item.display!=='none' && item.left>=0 && item.right<=391));
   assert(mobileHome.admin.display!=='none' && mobileHome.admin.left>=0 && mobileHome.admin.right<=391);
-  assert.deepEqual(mobileHome.header, deckMobileHeader, 'Mobile homepage and deckbuilder headers should match');
+  assert.deepEqual(mobileHome.header, mobileCardList.header, 'Non-editor Guild of Games pages keep the shared mobile header');
   await screenshot('gog-home-mobile.png');
   evidence.cardListBrand = cardListBrand;
   evidence.mobileCardList = mobileCardList;

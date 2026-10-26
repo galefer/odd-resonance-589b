@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/gog/deckbuilder/deckbuilder.css">
   <link rel="stylesheet" href="/gog/site-header.css">
 </head>
-<body data-panel="deck">
+<body class="deckbuilder-page" data-deck-zone="main">
   <a class="skip-link" href="#workspace">Skip to deckbuilder</a>
   <header class="gog-site-header">
     <div class="gog-header-inner">
@@ -59,6 +59,7 @@
       <span class="toolbar-divider" aria-hidden="true"></span>
       <button id="import-button" class="button" type="button">↥ Import</button>
       <button id="export-button" class="button primary" type="button" aria-haspopup="menu" aria-expanded="false">↧ Export deck <span aria-hidden="true">⌄</span></button>
+      <button id="mobile-actions-button" class="icon-button mobile-only" type="button" aria-label="Open deckbuilder menu" aria-haspopup="dialog" aria-controls="mobile-actions-dialog">•••</button>
     </div>
   </section>
 
@@ -86,6 +87,13 @@
             <button id="move-right" type="button" aria-label="Move selected card later">→</button>
           </div>
         </div>
+        <section id="inspector-quantity-panel" class="inspector-quantity-panel" aria-labelledby="inspector-quantity-title" hidden>
+          <div class="quantity-panel-heading">
+            <div><strong id="inspector-quantity-title">Deck quantities</strong><small id="inspector-total"></small></div>
+            <button id="inspector-undo" type="button" disabled>↶ Undo</button>
+          </div>
+          <div id="inspector-quantities" class="inspector-quantities"></div>
+        </section>
       </section>
 
 
@@ -115,13 +123,6 @@
       </section>
     </aside>
 
-    <section class="deck-canvas" data-workspace-panel="deck">
-      <div class="canvas-heading"><div><p class="eyebrow">YU-GI-OH! JUSH HOUSE FORMAT</p><h1>Deckbuilder</h1><p id="mobile-count" class="mobile-count">Main 0 · Extra 0 · Side 0</p></div><div class="view-toggle" role="group" aria-label="Deck display"><button id="copies-view" class="active" type="button">▦ Copies</button><button id="grouped-view" type="button">▤ Grouped</button></div></div>
-      <div id="validation-banner" class="validation-banner checking" role="status"><span id="validation-icon">…</span><div><strong id="validation-title">Checking published house rules</strong><p id="validation-summary">Waiting for the current catalogue and list.</p></div><button id="validation-info" type="button">Details</button></div>
-      <div id="deck-zones"></div>
-      <div class="canvas-footer"><span>Library: right-click to add to Main / Extra; Shift + right-click to add to Side. Deck: right-click to remove. Drag to add or move; click to inspect.</span><button id="keyboard-help" class="text-button" type="button">Keyboard help</button></div>
-    </section>
-
     <aside class="library-panel panel" data-workspace-panel="library">
       <section class="library">
         <div class="panel-heading"><h2>Card library</h2><span id="library-total">LOADING</span></div>
@@ -141,10 +142,32 @@
         <button id="load-more" class="button wide" type="button" hidden>Load more cards</button>
       </section>
     </aside>
+
+    <section class="deck-canvas" data-workspace-panel="deck">
+      <div class="canvas-heading"><div><p class="eyebrow">YU-GI-OH! JUSH HOUSE FORMAT</p><h1>Deckbuilder</h1><p id="mobile-count" class="mobile-count">Main 0 · Extra 0 · Side 0</p></div><div class="view-toggle" role="group" aria-label="Deck display"><button id="copies-view" class="active" type="button">▦ Copies</button><button id="grouped-view" type="button">▤ Grouped</button></div></div>
+      <div class="mobile-deck-bar">
+        <div id="mobile-zone-tabs" class="mobile-zone-tabs" role="tablist" aria-label="Deck sections">
+          <button id="zone-tab-main" class="active" data-zone-tab="main" type="button" role="tab" aria-selected="true" aria-controls="deck-zone-main">Main <span id="tab-count-main">0</span></button>
+          <button id="zone-tab-extra" data-zone-tab="extra" type="button" role="tab" aria-selected="false" aria-controls="deck-zone-extra" tabindex="-1">Extra <span id="tab-count-extra">0</span></button>
+          <button id="zone-tab-side" data-zone-tab="side" type="button" role="tab" aria-selected="false" aria-controls="deck-zone-side" tabindex="-1">Side <span id="tab-count-side">0</span></button>
+        </div>
+        <button id="mobile-zone-menu-button" class="mobile-zone-menu-button" type="button" aria-label="Deck section options" aria-haspopup="menu" aria-expanded="false" aria-controls="mobile-zone-menu">•••</button>
+        <div id="mobile-zone-menu" class="floating-menu mobile-zone-menu" role="menu" hidden>
+          <div class="menu-heading"><b id="mobile-zone-menu-title">Main Deck</b><span>Display &amp; actions</span></div>
+          <button id="mobile-copies-view" class="menu-row" type="button" role="menuitemradio" aria-checked="true">Copies <span>Every card</span></button>
+          <button id="mobile-grouped-view" class="menu-row" type="button" role="menuitemradio" aria-checked="false">Grouped <span>Stack matching cards</span></button>
+          <hr>
+          <button id="mobile-sort-zone" class="menu-row" type="button" role="menuitem">Sort section <span>A–Z</span></button>
+          <button id="mobile-clear-zone" class="menu-row danger" type="button" role="menuitem">Clear section <span>Confirm first</span></button>
+        </div>
+      </div>
+      <div id="validation-banner" class="validation-banner checking" role="status"><span id="validation-icon">…</span><div><strong id="validation-title">Checking published house rules</strong><p id="validation-summary">Waiting for the current catalogue and list.</p></div><button id="validation-info" type="button">Details</button></div>
+      <div id="deck-zones"></div>
+      <div class="canvas-footer"><span>Library: right-click to add to Main / Extra; Shift + right-click to add to Side. Deck: right-click to remove. Drag to add or move; click to inspect.</span><button id="keyboard-help" class="text-button" type="button">Keyboard help</button></div>
+    </section>
   </main>
 
   <footer class="deck-footer"><span>Guild of Games · Unofficial Yu-Gi-Oh! community format · Card data powered by YGOPRODeck</span><span id="footer-version">Published list unavailable</span></footer>
-  <nav class="mobile-nav" aria-label="Workspace"><button class="active" data-panel="deck" type="button">▦<span>Deck</span></button><button data-panel="library" type="button">⌕<span>Library</span></button><button data-panel="card" type="button">□<span>Card</span></button><button data-panel="tools" type="button">◴<span>Tools</span></button></nav>
 
   <div id="export-menu" class="floating-menu export-menu" role="menu" hidden>
     <div class="menu-heading"><b>Export deck</b><span>Main / Extra / Side</span></div>
@@ -185,6 +208,42 @@
     <form method="dialog" class="modal-header"><div><p class="eyebrow">OPENING ODDS</p><h2>Card groups</h2></div><button class="close-button" value="cancel" aria-label="Close groups dialog">×</button></form>
     <div class="modal-content"><p class="muted">Create groups such as Starters or Hand traps. Probabilities use physical copies in the Main Deck.</p><div class="group-create"><input id="group-name" maxlength="80" placeholder="New group name"><button id="add-group" class="button" type="button">Add group</button></div><div id="groups-list"></div></div>
     <div class="modal-actions"><button id="close-groups" class="button primary" type="button">Done</button></div>
+  </dialog>
+
+  <dialog id="mobile-actions-dialog" class="mobile-sheet mobile-actions-dialog" aria-labelledby="mobile-actions-title">
+    <form method="dialog" class="sheet-header"><div><p class="eyebrow">DECKBUILDER</p><h2 id="mobile-actions-title">Actions &amp; tools</h2></div><button class="close-button" value="cancel" aria-label="Close deckbuilder menu">×</button></form>
+    <div class="mobile-actions-content">
+      <section><h3>Deck</h3><div class="mobile-command-grid">
+        <button type="button" data-mobile-command="save"><span>Save deck</span><small>Name or save now</small></button>
+        <button type="button" data-mobile-command="saved"><span>Saved decks</span><small>Switch or manage</small></button>
+        <button type="button" data-mobile-command="new"><span>New deck</span><small>Start fresh</small></button>
+        <button type="button" data-mobile-command="rename"><span>Rename</span><small>Change this name</small></button>
+        <button type="button" data-mobile-command="duplicate"><span>Duplicate</span><small>Copy this deck</small></button>
+        <button class="danger" type="button" data-mobile-command="delete"><span>Delete</span><small>Remove from device</small></button>
+      </div></section>
+      <section><h3>Move &amp; share</h3><div class="mobile-command-grid two-column">
+        <button type="button" data-mobile-command="redo"><span>Redo</span><small>Restore last change</small></button>
+        <button type="button" data-mobile-command="import"><span>Import</span><small>YDK, YDKE or backup</small></button>
+        <button type="button" data-mobile-command="export"><span>Export</span><small>Share or back up</small></button>
+      </div></section>
+      <section><h3>Deck tools</h3><div class="mobile-command-grid two-column">
+        <button type="button" data-mobile-command="overview"><span>Overview &amp; odds</span><small>Counts and probability</small></button>
+        <button type="button" data-mobile-command="hand"><span>Test hand</span><small>Draw a sample five</small></button>
+        <button type="button" data-mobile-command="groups"><span>Card groups</span><small>Build probability groups</small></button>
+        <button type="button" data-mobile-command="validation"><span>Validation</span><small>View full details</small></button>
+      </div></section>
+      <nav class="mobile-site-links" aria-label="Guild of Games"><a href="/gog/">Home</a><a href="/gog/house-format/">House Format</a><a href="/gog/?admin=events">Admin</a></nav>
+    </div>
+  </dialog>
+
+  <dialog id="card-inspector-dialog" class="mobile-sheet card-inspector-dialog" aria-labelledby="mobile-inspector-title">
+    <form method="dialog" class="sheet-header"><div><p class="eyebrow">CARD INSPECTOR</p><h2 id="mobile-inspector-title">Card details</h2></div><button class="close-button" value="cancel" aria-label="Close card inspector">×</button></form>
+    <div id="mobile-inspector-mount" class="mobile-sheet-mount"></div>
+  </dialog>
+
+  <dialog id="mobile-tools-dialog" class="mobile-sheet mobile-tools-dialog" aria-labelledby="mobile-tools-title">
+    <form method="dialog" class="sheet-header"><div><p class="eyebrow">DECK TOOLS</p><h2 id="mobile-tools-title">Overview &amp; probability</h2></div><button class="close-button" value="cancel" aria-label="Close deck tools">×</button></form>
+    <div id="mobile-tools-mount" class="mobile-sheet-mount"></div>
   </dialog>
 
   <dialog id="info-dialog" class="app-dialog narrow"><form method="dialog" class="modal-header"><h2 id="info-title">Details</h2><button class="close-button" value="cancel" aria-label="Close">×</button></form><div id="info-body" class="modal-content"></div></dialog>

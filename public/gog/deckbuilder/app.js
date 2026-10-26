@@ -14,6 +14,7 @@ const zoneLabel = (zone) => zone === 'main' ? 'Main Deck' : zone === 'extra' ? '
 const statusLabel = (status) => ({ unlimited: 'Unlimited', semi_limited: 'Semi-Limited', limited: 'Limited', forbidden: 'Forbidden', unverified: 'Unverified' }[status] || 'Unverified');
 const statusBadge = (status) => ({ forbidden: '0', limited: '1', semi_limited: '2' }[status] || '');
 const clone = (value) => structuredClone(value);
+const MOBILE_WORKSPACE_QUERY = '(max-width:767px)';
 const delay = (fn, milliseconds) => {
   let timer = 0;
   return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), milliseconds); };
@@ -46,11 +47,43 @@ let handRemaining = [];
 let toastTimer = 0;
 let activeDrag = null;
 let deckRenderPending = false;
+let activeDeckZone = 'main';
+const mobileZoneScroll = { main: 0, extra: 0, side: 0 };
+let inspectorReturnFocus = null;
+let touchDrag = null;
+let touchHold = null;
+let suppressCardClickUntil = 0;
+const dialogTriggers = new WeakMap();
 let publishedVersionId = null;
 let rulesCheck = null;
 let lastRulesCheck = 0;
 let rulesMayHaveChanged = false;
 const PUBLISHED_LIST_SIGNAL = 'gog-published-list';
+
+function isMobileWorkspace() { return matchMedia(MOBILE_WORKSPACE_QUERY).matches; }
+
+function cardIdentity(card) {
+  if (!card) return '';
+  if (Number(card.canonicalId) > 0) return `card:${Number(card.canonicalId)}`;
+  if (Number(card.originalImportId) > 0) return `unresolved:${Number(card.originalImportId)}`;
+  return `instance:${card.instanceId || card.name || 'unknown'}`;
+}
+
+function sameCardIdentity(left, right) { return !!left && !!right && cardIdentity(left) === cardIdentity(right); }
+
+function instancesForCard(card, zone = null) {
+  if (!history || !card) return [];
+  const zones = zone ? [zone] : ZONES;
+  return zones.flatMap((name) => history.deck[name].map((item, index) => ({ item, index, zone: name })))
+    .filter(({ item }) => sameCardIdentity(item, card));
+}
+
+function totalUsageFor(card) {
+  if (!history || !card) return 0;
+  const key = card.copyLimitKey || String(card.canonicalId || card.originalImportId || '');
+  return ZONES.flatMap((zone) => history.deck[zone]).filter((item) =>
+    (item.copyLimitKey || String(item.canonicalId || item.originalImportId || '')) === key).length;
+}
 
 function setSaveState(state, message) {
   const line = $('saved-label').parentElement;
@@ -118,7 +151,7 @@ function dispatch(action, { select = null } = {}) {
   if (!history.dispatch(action)) return false;
   if (select) {
     selectedInstanceId = select;
-    selectedCard = null;
+    selectedCard = clone(findInstance(select)?.item || selectedCard);
   }
   resetHand();
   render();
@@ -127,11 +160,13 @@ function dispatch(action, { select = null } = {}) {
   return true;
 }
 
-function addCard(card, zone = defaultZoneFor(card), index = null) {
+function addCard(card, zone = defaultZoneFor(card), index = null, { select = true, feedback = false } = {}) {
   const reason = localIssueFor(card, zone);
-  if (reason) { showToast(reason, 'warning'); return; }
+  if (reason) { showToast(reason, 'warning'); return false; }
   const instance = instanceFromCard(card);
-  dispatch({ type: 'ADD_INSTANCE', zone, instance, ...(Number.isInteger(index) ? { index } : {}) }, { select: instance.instanceId });
+  dispatch({ type: 'ADD_INSTANCE', zone, instance, ...(Number.isInteger(index) ? { index } : {}) }, select ? { select: instance.instanceId } : {});
+  if (feedback) showToast(`${card.name} added to ${zoneLabel(zone)}. Undo is available.`);
+  return true;
 }
 
 function moveInstance(instanceId, zone, index = null) {
@@ -150,27 +185,47 @@ function moveInstance(instanceId, zone, index = null) {
 }
 
 function removeInstance(instanceId) {
-  if (!findInstance(instanceId)) return;
-  if (selectedInstanceId === instanceId) selectedInstanceId = null;
-  dispatch({ type: 'REMOVE_INSTANCE', instanceId });
+  const found = findInstance(instanceId);
+  if (!found) return false;
+  if (selectedInstanceId === instanceId) {
+    selectedCard = clone(found.item);
+    selectedInstanceId = null;
+  }
+  return dispatch({ type: 'REMOVE_INSTANCE', instanceId });
 }
 
 function removeSelected() { removeInstance(selectedInstanceId); }
+
+function removeCardFromZone(card, zone) {
+  const matches = instancesForCard(card, zone);
+  if (!matches.length) return false;
+  const preferred = matches.find(({ item }) => item.instanceId === selectedInstanceId) || matches.at(-1);
+  const removed = clone(preferred.item);
+  if (!removeInstance(preferred.item.instanceId)) return false;
+  selectedCard = removed;
+  renderInspector();
+  showToast(`${removed.name} removed from ${zoneLabel(zone)}. Undo is available.`);
+  return true;
+}
 
 function render() {
   if (!history) return;
   $('deck-name').textContent = history.deck.name;
   $('undo').disabled = !history.past.length;
   $('redo').disabled = !history.future.length;
+  $('inspector-undo').disabled = !history.past.length;
   renderInspector();
   renderDeck();
   renderOverview();
   renderGroupsTarget();
+  updateLibraryControls();
+  renderMobileChrome();
 }
 
 function renderInspector() {
   const found = selectedInstanceId && findInstance(selectedInstanceId);
   if (selectedInstanceId && !found) selectedInstanceId = null;
+  if (found) selectedCard = clone(found.item);
   const card = found?.item || selectedCard;
   const selected = !!found;
   $('selection-label').textContent = card ? (selected ? 'DECK COPY SELECTED' : 'CATALOGUE CARD') : 'NOTHING SELECTED';
@@ -186,8 +241,7 @@ function renderInspector() {
   const status = card?.status || 'unverified';
   $('card-status').className = `restriction ${status}`;
   $('card-status').textContent = statusLabel(status);
-  const copies = card ? history.deck.main.concat(history.deck.extra, history.deck.side)
-    .filter((item) => item.copyLimitKey === card.copyLimitKey).length : 0;
+  const copies = totalUsageFor(card);
   $('usage').textContent = card ? `${copies} / ${Number(card.copies ?? card.allowedCopies ?? 0)} copies used` : '';
   $('effect').textContent = card?.description || 'Verified effect text and house-format status will appear here.';
   const stats = [];
@@ -211,6 +265,8 @@ function renderInspector() {
   const sideReason = card ? localIssueFor(card, 'side') : 'Select an eligible card.';
   $('add-side').disabled = !card || !!sideReason;
   $('selected-instance-actions').hidden = !selected;
+  $('mobile-inspector-title').textContent = card?.name || 'Card details';
+  renderInspectorQuantities(card);
   $('copy-selected').disabled = !card || !!reason;
   if (selected) {
     const target = found.zone === 'side' ? found.item.placement : 'side';
@@ -221,18 +277,66 @@ function renderInspector() {
   }
 }
 
+function renderInspectorQuantities(card) {
+  const panel = $('inspector-quantity-panel');
+  panel.hidden = !card;
+  $('inspector-quantities').replaceChildren();
+  if (!card) { $('inspector-total').textContent = ''; return; }
+  const allowed = Number(card.copies ?? card.allowedCopies ?? 0);
+  const used = totalUsageFor(card);
+  $('inspector-total').textContent = `${used} of ${allowed} allowed across this deck`;
+  const destinations = [...new Set([defaultZoneFor(card), 'side'])];
+  for (const zone of destinations) {
+    const row = document.createElement('div'); row.className = 'inspector-quantity-row';
+    const label = document.createElement('span'); label.className = 'quantity-zone-label'; label.textContent = zone === 'side' ? 'Side' : zone === 'extra' ? 'Extra' : 'Main';
+    const minus = document.createElement('button'); minus.type = 'button'; minus.className = 'quantity-step'; minus.textContent = '−';
+    const quantity = instancesForCard(card, zone).length;
+    minus.disabled = quantity === 0;
+    minus.setAttribute('aria-label', `Remove one ${card.name} from ${zoneLabel(zone)}`);
+    minus.addEventListener('click', () => removeCardFromZone(card, zone));
+    const value = document.createElement('output'); value.textContent = String(quantity); value.setAttribute('aria-label', `${quantity} in ${zoneLabel(zone)}`);
+    const plus = document.createElement('button'); plus.type = 'button'; plus.className = 'quantity-step add'; plus.textContent = '+';
+    const reason = localIssueFor(card, zone);
+    plus.disabled = !!reason;
+    plus.title = reason || `Add one to ${zoneLabel(zone)}`;
+    plus.setAttribute('aria-label', reason ? `Cannot add ${card.name} to ${zoneLabel(zone)}: ${reason}` : `Add one ${card.name} to ${zoneLabel(zone)}`);
+    plus.addEventListener('click', () => addCard(card, zone, null, { select: false }));
+    row.append(label, minus, value, plus); $('inspector-quantities').append(row);
+  }
+}
+
 function renderDeck() {
   // Validation can finish while a card is being dragged. Keep the source and
   // insertion marker in the DOM until the drag completes or is cancelled.
   if (activeDrag) { deckRenderPending = true; return; }
   deckRenderPending = false;
+  captureMobileZoneScroll();
   const container = $('deck-zones');
   container.replaceChildren(...ZONES.map((zone) => renderZone(zone)));
   $('mobile-count').textContent = `Main ${history.deck.main.length} · Extra ${history.deck.extra.length} · Side ${history.deck.side.length}`;
+  for (const zone of ZONES) $(`tab-count-${zone}`).textContent = history.deck[zone].length;
+  requestAnimationFrame(restoreMobileZoneScroll);
+}
+
+function captureMobileZoneScroll() {
+  if (!isMobileWorkspace()) return;
+  for (const zone of ZONES) {
+    const section = document.querySelector(`.zone[data-zone="${zone}"]`);
+    if (section) mobileZoneScroll[zone] = section.scrollTop;
+  }
+}
+
+function restoreMobileZoneScroll() {
+  if (!isMobileWorkspace()) return;
+  for (const zone of ZONES) {
+    const section = document.querySelector(`.zone[data-zone="${zone}"]`);
+    if (section) section.scrollTop = mobileZoneScroll[zone] || 0;
+  }
 }
 
 function renderZone(zone) {
   const section = document.createElement('section'); section.className = 'zone'; section.dataset.zone = zone;
+  section.id = `deck-zone-${zone}`; section.setAttribute('role', 'tabpanel'); section.setAttribute('aria-labelledby', `zone-tab-${zone}`);
   const header = document.createElement('header'); header.className = 'zone-header';
   const heading = document.createElement('h2'); heading.textContent = zoneLabel(zone);
   const count = document.createElement('span'); count.className = 'zone-counter';
@@ -264,7 +368,7 @@ function renderDeckCard(group, zone) {
   const card = group.instance;
   const button = document.createElement('button');
   button.type = 'button'; button.className = `card-tile${selectedInstanceId && group.instanceIds.includes(selectedInstanceId) ? ' selected' : ''}`;
-  button.draggable = true; button.dataset.instanceId = group.instanceIds[0];
+  button.draggable = true; button.dataset.instanceId = group.instanceIds[0]; button.dataset.cardIdentity = cardIdentity(card);
   button.setAttribute('aria-label', `${card.name}, ${statusLabel(card.status)}, in ${zoneLabel(zone)}${group.count > 1 ? `, ${group.count} copies` : ''}`);
   const index = history.deck[zone].findIndex((item) => item.instanceId === group.instanceIds[0]);
   if (validationIssues.has(issueKey(zone, index))) button.setAttribute('aria-invalid', 'true');
@@ -276,20 +380,26 @@ function renderDeckCard(group, zone) {
     badge.title = statusLabel(card.status); button.append(badge);
   }
   if (group.count > 1) { const quantity = document.createElement('span'); quantity.className = 'quantity'; quantity.textContent = `×${group.count}`; button.append(quantity); }
-  button.addEventListener('click', () => { selectedInstanceId = group.instanceIds[0]; selectedCard = null; render(); });
+  button.addEventListener('click', () => {
+    if (Date.now() < suppressCardClickUntil) return;
+    inspectCard(card, { instanceId: group.instanceIds[0], trigger: button, source: 'deck', zone });
+  });
   button.title = `${card.name} — drag to move; right-click to remove one copy`;
   button.addEventListener('contextmenu', (event) => {
     event.preventDefault();
+    if ((event.pointerType && event.pointerType !== 'mouse') || event.sourceCapabilities?.firesTouchEvents) return;
     removeInstance(group.instanceIds[0]);
   });
   button.addEventListener('dragstart', (event) => {
     startCardDrag(event, { instanceId: group.instanceIds[0], instanceIds: group.instanceIds });
   });
   button.addEventListener('dragend', endCardDrag);
+  wireTouchDrag(button, () => ({ instanceId: group.instanceIds[0], instanceIds: group.instanceIds }));
   return button;
 }
 
 function startCardDrag(event, source) {
+  cancelTouchDrag();
   activeDrag = source;
   event.dataTransfer.effectAllowed = source.card ? 'copy' : 'move';
   event.dataTransfer.setData('text/plain', source.card ? `library:${source.card.canonicalId}` : `instance:${source.instanceId}`);
@@ -372,18 +482,115 @@ function dropOnZone(event) {
   const position = dropPosition(grid, event.clientX, event.clientY);
   const source = activeDrag;
   endCardDrag();
-  if (source.card) addCard(source.card, zone, position.index);
-  else {
-    const found = findInstance(source.instanceId);
-    if (!found) return;
-    // The preview uses gaps in the current layout; the reducer inserts after
-    // removal. Subtract moved copies that originally precede that gap.
-    const ids = grouped && found.zone === zone ? source.instanceIds : [source.instanceId];
-    const removedBefore = found.zone === zone ? history.deck[zone].slice(0, position.index).filter((card) => ids.includes(card.instanceId)).length : 0;
-    const index = position.index - removedBefore;
-    if (ids.length > 1) dispatch({ type: 'REORDER_GROUP', zone, instanceIds: ids, index });
-    else if (found.zone !== zone || index !== found.index) moveInstance(source.instanceId, zone, index);
+  applyCardDrop(source, zone, position.index);
+}
+
+function applyCardDrop(source, zone, requestedIndex = null) {
+  if (!source || !ZONES.includes(zone)) return false;
+  if (source.card) return addCard(source.card, zone, requestedIndex, { select: !isMobileWorkspace(), feedback: isMobileWorkspace() });
+  const found = findInstance(source.instanceId);
+  if (!found) return false;
+  if (requestedIndex == null) {
+    if (found.zone !== zone) moveInstance(source.instanceId, zone);
+    return found.zone !== zone;
   }
+  // The preview uses gaps in the current layout; the reducer inserts after
+  // removal. Subtract moved copies that originally precede that gap.
+  const ids = grouped && found.zone === zone ? source.instanceIds : [source.instanceId];
+  const removedBefore = found.zone === zone ? history.deck[zone].slice(0, requestedIndex).filter((card) => ids.includes(card.instanceId)).length : 0;
+  const index = requestedIndex - removedBefore;
+  if (ids.length > 1) return dispatch({ type: 'REORDER_GROUP', zone, instanceIds: ids, index });
+  if (found.zone !== zone || index !== found.index) { moveInstance(source.instanceId, zone, index); return true; }
+  return false;
+}
+
+function wireTouchDrag(element, sourceFactory) {
+  const cancelHold = () => {
+    if (touchHold?.element !== element) return;
+    clearTimeout(touchHold.timer); touchHold = null;
+  };
+  element.addEventListener('pointerdown', (event) => {
+    if (!isMobileWorkspace() || event.pointerType === 'mouse' || event.button !== 0) return;
+    cancelTouchDrag();
+    const pending = { element, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, sourceFactory };
+    pending.timer = setTimeout(() => {
+      if (touchHold !== pending) return;
+      touchHold = null; beginTouchDrag(pending);
+    }, 460);
+    touchHold = pending;
+  }, { passive: true });
+  element.addEventListener('pointermove', (event) => {
+    if (touchHold?.element === element && touchHold.pointerId === event.pointerId) {
+      touchHold.x = event.clientX; touchHold.y = event.clientY;
+      if (Math.hypot(event.clientX - touchHold.startX, event.clientY - touchHold.startY) > 10) cancelHold();
+    }
+    if (touchDrag?.element === element && touchDrag.pointerId === event.pointerId) {
+      event.preventDefault(); updateTouchDrag(event.clientX, event.clientY);
+    }
+  }, { passive: false });
+  element.addEventListener('pointerup', (event) => {
+    cancelHold();
+    if (touchDrag?.element === element && touchDrag.pointerId === event.pointerId) {
+      event.preventDefault(); finishTouchDrag(event.clientX, event.clientY);
+    }
+  }, { passive: false });
+  element.addEventListener('pointercancel', () => { cancelHold(); cancelTouchDrag(); });
+}
+
+function beginTouchDrag(pending) {
+  const source = pending.sourceFactory();
+  if (!source) return;
+  activeDrag = source;
+  const ghost = document.createElement('div'); ghost.className = 'touch-drag-ghost';
+  const sourceCard = source.card || findInstance(source.instanceId)?.item;
+  ghost.textContent = sourceCard?.name || 'Card'; document.body.append(ghost);
+  touchDrag = { ...pending, source, ghost };
+  try { pending.element.setPointerCapture(pending.pointerId); } catch { /* Capture can be unavailable in synthetic pointer tests. */ }
+  pending.element.classList.add('dragging'); document.body.classList.add('touch-card-dragging');
+  document.querySelectorAll('[data-zone-tab]').forEach((tab) => tab.classList.toggle('drop-valid', dropAllowed(tab.dataset.zoneTab)));
+  updateTouchDrag(pending.x, pending.y);
+  navigator.vibrate?.(12);
+}
+
+function touchDropTarget(x, y) {
+  const target = document.elementFromPoint(x, y);
+  const tab = target?.closest?.('[data-zone-tab]');
+  if (tab) return { zone: tab.dataset.zoneTab, grid: null };
+  const section = target?.closest?.('.zone[data-zone]');
+  return section ? { zone: section.dataset.zone, grid: section.querySelector('.deck-grid') } : null;
+}
+
+function updateTouchDrag(x, y) {
+  if (!touchDrag) return;
+  touchDrag.x = x; touchDrag.y = y;
+  touchDrag.ghost.style.transform = `translate3d(${Math.round(x + 14)}px,${Math.round(y + 14)}px,0)`;
+  document.querySelectorAll('.touch-drop-target').forEach((element) => element.classList.remove('touch-drop-target'));
+  const target = touchDropTarget(x, y);
+  if (!target || !dropAllowed(target.zone)) return;
+  const tab = document.querySelector(`[data-zone-tab="${target.zone}"]`); tab?.classList.add('touch-drop-target');
+  target.grid?.classList.add('touch-drop-target');
+}
+
+function finishTouchDrag(x, y) {
+  if (!touchDrag) return;
+  const source = touchDrag.source;
+  const target = touchDropTarget(x, y);
+  let index = null;
+  if (target?.grid && dropAllowed(target.zone)) index = dropPosition(target.grid, x, y).index;
+  const accepted = !!target && dropAllowed(target.zone);
+  cancelTouchDrag();
+  suppressCardClickUntil = Date.now() + 550;
+  if (accepted) applyCardDrop(source, target.zone, index);
+}
+
+function cancelTouchDrag() {
+  if (touchHold) { clearTimeout(touchHold.timer); touchHold = null; }
+  if (!touchDrag) return;
+  try { touchDrag.element.releasePointerCapture(touchDrag.pointerId); } catch { /* Already released. */ }
+  touchDrag.ghost.remove(); touchDrag = null;
+  document.body.classList.remove('touch-card-dragging');
+  document.querySelectorAll('.drop-valid,.touch-drop-target').forEach((element) => element.classList.remove('drop-valid', 'touch-drop-target'));
+  endCardDrag();
 }
 
 function renderOverview() {
@@ -512,8 +719,9 @@ function applyValidation(result, snapshot) {
   renderValidation(result.verified ? (result.legal ? 'legal' : 'invalid') : 'unverified');
   renderDeck();
   renderInspector();
+  updateLibraryControls();
   if (changedVersion) { loadCatalogue(); refreshSelectedCatalogueCard(); }
-  else if (libraryChanged) renderLibrary();
+  else if (libraryChanged) renderLibrary({ preserve: true });
   $('footer-version').textContent = result.version ? `${result.version.label} · published rules` : 'Published list unavailable';
 }
 
@@ -623,7 +831,7 @@ async function loadCatalogue({ append = false } = {}) {
     $('library-state').hidden = catalogueCards.length > 0;
     $('library-state').textContent = catalogueCards.length ? '' : 'No eligible cards match these filters.';
     $('load-more').hidden = !catalogueHasMore;
-    renderLibrary();
+    renderLibrary({ preserve: append });
     renderInspector();
   } catch (error) {
     if (error.name === 'AbortError') return;
@@ -633,32 +841,79 @@ async function loadCatalogue({ append = false } = {}) {
   }
 }
 
-function renderLibrary() {
-  $('library-grid').replaceChildren(...catalogueCards.map((card) => {
-    const wrap = document.createElement('article'); wrap.className = 'library-card';
-    const inspect = document.createElement('button'); inspect.type = 'button'; inspect.draggable = true;
+function renderLibrary({ preserve = false } = {}) {
+  const grid = $('library-grid');
+  const scrollTop = preserve ? grid.scrollTop : 0;
+  const focused = preserve ? document.activeElement?.closest?.('.library-card') : null;
+  const focusedIdentity = focused?.dataset.cardIdentity || '';
+  const focusedControl = document.activeElement?.classList.contains('library-quick-add') ? 'add' : 'inspect';
+  grid.replaceChildren(...catalogueCards.map((card) => {
+    const identity = cardIdentity(card);
+    const wrap = document.createElement('article'); wrap.className = 'library-card'; wrap.dataset.cardIdentity = identity;
+    const inspect = document.createElement('button'); inspect.type = 'button'; inspect.className = 'library-inspect'; inspect.draggable = true;
     inspect.setAttribute('aria-label', `Inspect ${card.name}, ${statusLabel(card.status)}`);
     const art = document.createElement('img'); art.alt = ''; art.draggable = false; art.width = 421; art.height = 614; art.loading = 'lazy'; image(art, card);
     inspect.append(art);
     const badgeText = statusBadge(card.status);
     let badge = null;
     if (badgeText) { badge = document.createElement('span'); badge.className = `restriction-dot ${card.status}`; badge.textContent = badgeText; badge.title = statusLabel(card.status); }
+    const quantity = document.createElement('span'); quantity.className = 'library-quantity'; quantity.hidden = true; quantity.setAttribute('aria-hidden', 'true');
+    const quickAdd = document.createElement('button'); quickAdd.type = 'button'; quickAdd.className = 'library-quick-add'; quickAdd.innerHTML = '<span aria-hidden="true">＋</span>';
     inspect.title = `${card.name} — right-click: ${zoneLabel(defaultZoneFor(card))}; Shift + right-click: Side Deck; click to inspect`;
     // Handle the secondary mouse button directly so Shift works even in
     // browsers that reserve Shift + contextmenu for their native menu.
     inspect.addEventListener('pointerdown', (event) => {
-      if (event.button !== 2) return;
-      event.preventDefault();
-      addCard(card, event.shiftKey ? 'side' : defaultZoneFor(card));
+      if (event.button !== 2 || event.pointerType && event.pointerType !== 'mouse') return;
+      event.preventDefault(); addCard(card, event.shiftKey ? 'side' : defaultZoneFor(card));
     });
     inspect.addEventListener('contextmenu', (event) => event.preventDefault());
-    inspect.addEventListener('pointerenter', () => { if (!selectedInstanceId) { selectedCard = card; renderInspector(); renderProbability(); } });
-    inspect.addEventListener('focus', () => { if (!selectedInstanceId) { selectedCard = card; renderInspector(); renderProbability(); } });
-    inspect.addEventListener('click', () => { selectedCard = card; selectedInstanceId = null; render(); if (matchMedia('(max-width:767px)').matches) setMobilePanel('card'); });
+    inspect.addEventListener('pointerenter', () => {
+      if (!isMobileWorkspace() && !selectedInstanceId) { selectedCard = clone(card); renderInspector(); renderProbability(); }
+    });
+    inspect.addEventListener('focus', () => {
+      if (!isMobileWorkspace() && !selectedInstanceId) { selectedCard = clone(card); renderInspector(); renderProbability(); }
+    });
+    inspect.addEventListener('click', () => {
+      if (Date.now() < suppressCardClickUntil) return;
+      inspectCard(card, { trigger: inspect, source: 'library' });
+    });
     inspect.addEventListener('dragstart', (event) => startCardDrag(event, { card }));
     inspect.addEventListener('dragend', endCardDrag);
-    wrap.append(inspect); if (badge) wrap.append(badge); return wrap;
+    quickAdd.addEventListener('click', () => {
+      const zone = activeDeckZone === 'side' ? 'side' : defaultZoneFor(card);
+      addCard(card, zone, null, { select: false, feedback: true });
+    });
+    wireTouchDrag(inspect, () => ({ card }));
+    wrap.append(inspect); if (badge) wrap.append(badge); wrap.append(quantity, quickAdd); return wrap;
   }));
+  updateLibraryControls();
+  if (preserve) {
+    grid.scrollTop = scrollTop;
+    if (focusedIdentity) requestAnimationFrame(() => {
+      const card = [...grid.querySelectorAll('.library-card')].find((item) => item.dataset.cardIdentity === focusedIdentity);
+      card?.querySelector(focusedControl === 'add' ? '.library-quick-add' : '.library-inspect')?.focus({ preventScroll: true });
+    });
+  }
+}
+
+function updateLibraryControls() {
+  if (!history) return;
+  const cards = new Map(catalogueCards.map((card) => [cardIdentity(card), card]));
+  for (const wrap of document.querySelectorAll('.library-card[data-card-identity]')) {
+    const card = cards.get(wrap.dataset.cardIdentity);
+    if (!card) continue;
+    const quantity = instancesForCard(card).length;
+    const badge = wrap.querySelector('.library-quantity');
+    badge.hidden = quantity === 0; badge.textContent = `×${quantity}`;
+    const destination = activeDeckZone === 'side' ? 'side' : defaultZoneFor(card);
+    const reason = localIssueFor(card, destination);
+    const add = wrap.querySelector('.library-quick-add');
+    add.disabled = !!reason; add.dataset.destination = destination;
+    add.title = reason || `Add to ${zoneLabel(destination)}`;
+    add.setAttribute('aria-label', reason
+      ? `Cannot add ${card.name} to ${zoneLabel(destination)}: ${reason}`
+      : `Add ${card.name} to ${zoneLabel(destination)}. ${quantity} already in this deck.`);
+  }
 }
 
 async function renderDeckMenu() {
@@ -680,6 +935,7 @@ async function switchDeck(deck, flush = true) {
   currentDeckId = safe.id; await database.setCurrentId(safe.id);
   history = new DeckHistory(safe, 100); bindHistory();
   selectedCard = null; selectedInstanceId = null; validationResult = null; validationIssues = new Map(); resetHand();
+  if ($('card-inspector-dialog').open) closeMobileInspector();
   closeMenus(); render(); scheduleValidation(); setSaveState('saved', 'Saved on this device'); await renderDeckMenu();
 }
 
@@ -703,25 +959,26 @@ function toggleMenu(element, trigger) {
 }
 
 function closeMenus() {
-  $('deck-menu').hidden = true; $('export-menu').hidden = true;
+  $('deck-menu').hidden = true; $('export-menu').hidden = true; closeMobileZoneMenu();
   $('deck-menu-button').setAttribute('aria-expanded', 'false'); $('saved-decks-button').setAttribute('aria-expanded', 'false'); $('export-button').setAttribute('aria-expanded', 'false');
+  $('mobile-actions-button').setAttribute('aria-expanded', 'false');
 }
 
-function openSaveDeck() {
+function openSaveDeck(trigger = $('save-deck')) {
   closeMenus();
   if (!database) { showToast('Local storage is unavailable. Export a backup to keep this deck.', 'error'); return; }
   $('save-deck-name').value = history.deck.name === 'Untitled deck' ? '' : history.deck.name;
-  openDialog($('save-deck-dialog'), $('save-deck'));
+  openDialog($('save-deck-dialog'), trigger);
   $('save-deck-name').focus(); $('save-deck-name').select();
 }
 
 function openDialog(dialog, trigger = document.activeElement) {
-  dialog.dataset.triggerId = trigger?.id || ''; dialog.showModal();
+  cancelTouchDrag(); dialogTriggers.set(dialog, trigger);
+  if (!dialog.open) dialog.showModal();
 }
 
 function closeDialog(dialog) {
-  dialog.close();
-  if (dialog.dataset.triggerId) $(dialog.dataset.triggerId)?.focus();
+  if (dialog.open) dialog.close();
 }
 
 function info(title, content) {
@@ -940,16 +1197,184 @@ function renderHand() {
   $('hand-caption').textContent = hand.length ? `${hand.length} cards seen · ${handRemaining.length} remain in this shuffled sample.` : 'Ready for a new sample hand.';
 }
 
-function setMobilePanel(panel) {
-  document.body.dataset.panel = panel;
-  document.querySelectorAll('.mobile-nav button').forEach((button) => button.classList.toggle('active', button.dataset.panel === panel));
-  if (panel === 'card') renderInspector();
+function inspectCard(card, { instanceId = null, trigger = null, source = 'library', zone = null } = {}) {
+  selectedCard = clone(card); selectedInstanceId = instanceId;
+  const returnFocus = { element: trigger, identity: cardIdentity(card), source, zone };
+  render();
+  if (isMobileWorkspace()) openMobileInspector(returnFocus);
+}
+
+function moveInspectorHome() {
+  const inspector = document.querySelector('.inspector');
+  const left = document.querySelector('.left-panel');
+  if (inspector.parentElement !== left) left.insertBefore(inspector, left.querySelector('.tools-panel'));
+}
+
+function moveToolsHome() {
+  const tools = document.querySelector('.tools-panel');
+  const left = document.querySelector('.left-panel');
+  if (tools.parentElement !== left) left.append(tools);
+}
+
+function openMobileInspector(returnFocus) {
+  if (!isMobileWorkspace()) return;
+  cancelTouchDrag(); inspectorReturnFocus = returnFocus;
+  const dialog = $('card-inspector-dialog');
+  $('mobile-inspector-mount').append(document.querySelector('.inspector'));
+  if (!dialog.open) dialog.showModal();
+  dialog.querySelector('.close-button').focus({ preventScroll: true });
+}
+
+function closeMobileInspector() {
+  const dialog = $('card-inspector-dialog');
+  if (dialog.open) dialog.close(); else finishMobileInspectorClose();
+}
+
+function finishMobileInspectorClose() {
+  moveInspectorHome();
+  const target = inspectorReturnFocus;
+  inspectorReturnFocus = null;
+  requestAnimationFrame(() => {
+    if (!target) return;
+    if (target?.element?.isConnected && !target.element.disabled) { target.element.focus({ preventScroll: true }); return; }
+    const candidates = [...document.querySelectorAll('[data-card-identity]')];
+    const owner = candidates.find((item) => item.dataset.cardIdentity === target?.identity &&
+      (target.source === 'deck' ? item.classList.contains('card-tile') : item.classList.contains('library-card')));
+    const control = owner?.matches('button') ? owner : owner?.querySelector('button');
+    if (control) control.focus({ preventScroll: true }); else $('search').focus({ preventScroll: true });
+  });
+}
+
+function setToolsTab(tab) {
+  const handOpen = tab === 'hand';
+  $('overview').hidden = handOpen; $('hand-tools').hidden = !handOpen;
+  $('overview-tab').classList.toggle('active', !handOpen); $('hand-tab').classList.toggle('active', handOpen);
+  $('overview-tab').setAttribute('aria-selected', String(!handOpen)); $('hand-tab').setAttribute('aria-selected', String(handOpen));
+  $('overview-tab').tabIndex = handOpen ? -1 : 0; $('hand-tab').tabIndex = handOpen ? 0 : -1;
+  $('mobile-tools-title').textContent = handOpen ? 'Test hand' : 'Overview & probability';
+}
+
+function openMobileTools(tab = 'overview') {
+  if (!isMobileWorkspace()) return;
+  cancelTouchDrag(); setToolsTab(tab);
+  const dialog = $('mobile-tools-dialog');
+  $('mobile-tools-mount').append(document.querySelector('.tools-panel'));
+  if (!dialog.open) dialog.showModal();
+  dialog.querySelector('.close-button').focus({ preventScroll: true });
+}
+
+function finishMobileToolsClose() { moveToolsHome(); }
+
+function setActiveDeckZone(zone, { focus = false } = {}) {
+  if (!ZONES.includes(zone) || zone === activeDeckZone && !focus) return;
+  const current = document.querySelector(`.zone[data-zone="${activeDeckZone}"]`);
+  if (current) mobileZoneScroll[activeDeckZone] = current.scrollTop;
+  activeDeckZone = zone; document.body.dataset.deckZone = zone;
+  renderMobileChrome(); updateLibraryControls();
+  requestAnimationFrame(() => {
+    const section = document.querySelector(`.zone[data-zone="${zone}"]`);
+    if (section) section.scrollTop = mobileZoneScroll[zone] || 0;
+    if (focus) $(`zone-tab-${zone}`).focus();
+  });
+  closeMobileZoneMenu();
+}
+
+function renderMobileChrome() {
+  document.body.dataset.deckZone = activeDeckZone;
+  for (const zone of ZONES) {
+    const tab = $(`zone-tab-${zone}`); const active = zone === activeDeckZone;
+    tab.classList.toggle('active', active); tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1;
+    $(`tab-count-${zone}`).textContent = history.deck[zone].length;
+  }
+  $('mobile-zone-menu-title').textContent = zoneLabel(activeDeckZone);
+  $('mobile-clear-zone').disabled = history.deck[activeDeckZone].length === 0;
+  $('mobile-copies-view').setAttribute('aria-checked', String(!grouped));
+  $('mobile-grouped-view').setAttribute('aria-checked', String(grouped));
+  document.querySelector('[data-mobile-command="redo"]').disabled = !history.future.length;
+}
+
+function toggleMobileZoneMenu() {
+  const menu = $('mobile-zone-menu'); const button = $('mobile-zone-menu-button');
+  const open = menu.hidden; closeMenus(); menu.hidden = !open; button.setAttribute('aria-expanded', String(open));
+  if (open) menu.querySelector('button:not(:disabled)')?.focus();
+}
+
+function closeMobileZoneMenu() {
+  $('mobile-zone-menu').hidden = true; $('mobile-zone-menu-button').setAttribute('aria-expanded', 'false');
+}
+
+function setGroupedView(value) {
+  grouped = !!value;
+  $('copies-view').classList.toggle('active', !grouped); $('grouped-view').classList.toggle('active', grouped);
+  $('mobile-copies-view').setAttribute('aria-checked', String(!grouped)); $('mobile-grouped-view').setAttribute('aria-checked', String(grouped));
+  renderDeck(); closeMobileZoneMenu();
+}
+
+function undoDeck() {
+  if (history.undo()) { resetHand(); render(); scheduleSave(); scheduleValidation(); return true; }
+  return false;
+}
+
+function redoDeck() {
+  if (history.redo()) { resetHand(); render(); scheduleSave(); scheduleValidation(); return true; }
+  return false;
+}
+
+function showKeyboardHelp() {
+  const list = document.createElement('ul');
+  ['/ — focus card search', 'Ctrl/⌘ + Z — undo', 'Ctrl/⌘ + Shift + Z or Ctrl/⌘ + Y — redo', 'Delete — remove the selected deck copy', 'Alt + ← / → — reorder the selected copy', 'Escape — close a menu or dialog']
+    .forEach((text) => { const item = document.createElement('li'); item.textContent = text; list.append(item); });
+  info('Keyboard controls', list);
+}
+
+function openImport(trigger = $('import-button')) {
+  importTrigger = trigger; resetImport(); openDialog($('import-dialog'), trigger);
+}
+
+function syncMobileViewport() {
+  const viewportHeight = window.visualViewport?.height || window.innerHeight;
+  document.documentElement.style.setProperty('--mobile-viewport-height', `${Math.round(viewportHeight)}px`);
+  const keyboardInset = window.innerHeight - viewportHeight;
+  const searchFocused = document.activeElement === $('search');
+  document.body.classList.toggle('search-keyboard-open', isMobileWorkspace() && searchFocused && keyboardInset > 120);
+}
+
+function handleWorkspaceResize() {
+  cancelTouchDrag(); syncMobileViewport();
+  if (!isMobileWorkspace()) {
+    if ($('card-inspector-dialog').open) $('card-inspector-dialog').close(); else moveInspectorHome();
+    if ($('mobile-tools-dialog').open) $('mobile-tools-dialog').close(); else moveToolsHome();
+    if ($('mobile-actions-dialog').open) $('mobile-actions-dialog').close();
+    document.body.classList.remove('search-keyboard-open');
+  }
+}
+
+async function runMobileCommand(command) {
+  const actions = $('mobile-actions-dialog');
+  if (actions.open) actions.close();
+  const trigger = $('mobile-actions-button');
+  if (command === 'save') { openSaveDeck(trigger); return; }
+  if (command === 'saved') {
+    await renderDeckMenu(); toggleMenu($('deck-menu'), trigger);
+    requestAnimationFrame(() => $('deck-menu').querySelector('button:not(:disabled)')?.focus()); return;
+  }
+  if (command === 'new') { $('new-deck').click(); return; }
+  if (command === 'rename') { $('rename-deck').click(); return; }
+  if (command === 'duplicate') { $('duplicate-deck').click(); return; }
+  if (command === 'delete') { $('delete-deck').click(); return; }
+  if (command === 'redo') { redoDeck(); return; }
+  if (command === 'import') { openImport(trigger); return; }
+  if (command === 'export') { toggleMenu($('export-menu'), trigger); requestAnimationFrame(() => $('export-menu').querySelector('button')?.focus()); return; }
+  if (command === 'overview') { openMobileTools('overview'); return; }
+  if (command === 'hand') { openMobileTools('hand'); return; }
+  if (command === 'groups') { renderGroupsDialog(); openDialog($('groups-dialog'), trigger); return; }
+  if (command === 'validation') validationDetails();
 }
 
 function wireEvents() {
   $('deck-menu-button').addEventListener('click', () => toggleMenu($('deck-menu'), $('deck-menu-button')));
   $('saved-decks-button').addEventListener('click', () => toggleMenu($('deck-menu'), $('saved-decks-button')));
-  $('save-deck').addEventListener('click', openSaveDeck);
+  $('save-deck').addEventListener('click', (event) => openSaveDeck(event.currentTarget));
   $('cancel-save-deck').addEventListener('click', () => closeDialog($('save-deck-dialog')));
   $('save-deck-form').addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -967,7 +1392,9 @@ function wireEvents() {
   });
   $('export-button').addEventListener('click', () => toggleMenu($('export-menu'), $('export-button')));
   document.addEventListener('click', (event) => {
-    if (!$('deck-menu').contains(event.target) && !$('deck-menu-button').contains(event.target) && !$('saved-decks-button').contains(event.target) && !$('export-menu').contains(event.target) && !$('export-button').contains(event.target)) closeMenus();
+    if (!$('deck-menu').contains(event.target) && !$('deck-menu-button').contains(event.target) && !$('saved-decks-button').contains(event.target) &&
+      !$('export-menu').contains(event.target) && !$('export-button').contains(event.target) && !$('mobile-actions-button').contains(event.target) &&
+      !$('mobile-zone-menu').contains(event.target) && !$('mobile-zone-menu-button').contains(event.target)) closeMenus();
   });
   $('new-deck').addEventListener('click', () => createDeck());
   $('duplicate-deck').addEventListener('click', async () => {
@@ -984,10 +1411,10 @@ function wireEvents() {
     const id = history.deck.id; await database.delete(id); const decks = await database.list();
     if (decks.length) await switchDeck(decks[0], false); else await createDeck('Untitled deck', { flush: false }); showToast('Local deck deleted.');
   });
-  $('undo').addEventListener('click', () => { if (history.undo()) { resetHand(); render(); scheduleSave(); scheduleValidation(); } });
-  $('redo').addEventListener('click', () => { if (history.redo()) { resetHand(); render(); scheduleSave(); scheduleValidation(); } });
-  $('copies-view').addEventListener('click', () => { grouped = false; $('copies-view').classList.add('active'); $('grouped-view').classList.remove('active'); renderDeck(); });
-  $('grouped-view').addEventListener('click', () => { grouped = true; $('grouped-view').classList.add('active'); $('copies-view').classList.remove('active'); renderDeck(); });
+  $('undo').addEventListener('click', undoDeck); $('inspector-undo').addEventListener('click', undoDeck);
+  $('redo').addEventListener('click', redoDeck);
+  $('copies-view').addEventListener('click', () => setGroupedView(false));
+  $('grouped-view').addEventListener('click', () => setGroupedView(true));
   $('add-auto').addEventListener('click', () => { const card = selectedSource(); if (card) addCard(card); });
   $('add-side').addEventListener('click', () => { const card = selectedSource(); if (card) addCard(card, 'side'); });
   $('remove-selected').addEventListener('click', removeSelected);
@@ -995,6 +1422,23 @@ function wireEvents() {
   $('move-selected').addEventListener('click', () => { const found = findInstance(selectedInstanceId); if (found) moveInstance(found.item.instanceId, found.zone === 'side' ? found.item.placement : 'side'); });
   $('move-left').addEventListener('click', () => { const found = findInstance(selectedInstanceId); if (found) dispatch({ type: 'REORDER_INSTANCE', instanceId: found.item.instanceId, index: found.index - 1 }); });
   $('move-right').addEventListener('click', () => { const found = findInstance(selectedInstanceId); if (found) dispatch({ type: 'REORDER_INSTANCE', instanceId: found.item.instanceId, index: found.index + 1 }); });
+  document.querySelectorAll('[data-zone-tab]').forEach((tab) => tab.addEventListener('click', () => setActiveDeckZone(tab.dataset.zoneTab)));
+  $('mobile-zone-tabs').addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const current = ZONES.indexOf(activeDeckZone);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? ZONES.length - 1 :
+      (current + (event.key === 'ArrowRight' ? 1 : -1) + ZONES.length) % ZONES.length;
+    setActiveDeckZone(ZONES[next], { focus: true });
+  });
+  $('mobile-zone-menu-button').addEventListener('click', toggleMobileZoneMenu);
+  $('mobile-copies-view').addEventListener('click', () => setGroupedView(false));
+  $('mobile-grouped-view').addEventListener('click', () => setGroupedView(true));
+  $('mobile-sort-zone').addEventListener('click', () => { dispatch({ type: 'SORT_ZONE', zone: activeDeckZone }); closeMobileZoneMenu(); });
+  $('mobile-clear-zone').addEventListener('click', () => {
+    if (history.deck[activeDeckZone].length && confirm(`Remove every card from ${zoneLabel(activeDeckZone)}?`)) dispatch({ type: 'CLEAR_ZONE', zone: activeDeckZone });
+    closeMobileZoneMenu();
+  });
   $('zoom').addEventListener('click', () => { const card = selectedSource(); if (!card) return; image($('art-dialog-image'), card, 'full'); $('art-dialog-image').alt = `${card.name} card artwork`; openDialog($('art-dialog'), $('zoom')); });
   const catalogueDebounce = delay(() => loadCatalogue(), 220);
   $('search').addEventListener('input', catalogueDebounce);
@@ -1015,23 +1459,22 @@ function wireEvents() {
     dispatch({ type: 'SET_GROUPS', groups }); $('group-name').value = ''; renderGroupsDialog();
   });
   $('close-groups').addEventListener('click', () => closeDialog($('groups-dialog')));
-  $('overview-tab').addEventListener('click', () => { $('overview').hidden = false; $('hand-tools').hidden = true; $('overview-tab').classList.add('active'); $('hand-tab').classList.remove('active'); });
-  $('hand-tab').addEventListener('click', () => { $('overview').hidden = true; $('hand-tools').hidden = false; $('overview-tab').classList.remove('active'); $('hand-tab').classList.add('active'); });
+  $('overview-tab').addEventListener('click', () => setToolsTab('overview'));
+  $('hand-tab').addEventListener('click', () => setToolsTab('hand'));
   $('draw-hand').addEventListener('click', drawOpeningHand); $('draw-one').addEventListener('click', drawOne); $('reset-hand').addEventListener('click', resetHand);
-  document.querySelectorAll('.mobile-nav button').forEach((button) => button.addEventListener('click', () => setMobilePanel(button.dataset.panel)));
-  $('keyboard-help').addEventListener('click', () => {
-    const list = document.createElement('ul'); ['/ — focus card search', 'Ctrl/⌘ + Z — undo', 'Ctrl/⌘ + Shift + Z or Ctrl/⌘ + Y — redo', 'Delete — remove the selected deck copy', 'Alt + ← / → — reorder the selected copy', 'Escape — close a menu or dialog'].forEach((text) => { const item = document.createElement('li'); item.textContent = text; list.append(item); }); info('Keyboard controls', list);
-  });
+  $('mobile-actions-button').addEventListener('click', () => openDialog($('mobile-actions-dialog'), $('mobile-actions-button')));
+  document.querySelectorAll('[data-mobile-command]').forEach((button) => button.addEventListener('click', () => runMobileCommand(button.dataset.mobileCommand)));
+  $('keyboard-help').addEventListener('click', showKeyboardHelp);
   document.addEventListener('keydown', (event) => {
     const editing = /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) || event.target.isContentEditable;
     if (!editing && event.key === '/') { event.preventDefault(); $('search').focus(); }
-    if (!editing && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); (event.shiftKey ? $('redo') : $('undo')).click(); }
-    if (!editing && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') { event.preventDefault(); $('redo').click(); }
+    if (!editing && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); (event.shiftKey ? redoDeck : undoDeck)(); }
+    if (!editing && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') { event.preventDefault(); redoDeck(); }
     if (!editing && event.key === 'Delete' && selectedInstanceId) { event.preventDefault(); removeSelected(); }
     if (!editing && event.altKey && ['ArrowLeft', 'ArrowRight'].includes(event.key) && selectedInstanceId) { event.preventDefault(); (event.key === 'ArrowLeft' ? $('move-left') : $('move-right')).click(); }
     if (event.key === 'Escape') closeMenus();
   });
-  $('import-button').addEventListener('click', () => { importTrigger = $('import-button'); resetImport(); openDialog($('import-dialog'), importTrigger); });
+  $('import-button').addEventListener('click', (event) => openImport(event.currentTarget));
   $('cancel-import').addEventListener('click', () => closeDialog($('import-dialog')));
   for (const tab of ['file', 'paste', 'backup']) $(`${tab}-tab`).addEventListener('click', () => setImportTab(tab));
   $('choose-file').addEventListener('click', () => $('file-input').click());
@@ -1050,6 +1493,17 @@ function wireEvents() {
       setSaveState('error', 'Newer revision saved in another tab'); showToast('This deck changed in another tab. Your next edit will be preserved as a conflict copy.', 'warning');
     }
   });
+  $('card-inspector-dialog').addEventListener('close', finishMobileInspectorClose);
+  $('mobile-tools-dialog').addEventListener('close', () => { finishMobileToolsClose(); $('mobile-actions-button').focus({ preventScroll: true }); });
+  document.querySelectorAll('dialog:not(#card-inspector-dialog):not(#mobile-tools-dialog)').forEach((dialog) => dialog.addEventListener('close', () => {
+    const trigger = dialogTriggers.get(dialog); dialogTriggers.delete(dialog);
+    if (trigger?.isConnected && !trigger.disabled) requestAnimationFrame(() => trigger.focus({ preventScroll: true }));
+  }));
+  $('search').addEventListener('focus', syncMobileViewport);
+  $('search').addEventListener('blur', () => setTimeout(syncMobileViewport, 80));
+  window.visualViewport?.addEventListener('resize', syncMobileViewport);
+  window.visualViewport?.addEventListener('scroll', syncMobileViewport);
+  window.addEventListener('resize', handleWorkspaceResize);
   window.addEventListener('beforeunload', () => { if (saveTimer) saveNow(); });
   window.addEventListener('focus', checkPublishedRules);
   window.addEventListener('pageshow', checkPublishedRules);
@@ -1067,12 +1521,12 @@ async function start() {
     const deck = decks.find((item) => item.id === currentId) || decks[0] || newDeck();
     if (!decks.length) await database.save(deck, { force: true });
     currentDeckId = deck.id; await database.setCurrentId(deck.id);
-    history = new DeckHistory(sanitiseDeck(deck), 100); bindHistory(); wireEvents(); render();
+    history = new DeckHistory(sanitiseDeck(deck), 100); bindHistory(); wireEvents(); syncMobileViewport(); render();
     setSaveState('saved', 'Saved on this device'); renderDeckMenu(); scheduleValidation(); loadCatalogue();
   } catch (error) {
     setSaveState('error', 'Could not open local storage');
     history = new DeckHistory(newDeck(), 100); database = null;
-    wireEvents(); render(); scheduleValidation(); loadCatalogue();
+    wireEvents(); syncMobileViewport(); render(); scheduleValidation(); loadCatalogue();
     showToast(`${error.message} Deck editing remains available in memory; export before leaving.`, 'error');
   }
 }
