@@ -368,6 +368,7 @@ try {
     if (width < 768) {
       assert(layout.library && layout.deck && layout.actions && !layout.save, `${width}px should show the split workspace and compact action menu`);
       assert(await evaluate(`['deck-menu-button','undo','mobile-actions-button'].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.width>=40&&r.left>=0&&r.right<=innerWidth;})`), 'Compact mobile header controls should stay reachable');
+      assert(await evaluate(`document.querySelector('#mobile-grouped-view').getAttribute('aria-checked')==='true' && document.querySelector('#mobile-copies-view').getAttribute('aria-checked')==='false'`), `${width}px should default the deck to grouped stacks`);
       assert(layout.libraryCardWidth > 0 && layout.libraryCardWidth <= 56, `${width}px catalogue cards should use the compact phone footprint`);
       assert.equal(layout.loadMoreOverlapsCard, false, 'Load more must not cover catalogue cards or their add controls');
       assert(['auto', 'scroll'].includes(layout.libraryOverflow), 'Catalogue results should own the library scroll region');
@@ -428,7 +429,9 @@ try {
   await click('#zone-tab-main');
   await click('.library-card .library-quick-add');
   await waitFor(`document.querySelector('#count-main').textContent===${JSON.stringify(String(beforeMobile.main + 2))}`, 'Main quick add uses legal default destination');
-  await click('#mobile-zone-menu-button'); await click('#mobile-grouped-view');
+  assert.equal(await evaluate(`document.querySelector('#mobile-grouped-view').getAttribute('aria-checked')`), 'true', 'Grouped stacks remain the mobile default');
+  assert.equal(await evaluate(`[...document.querySelectorAll('.zone[data-zone="main"] .card-tile')].find(e=>e.dataset.cardIdentity===${JSON.stringify(inspectedIdentity)})?.querySelector('.quantity')?.textContent`), '×2', 'Matching mobile deck cards collapse into one quantity stack');
+  await screenshot('deckbuilder-mobile-grouped.png');
   await evaluate(`[...document.querySelectorAll('.card-tile')].find(e=>e.dataset.cardIdentity===${JSON.stringify(inspectedIdentity)}).click()`);
   await waitFor(`document.querySelector('#card-inspector-dialog').open`, 'grouped deck card opens shared inspector');
   const groupedBefore = (await counts()).main;

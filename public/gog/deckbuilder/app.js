@@ -25,7 +25,9 @@ let history;
 let currentDeckId = null;
 let selectedCard = null;
 let selectedInstanceId = null;
-let grouped = false;
+const deckViewPreferences = { desktop: false, mobile: true };
+let deckViewContext = isMobileWorkspace() ? 'mobile' : 'desktop';
+let grouped = deckViewPreferences[deckViewContext];
 let saveTimer = 0;
 let validationTimer = 0;
 let validationSequence = 0;
@@ -1290,8 +1292,7 @@ function renderMobileChrome() {
   }
   $('mobile-zone-menu-title').textContent = zoneLabel(activeDeckZone);
   $('mobile-clear-zone').disabled = history.deck[activeDeckZone].length === 0;
-  $('mobile-copies-view').setAttribute('aria-checked', String(!grouped));
-  $('mobile-grouped-view').setAttribute('aria-checked', String(grouped));
+  syncGroupedViewControls();
   document.querySelector('[data-mobile-command="redo"]').disabled = !history.future.length;
 }
 
@@ -1305,11 +1306,25 @@ function closeMobileZoneMenu() {
   $('mobile-zone-menu').hidden = true; $('mobile-zone-menu-button').setAttribute('aria-expanded', 'false');
 }
 
-function setGroupedView(value) {
-  grouped = !!value;
+function syncGroupedViewControls() {
   $('copies-view').classList.toggle('active', !grouped); $('grouped-view').classList.toggle('active', grouped);
   $('mobile-copies-view').setAttribute('aria-checked', String(!grouped)); $('mobile-grouped-view').setAttribute('aria-checked', String(grouped));
+}
+
+function setGroupedView(value) {
+  grouped = !!value;
+  deckViewPreferences[deckViewContext] = grouped;
+  syncGroupedViewControls();
   renderDeck(); closeMobileZoneMenu();
+}
+
+function syncResponsiveDeckView() {
+  const nextContext = isMobileWorkspace() ? 'mobile' : 'desktop';
+  if (nextContext === deckViewContext) return;
+  deckViewContext = nextContext;
+  grouped = deckViewPreferences[deckViewContext];
+  syncGroupedViewControls();
+  if (history) renderDeck();
 }
 
 function undoDeck() {
@@ -1342,7 +1357,7 @@ function syncMobileViewport() {
 }
 
 function handleWorkspaceResize() {
-  cancelTouchDrag(); syncMobileViewport();
+  cancelTouchDrag(); syncMobileViewport(); syncResponsiveDeckView();
   if (!isMobileWorkspace()) {
     if ($('card-inspector-dialog').open) $('card-inspector-dialog').close(); else moveInspectorHome();
     if ($('mobile-tools-dialog').open) $('mobile-tools-dialog').close(); else moveToolsHome();
