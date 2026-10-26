@@ -311,6 +311,8 @@ function renderDeck() {
   if (activeDrag) { deckRenderPending = true; return; }
   deckRenderPending = false;
   captureMobileZoneScroll();
+  const totalCards = ZONES.reduce((sum, zone) => sum + history.deck[zone].length, 0);
+  document.body.classList.toggle('deck-is-empty', totalCards === 0);
   const container = $('deck-zones');
   container.replaceChildren(...ZONES.map((zone) => renderZone(zone)));
   $('mobile-count').textContent = `Main ${history.deck.main.length} · Extra ${history.deck.extra.length} · Side ${history.deck.side.length}`;
@@ -356,7 +358,7 @@ function renderZone(zone) {
   const displays = grouped ? groupedCards(history.deck[zone]) : history.deck[zone].map((instance) => ({ instance, count: 1, instanceIds: [instance.instanceId] }));
   if (!displays.length) {
     const empty = document.createElement('p'); empty.className = 'empty-zone';
-    empty.innerHTML = `<strong>${zoneLabel(zone)} is empty</strong><span>Add from the library or drop a card here.</span>`;
+    empty.innerHTML = `<strong>${zoneLabel(zone)} is empty</strong><span>Add a card from the library above.</span>`;
     grid.append(empty);
   } else displays.forEach((group) => grid.append(renderDeckCard(group, zone)));
   const marker = document.createElement('span'); marker.className = 'drop-insertion-line'; marker.hidden = true; marker.setAttribute('aria-hidden', 'true');
@@ -843,7 +845,8 @@ async function loadCatalogue({ append = false } = {}) {
 
 function renderLibrary({ preserve = false } = {}) {
   const grid = $('library-grid');
-  const scrollTop = preserve ? grid.scrollTop : 0;
+  const scroller = $('library-results-scroll') || grid;
+  const scrollTop = preserve ? scroller.scrollTop : 0;
   const focused = preserve ? document.activeElement?.closest?.('.library-card') : null;
   const focusedIdentity = focused?.dataset.cardIdentity || '';
   const focusedControl = document.activeElement?.classList.contains('library-quick-add') ? 'add' : 'inspect';
@@ -883,12 +886,11 @@ function renderLibrary({ preserve = false } = {}) {
       const zone = activeDeckZone === 'side' ? 'side' : defaultZoneFor(card);
       addCard(card, zone, null, { select: false, feedback: true });
     });
-    wireTouchDrag(inspect, () => ({ card }));
     wrap.append(inspect); if (badge) wrap.append(badge); wrap.append(quantity, quickAdd); return wrap;
   }));
   updateLibraryControls();
   if (preserve) {
-    grid.scrollTop = scrollTop;
+    scroller.scrollTop = scrollTop;
     if (focusedIdentity) requestAnimationFrame(() => {
       const card = [...grid.querySelectorAll('.library-card')].find((item) => item.dataset.cardIdentity === focusedIdentity);
       card?.querySelector(focusedControl === 'add' ? '.library-quick-add' : '.library-inspect')?.focus({ preventScroll: true });

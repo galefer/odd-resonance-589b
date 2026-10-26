@@ -141,8 +141,8 @@ async function rightClick(selector, shift = false) {
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...at, button: 'right', buttons: 0, clickCount: 1, modifiers: shift ? 8 : 0 });
 }
 
-async function touchDrag(source, target, { hold = 520 } = {}) {
-  const from = await point(source), to = await point(target);
+async function touchDrag(source, target, { hold = 520, sourceY = .2 } = {}) {
+  const from = await evaluate(`(() => {const r=document.querySelector(${JSON.stringify(source)}).getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height*${sourceY}}})()`), to = await point(target);
   const touch = (x, y) => ({ x, y, id: 0, radiusX: 3, radiusY: 3, force: .8 });
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [touch(from.x, from.y)] });
   await sleep(hold);
@@ -181,6 +181,7 @@ try {
   await waitFor(`document.querySelector('#deck-menu-list button')?.dataset.deckId!==${JSON.stringify(originalEmptyId)} && document.querySelector('#deck-menu-list button')`, 'last deck deletion creates fresh empty deck');
   await sleep(350);
   assert.equal(await evaluate(`document.querySelectorAll('#deck-menu-list button').length`), 1, 'Deleted last deck must not be saved again');
+  assert(await evaluate(`document.body.classList.contains('deck-is-empty') && document.querySelector('.empty-zone span').textContent==='Add a card from the library above.'`), 'Empty decks use neutral mobile-first guidance instead of drag-only wording');
 
   assert.equal(await evaluate(`document.querySelector('.quick-add')`), null, 'Library hover add controls should be removed');
   await dragCard('.library-card img', '.deck-grid[data-zone="main"]', 'copy');
@@ -217,7 +218,7 @@ try {
   // Use distinct cards across two rows to verify marker geometry and real order.
   const mainFixtureCards = await evaluate(`[...document.querySelectorAll('.library-card')].map((e,i)=>({index:i+1,main:e.querySelector('button').title.includes('right-click: Main Deck'),forbidden:!!e.querySelector('.restriction-dot.forbidden')})).filter(e=>e.main&&!e.forbidden).slice(1,10).map(e=>e.index)`);
   for (const n of mainFixtureCards) await rightClick(`.library-card:nth-child(${n}) img`);
-  await evaluate(`document.querySelector('.library-grid').scrollTop=0; window.scrollTo(0,0);`);
+  await evaluate(`document.querySelector('#library-results-scroll').scrollTop=0; window.scrollTo(0,0);`);
   const mainTile = (n) => `.deck-grid[data-zone="main"] .card-tile:nth-child(${n})`;
   const mainOrder = () => evaluate(`[...document.querySelectorAll('.deck-grid[data-zone="main"] .card-tile')].map(e=>e.dataset.instanceId)`);
   const originalOrder = await mainOrder();
@@ -361,19 +362,21 @@ try {
   for (const width of [320, 390, 430, 767, 768, 1179, 1180, 1440, 1920, 2048]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height: width < 768 ? 844 : 900, deviceScaleFactor: 1, mobile: width < 768 });
     await sleep(180);
-    const layout = await evaluate(`(() => {const visible=e=>{const r=e.getBoundingClientRect();return getComputedStyle(e).display!=='none'&&r.width>0&&r.height>0},tracks=e=>getComputedStyle(e).gridTemplateColumns.split(' ').filter(Boolean).length,card=document.querySelector('.library-card');return {width:innerWidth,scrollWidth:document.documentElement.scrollWidth,workspace:getComputedStyle(document.querySelector('.workspace')).display,oldNav:document.querySelector('.mobile-nav'),library:visible(document.querySelector('.library-panel')),deck:visible(document.querySelector('.deck-canvas')),actions:visible(document.querySelector('#mobile-actions-button')),save:visible(document.querySelector('#save-deck')),libraryColumns:tracks(document.querySelector('.library-grid')),deckColumns:tracks(document.querySelector('.deck-grid')),libraryCardWidth:card?.getBoundingClientRect().width||0}})()`);
+    const layout = await evaluate(`(() => {const visible=e=>{const r=e.getBoundingClientRect();return getComputedStyle(e).display!=='none'&&r.width>0&&r.height>0},tracks=e=>getComputedStyle(e).gridTemplateColumns.split(' ').filter(Boolean).length,card=document.querySelector('.library-card'),libraryPanel=document.querySelector('.library-panel').getBoundingClientRect(),deckPanel=document.querySelector('.deck-canvas').getBoundingClientRect(),load=document.querySelector('#load-more').getBoundingClientRect(),cards=[...document.querySelectorAll('.library-card')].map(e=>e.getBoundingClientRect()),overlap=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;return {width:innerWidth,scrollWidth:document.documentElement.scrollWidth,workspace:getComputedStyle(document.querySelector('.workspace')).display,oldNav:document.querySelector('.mobile-nav'),library:visible(document.querySelector('.library-panel')),deck:visible(document.querySelector('.deck-canvas')),actions:visible(document.querySelector('#mobile-actions-button')),save:visible(document.querySelector('#save-deck')),libraryColumns:tracks(document.querySelector('.library-grid')),deckColumns:tracks(document.querySelector('.deck-grid')),libraryCardWidth:card?.getBoundingClientRect().width||0,libraryHeight:libraryPanel.height,deckHeight:deckPanel.height,loadMoreOverlapsCard:cards.some(cardRect=>overlap(load,cardRect)),libraryOverflow:getComputedStyle(document.querySelector('#library-results-scroll')).overflowY}})()`);
     assert(layout.scrollWidth <= layout.width + 1, `${width}px horizontal overflow: ${layout.scrollWidth-layout.width}`);
     assert.equal(layout.oldNav, null, 'The retired Deck / Library / Card / Tools navigation should not remain');
     if (width < 768) {
       assert(layout.library && layout.deck && layout.actions && !layout.save, `${width}px should show the split workspace and compact action menu`);
       assert(await evaluate(`['deck-menu-button','undo','mobile-actions-button'].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.width>=40&&r.left>=0&&r.right<=innerWidth;})`), 'Compact mobile header controls should stay reachable');
-      assert(layout.libraryCardWidth > 0 && layout.libraryCardWidth <= 80, `${width}px catalogue cards should remain compact`);
+      assert(layout.libraryCardWidth > 0 && layout.libraryCardWidth <= 56, `${width}px catalogue cards should use the compact phone footprint`);
+      assert.equal(layout.loadMoreOverlapsCard, false, 'Load more must not cover catalogue cards or their add controls');
+      assert(['auto', 'scroll'].includes(layout.libraryOverflow), 'Catalogue results should own the library scroll region');
     } else {
       assert(layout.save, `${width}px should retain the desktop/tablet save controls`);
     }
-    if (width === 320) assert.equal(layout.libraryColumns, 4, 'The narrowest phone should retain four readable catalogue columns');
-    if (width === 390) assert.equal(layout.libraryColumns, 5, 'A typical phone should show five compact catalogue columns');
-    if (width === 767) assert(layout.libraryColumns >= 9 && layout.deckColumns >= 9, 'Wide mobile layouts should add columns instead of stretching cards');
+    if (width === 320) assert.equal(layout.libraryColumns, 6, 'The narrowest phone should show six compact catalogue columns');
+    if (width === 390) assert(layout.libraryColumns === 7 && layout.libraryHeight > layout.deckHeight, 'A typical phone should show seven compact columns and prioritize the library');
+    if (width === 767) assert(layout.libraryColumns >= 14 && layout.deckColumns >= 14, 'Wide mobile layouts should add columns instead of stretching cards');
     if (width >= 1180) assert(await evaluate(`document.querySelector('.workspace').getBoundingClientRect().width >= innerWidth-20`), 'Workspace should use the available width');
     if (width === 390) deckMobileHeader = await evaluate(`(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()`);
     if (width === 2048) await screenshot('deckbuilder-2048.png');
@@ -384,7 +387,7 @@ try {
   await sleep(180);
   const landscape = await evaluate(`(() => {const w=document.querySelector('.workspace').getBoundingClientRect(),l=document.querySelector('.library-panel').getBoundingClientRect(),d=document.querySelector('.deck-canvas').getBoundingClientRect(),s=document.querySelector('.search-box').getBoundingClientRect(),f=document.querySelector('.library-filters').getBoundingClientRect(),m=document.querySelector('#load-more').getBoundingClientRect(),tracks=e=>getComputedStyle(e).gridTemplateColumns.split(' ').filter(Boolean).length;return {overflow:document.documentElement.scrollWidth-innerWidth,header:getComputedStyle(document.querySelector('.gog-site-header')).display,workspace:w.height,library:l.height,deck:d.height,libraryColumns:tracks(document.querySelector('.library-grid')),deckColumns:tracks(document.querySelector('.deck-grid')),controlsDelta:Math.abs(s.top-f.top),loadMoreWidth:m.width}})()`);
   assert(landscape.overflow <= 1 && landscape.header === 'none' && landscape.library > 80 && landscape.deck > 80, 'Short landscape keeps both panes usable and removes nonessential site chrome');
-  assert(landscape.libraryColumns >= 9 && landscape.deckColumns >= 9 && landscape.controlsDelta <= 1 && landscape.loadMoreWidth <= 120, 'Landscape keeps cards compact and places catalogue controls on one row');
+  assert(landscape.libraryColumns >= 13 && landscape.deckColumns >= 13 && landscape.controlsDelta <= 1 && landscape.loadMoreWidth <= 120, 'Landscape keeps cards compact and places catalogue controls on one row');
   await screenshot('deckbuilder-mobile-landscape.png');
   evidence.checks.push('740×390 short landscape split workspace');
 
@@ -398,12 +401,6 @@ try {
   await sleep(180);
   assert.deepEqual(await counts(), beforeMobile, 'An ordinary card-list swipe scrolls without editing the deck');
   assert.equal(await evaluate(`document.querySelector('#card-inspector-dialog').open`), false, 'A scrolling gesture does not inspect the card');
-  await touchDrag('.library-card .library-inspect', '#zone-tab-side');
-  await waitFor(`document.querySelector('#count-side').textContent===${JSON.stringify(String(beforeMobile.side + 1))}`, 'deliberate touch hold drag to Side');
-  assert.equal(await evaluate(`document.querySelector('#card-inspector-dialog').open`), false, 'A completed touch drag does not also inspect');
-  await click('#undo');
-  await waitFor(`document.querySelector('#count-side').textContent===${JSON.stringify(String(beforeMobile.side))}`, 'undo touch drag');
-  await sleep(600);
   await click('.library-card .library-inspect');
   assert(await evaluate(`document.querySelector('#card-inspector-dialog').open`), 'Library artwork opens the shared mobile inspector');
   assert(await evaluate(`['library-panel','deck-canvas'].every(c=>document.querySelector('.'+c).getBoundingClientRect().height>0)`), 'Split workspace remains mounted behind the inspector');
@@ -459,7 +456,7 @@ try {
   assert(await evaluate(`document.querySelector('.deck-canvas').getBoundingClientRect().height >= ${normalDeckHeight - 1} && document.body.dataset.deckZone==='main'`), 'Closing the keyboard state restores the split and active section');
   await waitFor(`document.querySelector('#saved-label').textContent==='Saved on this device'`, 'saved mobile screenshot state');
   await screenshot('deckbuilder-mobile.png');
-  evidence.checks.push('mobile split workspace, shared inspector, quantity controls, touch hold drag, active-zone quick add, grouped decrement, Undo, tools and keyboard-compact state');
+  evidence.checks.push('mobile library-first workspace, shared inspector, quantity controls, active-zone quick add, grouped decrement, Undo, tools and keyboard-compact state');
 
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: `${origin}/gog/` });
