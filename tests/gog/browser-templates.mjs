@@ -157,10 +157,25 @@ try {
   await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowUp', code: 'ArrowUp', windowsVirtualKeyCode: 38 });
   const splitAfterKey = await evaluate(`({library:document.querySelector('#card-library-panel').getBoundingClientRect().height,value:Number(document.querySelector('#mobile-workspace-splitter').getAttribute('aria-valuenow')),label:document.querySelector('#mobile-workspace-splitter').getAttribute('aria-valuetext')})`);
   assert(splitAfterKey.library < splitAfterDrag.library && splitAfterKey.value < splitAfterDrag.value && /Card library/.test(splitAfterKey.label), 'Arrow keys should provide an accessible resize alternative');
+  const dragSplitterTo = async y => {
+    const point = await evaluate(`(() => {const r=document.querySelector('#mobile-workspace-splitter').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point });
+    await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', buttons: 1, clickCount: 1 });
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y, button: 'left', buttons: 1 });
+    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y, button: 'left', buttons: 0, clickCount: 1 });
+    await sleep(80);
+  };
+  const workspaceBounds = await evaluate(`(() => {const r=document.querySelector('#workspace').getBoundingClientRect();return {top:r.top,bottom:r.bottom}})()`);
+  await dragSplitterTo(workspaceBounds.top - 80);
+  const libraryCollapsed = await evaluate(`({library:document.querySelector('#card-library-panel').getBoundingClientRect().height,controls:document.querySelector('.library-filters').getBoundingClientRect().bottom-document.querySelector('#card-library-panel').getBoundingClientRect().top,results:document.querySelector('#library-results-scroll').getBoundingClientRect().height,deck:document.querySelector('#deck-workspace').getBoundingClientRect().height})`);
+  assert(libraryCollapsed.library <= libraryCollapsed.controls + 6 && libraryCollapsed.results <= 2, 'Library should collapse fully to its search and filter controls with no forced card row');
+  await dragSplitterTo(workspaceBounds.bottom + 80);
+  const deckCollapsed = await evaluate(`({deck:document.querySelector('#deck-workspace').getBoundingClientRect().height,header:document.querySelector('.mobile-deck-bar').getBoundingClientRect().height,zones:document.querySelector('#deck-zones').getBoundingClientRect().height,library:document.querySelector('#card-library-panel').getBoundingClientRect().height})`);
+  assert(deckCollapsed.deck <= deckCollapsed.header + 2 && deckCollapsed.zones <= 2, 'Deck should collapse fully to its zone-tab header');
 
   assert.deepEqual(consoleErrors, [], `No browser errors expected: ${consoleErrors.join(' | ')}`);
   assert.deepEqual(failedResponses, [], `No failed responses expected: ${failedResponses.join(' | ')}`);
-  console.log(JSON.stringify({ chrome: version.Browser, templates: 397, desktop: desktopLayout, copied, mobileOverflow, splitBefore, splitAfterDrag, splitAfterKey, checks: 'passed' }, null, 2));
+  console.log(JSON.stringify({ chrome: version.Browser, templates: 397, desktop: desktopLayout, copied, mobileOverflow, splitBefore, splitAfterDrag, splitAfterKey, libraryCollapsed, deckCollapsed, checks: 'passed' }, null, 2));
 } finally {
   socket.close(); chrome.kill(); server.close();
   await Promise.race([new Promise(done => chrome.once('exit', done)), sleep(1500)]);
