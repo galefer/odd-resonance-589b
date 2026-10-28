@@ -90,7 +90,7 @@ function typeInitial(category) {
 
 function statusBadge(status) {
   const item = STATUS[status] || STATUS.unlimited;
-  return `<span class="status-badge status-${status}">${item.label}</span>`;
+  return `<span class="status-badge status-${status}"><b>${item.copies}</b><span>${item.label}</span></span>`;
 }
 
 function houseChangeBadge(card) {
@@ -134,6 +134,7 @@ async function loadPublicData() {
   state.changes = listPayload.changes || [];
   state.config.version = listPayload.version || configPayload.version;
   applyConfig();
+  $('#feature-changes-count').textContent = state.changes.length;
   renderList();
 }
 
@@ -149,8 +150,34 @@ function applyConfig() {
   $('#version-label').textContent = version?.label || 'Foundation';
   $('#effective-date').textContent = formatDate(version?.effectiveDate);
   $('#effective-date').dateTime = version?.effectiveDate || '';
+  const cutoff = state.config?.cardPool?.cutoffDate || CARD_POOL_CUTOFF;
+  $('#pool-cutoff').textContent = formatDate(cutoff).replace(/\s(\d{4})$/, ' $1');
+  $('#pool-cutoff').dateTime = cutoff;
   $('#footer-version').textContent = `Version ${version?.label || 'Foundation'}`;
   document.title = `${settings.format_name || 'Yu-Gi-Oh! JUSH House Format'} · Guild of Games`;
+}
+
+function compactEventDate(value) {
+  if (!value) return 'View schedule';
+  const date = new Date(`${value}T12:00:00Z`);
+  return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(date);
+}
+
+function compactEventTime(value) {
+  if (!value) return '';
+  const [hour, minute] = value.split(':').map(Number);
+  const suffix = hour >= 12 ? 'pm' : 'am';
+  return `${hour % 12 || 12}:${String(minute).padStart(2, '0')}${suffix}`;
+}
+
+async function loadEventFeature() {
+  const payload = await api('/api/events');
+  const events = (payload.events || []).filter((event) => event.status !== 'cancelled');
+  const event = events.find((item) => item.slug === 'yugioh-house-friday') || events[0];
+  if (!event) return;
+  $('#next-event-date').textContent = compactEventDate(event.eventDate);
+  const time = [compactEventTime(event.startTime), compactEventTime(event.endTime)].filter(Boolean).join(' – ');
+  $('#next-event-meta').textContent = time || event.title || 'View event details';
 }
 
 function currentDataset() {
@@ -222,7 +249,10 @@ function renderCardRow(card) {
     `<small>${status.copies} ${status.copies === 1 ? 'copy' : 'copies'} maximum</small>`;
   return `
     <article class="card-row status-${card.status}${card.isHouseChange ? ' is-house-change' : ''}" data-card-name="${escapeHtml(card.name)}">
-      <div class="type-emblem ${card.category.toLowerCase()}" aria-hidden="true">${typeInitial(card.category)}</div>
+      <div class="card-thumbnail ${card.category.toLowerCase()}">
+        <img src="${cardImageUrl(card.cardId || card.id || 0)}" alt="" width="42" height="61" loading="lazy" decoding="async">
+        <span aria-hidden="true">${typeInitial(card.category)}</span>
+      </div>
       <div>
         <h3 class="card-name">${escapeHtml(smartTitle(card.name))}${houseChangeBadge(card)}</h3>
         ${note}
@@ -249,6 +279,7 @@ function updateFilterUi() {
     .concat([...state.filters.subtype].map((value) => ({ group: 'subtype', value, label: value })))
     .map((item) => `<span class="active-filter-chip">${escapeHtml(item.label)}<button type="button" data-remove-filter="${item.group}:${escapeHtml(item.value)}" aria-label="Remove ${escapeHtml(item.label)} filter">×</button></span>`)
     .join('');
+  $$('[data-rule-filter]').forEach((button) => button.setAttribute('aria-pressed', String(state.filters.status.has(button.dataset.ruleFilter))));
   updateUrl();
   renderList();
 }
@@ -289,6 +320,7 @@ function switchView(view, update = true) {
     const active = tab.dataset.view === view;
     tab.classList.toggle('active', active);
     tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
   });
   if (update) {
     updateUrl();
@@ -399,7 +431,7 @@ function populateCardDetail(card) {
   $('#detail-meta').textContent = stats.join(' · ') || `${card.category || 'Card'} · ${card.subtype || ''}`;
   $('#detail-copy-count').textContent = copies === 0 ? '0 copies permitted' : `Up to ${copies} ${copies === 1 ? 'copy' : 'copies'}`;
   $('#detail-description').textContent = card.description || 'Card text is unavailable for this card.';
-  $('#detail-image').src = card.id ? cardImageUrl(card.id) : cardImageUrl(0);
+  $('#detail-image').src = cardImageUrl(card.id || card.cardId || 0);
   $('#detail-image').alt = `${smartTitle(card.name || 'Card')} card image`;
   const noteBox = $('#detail-note');
   noteBox.hidden = !card.note;
@@ -615,6 +647,15 @@ function wireEvents() {
   }));
 
   $$('.view-tab').forEach((tab) => tab.addEventListener('click', () => switchView(tab.dataset.view)));
+  $('.view-tabs').addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const tabs = $$('.view-tab');
+    const current = Math.max(0, tabs.indexOf(document.activeElement));
+    const index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    tabs[index].focus();
+    switchView(tabs[index].dataset.view);
+  });
   $('#filter-toggle').addEventListener('click', () => {
     const panel = $('#filters-panel');
     panel.classList.toggle('open');
@@ -820,7 +861,10 @@ function wireEvents() {
 async function init() {
   wireEvents();
   restoreUrlState();
-  try { await loadPublicData(); }
+  try {
+    await loadPublicData();
+    loadEventFeature().catch(() => {});
+  }
   catch (error) {
     $('#card-list').innerHTML = `<div class="empty-state"><h3>Could not load the house-format list</h3><p>${escapeHtml(error.message)}</p></div>`;
     toast(error.message, 'error');

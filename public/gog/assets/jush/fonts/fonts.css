@@ -1,0 +1,78 @@
+/* JUSH webfonts. Original Barlow files by Jeremy Tribby; see OFL.txt.
+   Keep this stylesheet alongside the WOFF2 files, or update the relative URLs. */
+
+@font-face {
+  font-family: "Barlow";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./Barlow-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Barlow";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./Barlow-Medium.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Barlow";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./Barlow-SemiBold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Barlow";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./Barlow-Bold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./BarlowCondensed-SemiBold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./BarlowCondensed-Bold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("./BarlowCondensed-ExtraBold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: italic;
+  font-weight: 800;
+  font-display: swap;
+  src: url("./BarlowCondensed-ExtraBoldItalic.woff2") format("woff2");
+}
+
+:root {
+  --jush-font-body: "Barlow", Arial, sans-serif;
+  --jush-font-heading: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+}
+
+/* Opt-in utilities. This file does not restyle the host site's elements. */
+.jush-font-body {
+  font-family: var(--jush-font-body);
+}
+.jush-font-heading {
+  font-family: var(--jush-font-heading);
+}
+.jush-feature-number {
+  font-family: var(--jush-font-heading);
+  font-weight: 800;
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
+}

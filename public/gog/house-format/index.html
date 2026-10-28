@@ -3,29 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0b0b0c">
+  <meta name="theme-color" content="#041426">
   <meta name="description" content="Guild of Games Yu-Gi-Oh! JUSH House Format: Justice Hunters card pool, altered banlist, card search and deckbuilder.">
   <title>Yu-Gi-Oh! JUSH House Format · Guild of Games</title>
-  <link rel="icon" href="/gog/assets/guild-of-games-logo.png" type="image/png">
+  <link rel="icon" href="/gog/assets/jush/artwork/guild-of-games-logo-64.webp" type="image/webp">
+  <link rel="preload" as="image" href="/gog/assets/jush/artwork/jush-wordmark-1440.webp" imagesrcset="/gog/assets/jush/artwork/jush-wordmark-768.webp 768w, /gog/assets/jush/artwork/jush-wordmark-1440.webp 1440w, /gog/assets/jush/artwork/jush-wordmark-2172.webp 2172w" imagesizes="(max-width: 700px) 74vw, 42vw" fetchpriority="high">
+  <link rel="stylesheet" href="/gog/assets/jush/fonts/fonts.css">
   <link rel="stylesheet" href="/gog/styles.css">
-  <link rel="stylesheet" href="/gog/house-format/house-format.css">
   <link rel="stylesheet" href="/gog/site-header.css">
+  <link rel="stylesheet" href="/gog/house-format/house-format.css">
 </head>
-<body class="house-format-page">
+<body class="house-format-page jush-theme">
   <a class="skip-link" href="#main-content">Skip to card list</a>
 
   <header class="gog-site-header">
     <div class="gog-header-inner">
       <a class="gog-brand" href="/gog/" aria-label="Guild of Games home">
-        <img src="/gog/assets/guild-of-games-logo.png" alt="" width="512" height="483">
-        <span><strong id="brand-short-name">Guild of Games</strong><small id="brand-store-name">Yu-Gi-Oh! JUSH House Format</small></span>
+        <img src="/gog/assets/jush/artwork/guild-of-games-logo-128.webp" srcset="/gog/assets/jush/artwork/guild-of-games-logo-64.webp 64w, /gog/assets/jush/artwork/guild-of-games-logo-128.webp 128w, /gog/assets/jush/artwork/guild-of-games-logo-256.webp 256w" sizes="54px" alt="" width="128" height="121">
+        <span><strong id="brand-short-name">Guild of Games</strong><small id="brand-store-name">Community Duels</small></span>
       </a>
       <nav class="gog-primary-nav" aria-label="Guild of Games">
         <a href="/gog/">Home</a>
         <a class="active" aria-current="page" href="/gog/house-format/">House Format</a>
         <a href="/gog/deckbuilder/">Deckbuilder</a>
       </nav>
-      <a class="gog-admin-link" href="/gog/?admin=events">Admin</a>
+      <a class="gog-admin-link" href="/gog/deckbuilder/">Build a deck <span aria-hidden="true">›</span></a>
     </div>
     <nav class="gog-mobile-nav" aria-label="Guild of Games mobile navigation">
       <a href="/gog/">Home</a>
@@ -35,50 +37,64 @@
   </header>
 
   <main id="main-content">
-    <section class="hero">
-      <div class="shell hero-grid">
-        <div class="hero-copy">
-          <div class="hero-identity">
-            <div>
-              <p class="eyebrow" id="accent-label">Guild of Games</p>
-              <h1 id="format-name">Yu-Gi-Oh! JUSH House Format</h1>
-            </div>
-          </div>
-          <p class="hero-description" id="format-description">A Guild of Games format using the Justice Hunters card pool and an altered Forbidden &amp; Limited List based on the JUSH-era banlist.</p>
-          <div class="pool-note" aria-label="Eligible card pool"><span class="pool-dot" aria-hidden="true"></span> Justice Hunters card pool · 1 August 2025 inclusive</div>
-          <p class="hero-description">Cards released in <strong>any TCG region</strong>, including North America, qualify. <strong>Battles of Legend: Monster Mayhem (BLMM) is included.</strong></p>
-          <div class="version-line" aria-label="Current format version">
-            <span class="live-dot" aria-hidden="true"></span>
-            <span>Current list:</span>
-            <strong id="version-label">Loading…</strong>
-            <span aria-hidden="true">•</span>
-            <span>Effective <time id="effective-date">—</time></span>
-          </div>
-          <div class="format-actions"><a class="button gold" href="/gog/deckbuilder/">Open deckbuilder <span aria-hidden="true">↗</span></a><button class="text-button list-admin-button" id="admin-button" type="button">Manage the house list</button></div>
-        </div>
+    <section class="hero jush-surface--cream" aria-labelledby="format-name">
+      <picture class="hero-paint hero-paint-left" aria-hidden="true">
+        <source srcset="/gog/assets/jush/artwork/paint-frame-left-256.webp 256w, /gog/assets/jush/artwork/paint-frame-left-512.webp 512w, /gog/assets/jush/artwork/paint-frame-left-887.webp 887w" sizes="(max-width: 700px) 190px, 32vw">
+        <img src="/gog/assets/jush/artwork/paint-frame-left-512.webp" alt="" width="512" height="1024" fetchpriority="high">
+      </picture>
+      <picture class="hero-paint hero-paint-right" aria-hidden="true">
+        <source srcset="/gog/assets/jush/artwork/paint-frame-right-256.webp 256w, /gog/assets/jush/artwork/paint-frame-right-512.webp 512w, /gog/assets/jush/artwork/paint-frame-right-887.webp 887w" sizes="(max-width: 700px) 190px, 32vw">
+        <img src="/gog/assets/jush/artwork/paint-frame-right-512.webp" alt="" width="512" height="1024" fetchpriority="high">
+      </picture>
+      <picture class="hero-character hero-character-left" aria-hidden="true">
+        <source srcset="/gog/assets/jush/artwork/hero-left-characters-384.webp 384w, /gog/assets/jush/artwork/hero-left-characters-768.webp 768w, /gog/assets/jush/artwork/hero-left-characters-1254.webp 1254w" sizes="(max-width: 700px) 230px, 36vw">
+        <img src="/gog/assets/jush/artwork/hero-left-characters-768.webp" alt="" width="768" height="768" fetchpriority="high">
+      </picture>
+      <picture class="hero-character hero-character-right" aria-hidden="true">
+        <source srcset="/gog/assets/jush/artwork/hero-right-dragon-384.webp 384w, /gog/assets/jush/artwork/hero-right-dragon-768.webp 768w, /gog/assets/jush/artwork/hero-right-dragon-1254.webp 1254w" sizes="(max-width: 700px) 230px, 39vw">
+        <img src="/gog/assets/jush/artwork/hero-right-dragon-768.webp" alt="" width="768" height="768" fetchpriority="high">
+      </picture>
 
-        <aside class="format-reference" aria-labelledby="limits-title">
-          <div class="reference-heading"><p class="eyebrow">The format at a glance</p><h2 id="limits-title">Know your limits.</h2><p>Copies are counted across your Main, Extra and Side Deck combined.</p></div>
-        <div class="rule-summary" aria-label="Deck-building limits">
-          <button class="rule-card forbidden" type="button" data-rule-filter="forbidden">
-            <span class="rule-number">0</span>
-            <span><strong>Forbidden</strong><small>copies permitted</small></span>
-          </button>
-          <button class="rule-card limited" type="button" data-rule-filter="limited">
-            <span class="rule-number">1</span>
-            <span><strong>Limited</strong><small>copy permitted</small></span>
-          </button>
-          <button class="rule-card semi-limited" type="button" data-rule-filter="semi_limited">
-            <span class="rule-number">2</span>
-            <span><strong>Semi-Limited</strong><small>copies permitted</small></span>
-          </button>
-          <button class="rule-card unlimited" type="button" data-rule-filter="unlimited">
-            <span class="rule-number">3</span>
-            <span><strong>Unlimited</strong><small>if not listed</small></span>
-          </button>
+      <div class="hero-copy">
+        <h1>
+          <span class="visually-hidden" id="format-name">Yu-Gi-Oh! JUSH House Format</span>
+          <span class="hero-brand-line" id="accent-label" aria-hidden="true">Guild of Games</span>
+          <span class="hero-community-line" aria-hidden="true">Community Duels</span>
+          <span class="hero-format-title" aria-hidden="true">House Format</span>
+          <img class="hero-wordmark" src="/gog/assets/jush/artwork/jush-wordmark-1440.webp" srcset="/gog/assets/jush/artwork/jush-wordmark-768.webp 768w, /gog/assets/jush/artwork/jush-wordmark-1440.webp 1440w, /gog/assets/jush/artwork/jush-wordmark-2172.webp 2172w" sizes="(max-width: 700px) 74vw, 42vw" alt="" width="1440" height="480" fetchpriority="high">
+        </h1>
+        <p class="hero-ribbon">A player-run Yu-Gi-Oh! format.</p>
+        <p class="visually-hidden" id="format-description">A Guild of Games format using the Justice Hunters card pool and an altered Forbidden &amp; Limited List based on the JUSH-era banlist.</p>
+        <div class="hero-actions">
+          <a class="jush-button" href="/gog/deckbuilder/">Build a deck <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-chevron-right"></use></svg></a>
+          <a class="jush-button jush-button-secondary" href="#card-search">Check a card <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-chevron-right"></use></svg></a>
         </div>
-          <p class="reference-note"><span class="house-change-badge">NEW</span> Every house change from the fixed JUSH-era banlist. Not just the latest update.</p>
-        </aside>
+        <button class="list-admin-button" id="admin-button" type="button">Manage the house list</button>
+      </div>
+    </section>
+
+    <section class="feature-strip" aria-label="House format overview">
+      <div class="feature-grid">
+        <article class="feature-card feature-card-magenta">
+          <span class="feature-number" aria-hidden="true">01</span>
+          <span class="feature-copy"><strong>Card pool</strong><b>Justice Hunters</b><span>Cutoff: <time id="pool-cutoff" datetime="2025-08-01">1 Aug 2025</time></span></span>
+          <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-card-stack"></use></svg>
+        </article>
+        <a class="feature-card" href="/gog/#events">
+          <span class="feature-number" aria-hidden="true">02</span>
+          <span class="feature-copy"><strong>Event night</strong><b id="next-event-date">View schedule</b><span id="next-event-meta">Upcoming at Guild of Games</span></span>
+          <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-calendar-clock"></use></svg>
+        </a>
+        <a class="feature-card feature-card-magenta" href="?view=changes#list-workspace">
+          <span class="feature-number" aria-hidden="true">03</span>
+          <span class="feature-copy"><strong>House list</strong><b id="version-label">Loading…</b><span><span id="feature-changes-count">—</span> house changes</span><span class="visually-hidden">Effective <time id="effective-date">—</time></span></span>
+          <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-file-list"></use></svg>
+        </a>
+        <a class="feature-card" href="/gog/">
+          <span class="feature-number" aria-hidden="true">04</span>
+          <span class="feature-copy"><strong>Community</strong><b>Your vote matters</b><span>Shape the format</span></span>
+          <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-users"></use></svg>
+        </a>
       </div>
     </section>
 
@@ -87,6 +103,7 @@
         <div class="search-panel">
           <div class="search-heading-row">
             <div>
+              <p class="search-kicker">Card search</p>
               <h2 id="search-heading">Check a card. Build with confidence.</h2>
               <p>Search the eligible card pool. Cards absent from the restricted list are Unlimited (3 copies).</p>
             </div>
@@ -98,7 +115,7 @@
 
           <div class="search-control">
             <span class="search-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
+              <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-search"></use></svg>
             </span>
             <label class="visually-hidden" for="card-search">Search card names</label>
             <input id="card-search" type="search" autocomplete="off" spellcheck="false" placeholder="Try “Pot of Greed”, “Dracotail”, or “Ash Blossom”…" aria-controls="search-suggestions">
@@ -111,7 +128,7 @@
       </div>
     </section>
 
-    <section class="list-section">
+    <section class="list-section" id="list-workspace">
       <div class="shell">
         <div class="list-toolbar">
           <div class="view-tabs" role="tablist" aria-label="List view">
@@ -129,7 +146,11 @@
         <p class="house-change-legend"><span class="house-change-badge">NEW</span><span>House tweaks compared with the fixed JUSH-era baseline. A card stays marked until its restriction matches again.</span></p>
 
         <div class="filters-panel" id="filters-panel">
-          <div class="filter-group">
+          <div class="filters-heading">
+            <h3>Filters</h3>
+            <button class="text-button" id="clear-filters" type="button">Clear</button>
+          </div>
+          <div class="filter-group status-filter">
             <span class="filter-label">Status</span>
             <div class="chip-row" aria-label="Filter by status">
               <label class="filter-chip forbidden"><input type="checkbox" value="forbidden" data-filter="status"><span>Forbidden</span></label>
@@ -139,7 +160,7 @@
             </div>
           </div>
 
-          <div class="filter-group">
+          <div class="filter-group category-filter">
             <span class="filter-label">Card category</span>
             <div class="chip-row" aria-label="Filter by card category">
               <label class="filter-chip neutral"><input type="checkbox" value="Monster" data-filter="category"><span>Monster</span></label>
@@ -170,7 +191,6 @@
                 <option value="type">Card type</option>
               </select>
             </label>
-            <button class="text-button" id="clear-filters" type="button">Clear all filters</button>
           </div>
         </div>
 
@@ -182,6 +202,13 @@
             <h2 id="results-title">Forbidden &amp; Limited List</h2>
           </div>
           <p class="results-count" id="results-count" aria-live="polite">Loading cards…</p>
+        </div>
+
+        <div class="restriction-key" aria-label="Filter by copy limit">
+          <button type="button" data-rule-filter="forbidden"><span>0</span> Forbidden</button>
+          <button type="button" data-rule-filter="limited"><span>1</span> Limited</button>
+          <button type="button" data-rule-filter="semi_limited"><span>2</span> Semi-Limited</button>
+          <button type="button" data-rule-filter="unlimited"><span>3</span> Unlimited</button>
         </div>
 
         <div id="results-panel" role="tabpanel" aria-labelledby="current-tab">
