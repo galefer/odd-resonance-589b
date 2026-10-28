@@ -144,13 +144,18 @@
     height: var(--mobile-site-header);
     padding: 0 10px;
   }
-  .deckbuilder-page .gog-brand { gap: 8px; }
+  .deckbuilder-page .gog-brand { max-width: 140px; flex: 0 0 auto; gap: 8px; }
   .deckbuilder-page .gog-brand img { width: 32px; height: 32px; }
-  .deckbuilder-page .gog-brand strong { font-size: .67rem; letter-spacing: .045em; }
+  .deckbuilder-page .gog-brand strong { font-size: .67rem; letter-spacing: .045em; white-space: nowrap; }
   .deckbuilder-page .gog-brand small,
   .deckbuilder-page .gog-primary-nav,
   .deckbuilder-page .gog-mobile-nav,
   .deckbuilder-page .gog-admin-link { display: none; }
+}
+
+@media (max-width: 350px) {
+  .deckbuilder-page .gog-brand { max-width: 32px; }
+  .deckbuilder-page .gog-brand strong { display: none; }
 }
 
 @media (max-width: 767px) and (max-height: 520px) {

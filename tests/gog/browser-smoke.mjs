@@ -368,6 +368,7 @@ try {
     if (width < 768) {
       assert(layout.library && layout.deck && layout.actions && !layout.save, `${width}px should show the split workspace and compact action menu`);
       assert(await evaluate(`['deck-menu-button','undo','mobile-actions-button'].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.width>=40&&r.left>=0&&r.right<=innerWidth;})`), 'Compact mobile header controls should stay reachable');
+      assert(await evaluate(`(()=>{const h=document.querySelector('.gog-site-header').getBoundingClientRect(),t=document.querySelector('.deck-toolbar').getBoundingClientRect(),b=document.querySelector('.mobile-deck-bar').getBoundingClientRect(),v=document.querySelector('#validation-banner').getBoundingClientRect();return t.top>=h.top-1&&t.bottom<=h.bottom+1&&v.top>=b.top&&v.bottom<=b.bottom})()`), `${width}px should merge deck controls into the site header and validation into the deck header`);
       assert(await evaluate(`document.querySelector('#mobile-grouped-view').getAttribute('aria-checked')==='true' && document.querySelector('#mobile-copies-view').getAttribute('aria-checked')==='false'`), `${width}px should default the deck to grouped stacks`);
       assert(layout.libraryCardWidth > 0 && layout.libraryCardWidth <= 56, `${width}px catalogue cards should use the compact phone footprint`);
       assert.equal(layout.loadMoreOverlapsCard, false, 'Load more must not cover catalogue cards or their add controls');
@@ -376,7 +377,7 @@ try {
       assert(layout.save, `${width}px should retain the desktop/tablet save controls`);
     }
     if (width === 320) assert.equal(layout.libraryColumns, 6, 'The narrowest phone should show six compact catalogue columns');
-    if (width === 390) assert(layout.libraryColumns === 7 && layout.libraryHeight > layout.deckHeight, 'A typical phone should show seven compact columns and prioritize the library');
+    if (width === 390) assert(layout.libraryColumns === 7 && layout.libraryHeight >= 420 && layout.libraryHeight <= 435 && layout.deckHeight >= 335, 'A typical phone should preserve the library height and give reclaimed chrome space to the deck');
     if (width === 767) assert(layout.libraryColumns >= 14 && layout.deckColumns >= 14, 'Wide mobile layouts should add columns instead of stretching cards');
     if (width >= 1180) assert(await evaluate(`document.querySelector('.workspace').getBoundingClientRect().width >= innerWidth-20`), 'Workspace should use the available width');
     if (width === 390) deckMobileHeader = await evaluate(`(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()`);
@@ -448,6 +449,9 @@ try {
   await setValue('#search', '');
   await waitFor(`document.querySelectorAll('.library-card').length>=12`, 'restored mobile catalogue');
   await waitFor(`document.querySelector('#validation-title').textContent!=='Checking published house rules'`, 'mobile validation result');
+  await click('#validation-info');
+  assert(await evaluate(`document.querySelector('#info-dialog').open`), 'Compact mobile validation status opens its details');
+  await click('#info-dialog .close-button');
   await evaluate(`document.querySelector('#toast').hidden=true`);
   await screenshot('deckbuilder-mobile-split.png');
   assert(await evaluate(`document.scrollingElement.scrollHeight<=innerHeight+1`), 'Normal mobile editing view has no competing page scrollbar');
