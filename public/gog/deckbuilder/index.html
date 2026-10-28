@@ -57,6 +57,7 @@
       <button id="undo" class="icon-button" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled>↶</button>
       <button id="redo" class="icon-button" type="button" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled>↷</button>
       <span class="toolbar-divider" aria-hidden="true"></span>
+      <button id="templates-button" class="button" type="button" aria-haspopup="dialog" aria-controls="templates-dialog">Template Decks</button>
       <button id="import-button" class="button" type="button">↥ Import</button>
       <button id="export-button" class="button primary" type="button" aria-haspopup="menu" aria-expanded="false">↧ Export deck <span aria-hidden="true">⌄</span></button>
       <button id="mobile-actions-button" class="icon-button mobile-only" type="button" aria-label="Open deckbuilder menu" aria-haspopup="dialog" aria-controls="mobile-actions-dialog">•••</button>
@@ -206,6 +207,44 @@
     <div class="modal-actions"><button id="cancel-import" class="button" type="button">Cancel</button><button id="confirm-import" class="button primary" type="button" disabled>Import deck</button></div>
   </dialog>
 
+  <dialog id="templates-dialog" class="app-dialog template-dialog" aria-labelledby="templates-title">
+    <form method="dialog" class="modal-header template-modal-header">
+      <div><p class="eyebrow">START WITH A PROVEN LIST</p><h2 id="templates-title">Template decks</h2><p id="template-catalogue-meta">397 community deck ideas for the JUSH house format</p></div>
+      <button class="close-button" value="cancel" aria-label="Close template decks">×</button>
+    </form>
+    <div class="template-layout">
+      <section id="template-browser" class="template-browser" aria-label="Browse template decks">
+        <label class="template-search" for="template-search"><span aria-hidden="true">⌕</span><input id="template-search" type="search" autocomplete="off" placeholder="Search decks, cards or tags…"></label>
+        <div class="template-difficulty" role="group" aria-label="Difficulty">
+          <button class="active" type="button" data-template-difficulty="">All</button>
+          <button type="button" data-template-difficulty="Beginner">Beginner</button>
+          <button type="button" data-template-difficulty="Intermediate">Intermediate</button>
+          <button type="button" data-template-difficulty="Advanced">Advanced</button>
+        </div>
+        <label class="template-tag-label" for="template-tag-filter"><span>Filter by tag</span><select id="template-tag-filter"><option value="">All tags</option></select></label>
+        <div class="template-result-heading"><strong id="template-result-count">Loading templates…</strong><button id="clear-template-filters" class="text-button" type="button" hidden>Clear filters</button></div>
+        <div id="template-list" class="template-list" role="listbox" aria-label="Template decks" aria-busy="true"></div>
+        <div id="template-empty" class="template-empty" role="status" hidden><strong>No template decks found</strong><p>Try a card name, a broader tag, or clear the filters.</p><button id="template-empty-clear" class="button" type="button">Clear filters</button></div>
+      </section>
+      <section id="template-detail" class="template-detail" aria-live="polite">
+        <button id="template-back" class="template-back" type="button">← Back to templates</button>
+        <div id="template-detail-placeholder" class="template-detail-placeholder"><span aria-hidden="true">✦</span><strong>Choose a template</strong><p>Pick a list to see its strategy, tags and complete card breakdown.</p></div>
+        <div id="template-detail-content" hidden>
+          <div class="template-detail-heading"><div><span id="template-detail-difficulty" class="template-difficulty-badge"></span><h3 id="template-detail-name"></h3></div><div class="template-zone-summary" aria-label="Deck size"><span><b id="template-main-count">0</b>Main</span><span><b id="template-extra-count">0</b>Extra</span><span><b id="template-side-count">0</b>Side</span></div></div>
+          <p id="template-detail-description" class="template-description"></p>
+          <div id="template-detail-tags" class="template-tags" aria-label="Deck tags"></div>
+          <section class="template-notes"><h4>How it plays</h4><p id="template-detail-notes"></p></section>
+          <details class="template-cardlist"><summary>View complete card list</summary><div id="template-cardlist-zones" class="template-cardlist-zones"></div></details>
+        </div>
+        <div class="template-copy-bar">
+          <p id="template-copy-help">A template is copied as a new local deck. Your current deck stays saved.</p>
+          <p id="template-copy-error" class="dialog-error" role="alert" hidden></p>
+          <button id="copy-template" class="button primary" type="button" disabled>Copy to Deckbuilder</button>
+        </div>
+      </section>
+    </div>
+  </dialog>
+
   <dialog id="groups-dialog" class="app-dialog narrow">
     <form method="dialog" class="modal-header"><div><p class="eyebrow">OPENING ODDS</p><h2>Card groups</h2></div><button class="close-button" value="cancel" aria-label="Close groups dialog">×</button></form>
     <div class="modal-content"><p class="muted">Create groups such as Starters or Hand traps. Probabilities use physical copies in the Main Deck.</p><div class="group-create"><input id="group-name" maxlength="80" placeholder="New group name"><button id="add-group" class="button" type="button">Add group</button></div><div id="groups-list"></div></div>
@@ -223,7 +262,8 @@
         <button type="button" data-mobile-command="duplicate"><span>Duplicate</span><small>Copy this deck</small></button>
         <button class="danger" type="button" data-mobile-command="delete"><span>Delete</span><small>Remove from device</small></button>
       </div></section>
-      <section><h3>Move &amp; share</h3><div class="mobile-command-grid two-column">
+      <section><h3>Find &amp; share</h3><div class="mobile-command-grid two-column">
+        <button type="button" data-mobile-command="templates"><span>Template decks</span><small>Browse 397 starting lists</small></button>
         <button type="button" data-mobile-command="redo"><span>Redo</span><small>Restore last change</small></button>
         <button type="button" data-mobile-command="import"><span>Import</span><small>YDK, YDKE or backup</small></button>
         <button type="button" data-mobile-command="export"><span>Export</span><small>Share or back up</small></button>

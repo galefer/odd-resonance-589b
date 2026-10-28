@@ -413,3 +413,109 @@ textarea{background:#0f0f11;border-color:#60483c}
 @media(prefers-reduced-motion:reduce){
  body.deckbuilder-page dialog.mobile-sheet[open]{animation:none}
 }
+
+/* Template deck catalogue: desktop master/detail browser and full-screen phone flow. */
+body.deckbuilder-page .template-dialog{width:min(1120px,calc(100% - 32px));height:min(780px,calc(100dvh - 32px));max-height:calc(100dvh - 32px);overflow:hidden}
+body.deckbuilder-page .template-modal-header{height:82px;padding:16px 22px;background:linear-gradient(100deg,#221711,#171719 48%)}
+body.deckbuilder-page .template-modal-header>div{min-width:0}
+body.deckbuilder-page .template-modal-header .eyebrow{margin-bottom:2px}
+body.deckbuilder-page .template-modal-header h2{font-size:23px}
+body.deckbuilder-page .template-modal-header p:last-child{margin-top:2px;color:#a99387;font-size:10px}
+body.deckbuilder-page .template-layout{height:calc(100% - 82px);min-height:0;display:grid;grid-template-columns:minmax(330px,390px) minmax(0,1fr)}
+body.deckbuilder-page .template-browser{min-width:0;min-height:0;padding:18px;display:flex;flex-direction:column;border-right:1px solid #3b302b;background:#121214}
+body.deckbuilder-page .template-search{height:44px;display:flex;align-items:center;gap:9px;padding:0 12px;border:1px solid #584238;border-radius:8px;background:#0d0d0f}
+body.deckbuilder-page .template-search>span{color:#ff9855;font-size:21px}
+body.deckbuilder-page .template-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#f8eee8;font-size:13px}
+body.deckbuilder-page .template-search input::placeholder{color:#8e7c73}
+body.deckbuilder-page .template-difficulty{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px}
+body.deckbuilder-page .template-difficulty button{min-height:34px;padding:0 10px;border:1px solid #4b3a32;border-radius:17px;color:#bba99e;background:#1a1819;font-size:10px;font-weight:700}
+body.deckbuilder-page .template-difficulty button:hover{border-color:#8b563c;color:#fff0e7}
+body.deckbuilder-page .template-difficulty button.active{border-color:#a85b35;background:#3b2117;color:#ffae79}
+body.deckbuilder-page .template-tag-label{margin-top:12px;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:10px;color:#9f8d83;font-size:10px}
+body.deckbuilder-page .template-tag-label select{min-width:0;height:38px;padding:0 32px 0 10px;border:1px solid #4b3a32;border-radius:7px;background:#211b19;color:#f8eee8;font-size:12px}
+body.deckbuilder-page .template-result-heading{min-height:36px;display:flex;align-items:end;justify-content:space-between;gap:10px;padding:8px 2px 6px}
+body.deckbuilder-page .template-result-heading strong{color:#d5c5bc;font-size:10px;font-weight:650}
+body.deckbuilder-page .template-list{min-height:0;flex:1 1 auto;display:grid;align-content:start;gap:7px;overflow-y:auto;overscroll-behavior:contain;padding:1px 4px 8px 1px;scrollbar-width:thin;scrollbar-color:#674536 transparent}
+body.deckbuilder-page .template-list-item{width:100%;min-width:0;padding:12px;display:grid;gap:7px;text-align:left;border:1px solid #3d322d;border-radius:8px;background:#191719}
+body.deckbuilder-page .template-list-item:hover{border-color:#714734;background:#241a17}
+body.deckbuilder-page .template-list-item[aria-selected="true"]{border-color:#b46037;background:linear-gradient(110deg,#3a2017,#211a19);box-shadow:inset 3px 0 #ff7a2e}
+body.deckbuilder-page .template-list-name{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+body.deckbuilder-page .template-list-name strong{min-width:0;color:#fff2eb;font-size:13px;line-height:1.3;overflow-wrap:anywhere}
+body.deckbuilder-page .template-list-name span{flex:none;padding:2px 6px;border-radius:9px;background:#2f2521;color:#d8b8a6;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+body.deckbuilder-page .template-list-item>p{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:2;color:#ae9c92;font-size:10px;line-height:1.45}
+body.deckbuilder-page .template-list-meta{display:flex;align-items:center;gap:5px;color:#8f7c72;font-size:9px}
+body.deckbuilder-page .template-list-meta b{color:#d8c6bc;font-weight:650}
+body.deckbuilder-page .template-list-meta i{width:2px;height:2px;border-radius:50%;background:#745444}
+body.deckbuilder-page .template-empty{margin:auto 0;padding:30px 18px;text-align:center;border:1px dashed #4b3a32;border-radius:9px;color:#cbbab1}
+body.deckbuilder-page .template-empty strong{font-size:14px}
+body.deckbuilder-page .template-empty p{margin:7px 0 14px;color:#9e8d84;font-size:11px}
+body.deckbuilder-page .template-detail{min-width:0;min-height:0;display:flex;flex-direction:column;background:radial-gradient(circle at 85% 0,#33201766,transparent 20rem),#171719}
+body.deckbuilder-page .template-back{display:none}
+body.deckbuilder-page .template-detail-placeholder{margin:auto;padding:36px;text-align:center;color:#b5a298}
+body.deckbuilder-page .template-detail-placeholder>span{width:50px;height:50px;margin:0 auto 14px;display:grid;place-items:center;border:1px solid #80513b;border-radius:50%;color:#ff9855;background:#2c1b14;font-size:22px}
+body.deckbuilder-page .template-detail-placeholder strong{display:block;color:#f8eee8;font-size:16px}
+body.deckbuilder-page .template-detail-placeholder p{max-width:320px;margin:6px auto 0;font-size:11px;line-height:1.6}
+body.deckbuilder-page #template-detail-content{min-height:0;flex:1 1 auto;padding:24px 26px 16px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#674536 transparent}
+body.deckbuilder-page .template-detail-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:22px}
+body.deckbuilder-page .template-detail-heading>div:first-child{min-width:0}
+body.deckbuilder-page .template-difficulty-badge{display:inline-flex;padding:3px 8px;border:1px solid #75482f;border-radius:10px;color:#ffad78;background:#2e1b14;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+body.deckbuilder-page .template-detail-heading h3{margin-top:8px;color:#fff3ec;font-size:27px;line-height:1.12;letter-spacing:-.025em;overflow-wrap:anywhere}
+body.deckbuilder-page .template-zone-summary{flex:none;display:grid;grid-template-columns:repeat(3,58px);overflow:hidden;border:1px solid #4b3a32;border-radius:8px;background:#141315}
+body.deckbuilder-page .template-zone-summary span{padding:8px 4px;display:grid;text-align:center;border-right:1px solid #3d312c;color:#9e8b81;font-size:8px}
+body.deckbuilder-page .template-zone-summary span:last-child{border:0}
+body.deckbuilder-page .template-zone-summary b{color:#fff0e7;font-size:17px;line-height:1.15;font-variant-numeric:tabular-nums}
+body.deckbuilder-page .template-description{margin-top:18px;color:#d6c5bc;font-size:13px;line-height:1.65}
+body.deckbuilder-page .template-tags{margin-top:14px;display:flex;flex-wrap:wrap;gap:6px}
+body.deckbuilder-page .template-tags span{padding:4px 8px;border:1px solid #493a33;border-radius:12px;background:#211c1a;color:#c8b5aa;font-size:9px}
+body.deckbuilder-page .template-notes{margin-top:22px;padding:16px 17px;border-left:3px solid #ff7a2e;border-radius:0 8px 8px 0;background:#211b19}
+body.deckbuilder-page .template-notes h4{margin:0 0 7px;color:#ffad78;font-size:10px;text-transform:uppercase;letter-spacing:.09em}
+body.deckbuilder-page .template-notes p{color:#d5c3b9;font-size:11px;line-height:1.7;white-space:pre-line}
+body.deckbuilder-page .template-cardlist{margin-top:18px;border:1px solid #45372f;border-radius:8px;background:#141315}
+body.deckbuilder-page .template-cardlist summary{padding:12px 14px;cursor:pointer;color:#ff9b59;font-size:11px;font-weight:700}
+body.deckbuilder-page .template-cardlist-zones{padding:4px 14px 15px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;border-top:1px solid #3b302b}
+body.deckbuilder-page .template-cardlist-zones h4{margin:12px 0 7px;color:#f5e7de;font-size:10px}
+body.deckbuilder-page .template-cardlist-zones ul{margin:0;padding:0;display:grid;gap:5px;list-style:none}
+body.deckbuilder-page .template-cardlist-zones li{display:grid;grid-template-columns:18px minmax(0,1fr);gap:5px;color:#ad9b91;font-size:9px;line-height:1.35}
+body.deckbuilder-page .template-cardlist-zones li b{color:#ff9b59;font-variant-numeric:tabular-nums}
+body.deckbuilder-page .template-copy-bar{flex:none;padding:14px 18px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 16px;border-top:1px solid #49372f;background:#121113e8;backdrop-filter:blur(12px)}
+body.deckbuilder-page .template-copy-bar>p:first-child{color:#a08e84;font-size:9px;line-height:1.45}
+body.deckbuilder-page .template-copy-bar .dialog-error{grid-column:1/-1;margin:0}
+body.deckbuilder-page #copy-template{min-width:180px;height:42px}
+
+@media(max-width:767px){
+ body.deckbuilder-page .toolbar-actions #templates-button{display:none}
+ body.deckbuilder-page .template-dialog{inset:0;width:100%;height:var(--mobile-viewport-height,100dvh);max-width:none;max-height:none;margin:0;border:0;border-radius:0}
+ body.deckbuilder-page .template-modal-header{height:70px;padding:11px 14px}
+ body.deckbuilder-page .template-modal-header h2{font-size:19px}
+ body.deckbuilder-page .template-modal-header p:last-child{display:none}
+ body.deckbuilder-page .template-modal-header .close-button{width:44px;height:44px;border:1px solid #4d3a31;border-radius:9px;background:#211b19}
+ body.deckbuilder-page .template-layout{height:calc(100% - 70px);display:block}
+ body.deckbuilder-page .template-browser{height:100%;padding:12px;border:0}
+ body.deckbuilder-page .template-search{height:48px;flex:none}
+ body.deckbuilder-page .template-search input{font-size:16px}
+ body.deckbuilder-page .template-difficulty{flex:none;overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px;scrollbar-width:none}
+ body.deckbuilder-page .template-difficulty::-webkit-scrollbar{display:none}
+ body.deckbuilder-page .template-difficulty button{min-height:40px;flex:none;padding-inline:14px}
+ body.deckbuilder-page .template-tag-label{flex:none;grid-template-columns:1fr}
+ body.deckbuilder-page .template-tag-label>span{display:none}
+ body.deckbuilder-page .template-tag-label select{height:44px;font-size:16px}
+ body.deckbuilder-page .template-result-heading{flex:none;min-height:38px}
+ body.deckbuilder-page .template-list-item{min-height:96px;padding:13px;touch-action:manipulation}
+ body.deckbuilder-page .template-list-name strong{font-size:14px}
+ body.deckbuilder-page .template-list-item>p{font-size:11px}
+ body.deckbuilder-page .template-detail{display:none;height:100%}
+ body.deckbuilder-page .template-dialog.detail-open .template-browser{display:none}
+ body.deckbuilder-page .template-dialog.detail-open .template-detail{display:flex}
+ body.deckbuilder-page .template-back{min-height:46px;padding:0 14px;display:block;flex:none;text-align:left;border-bottom:1px solid #3b302b;color:#ff9b59;font-size:12px;font-weight:700;background:#161416}
+ body.deckbuilder-page #template-detail-content{padding:18px 16px 12px}
+ body.deckbuilder-page .template-detail-heading{display:block}
+ body.deckbuilder-page .template-detail-heading h3{font-size:23px}
+ body.deckbuilder-page .template-zone-summary{margin-top:16px;grid-template-columns:repeat(3,1fr)}
+ body.deckbuilder-page .template-zone-summary span{padding:9px}
+ body.deckbuilder-page .template-description{font-size:12px}
+ body.deckbuilder-page .template-cardlist-zones{grid-template-columns:1fr}
+ body.deckbuilder-page .template-copy-bar{padding:10px 12px max(10px,env(safe-area-inset-bottom));display:block}
+ body.deckbuilder-page .template-copy-bar>p:first-child{display:none}
+ body.deckbuilder-page #copy-template{width:100%;min-width:0;height:48px}
+ body.deckbuilder-page .template-copy-bar .dialog-error{margin:0 0 8px}
+}

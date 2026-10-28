@@ -6,6 +6,7 @@ import { DeckHistory, addIssue, groupedCards, instanceFromCard, newDeck, portabl
 import { makeBackup, parseBackup, sanitiseDeck } from '../../public/gog/deckbuilder/persistence.js';
 import { atLeast, atLeastOne, atLeastOneFromBoth } from '../../public/gog/deckbuilder/probability.js';
 import { validationKey, remapValidation } from '../../public/gog/deckbuilder/validation.js';
+import { filterTemplates, normaliseTemplateManifest, templateTags, templateZoneCount, templateZoneIds } from '../../public/gog/deckbuilder/templates.js';
 
 if (!globalThis.CustomEvent) globalThis.CustomEvent = class CustomEvent extends Event { constructor(type, options = {}) { super(type); this.detail = options.detail; } };
 
@@ -181,4 +182,28 @@ test('probability helpers cover zero/all hits, thresholds and overlapping groups
   const both = atLeastOneFromBoth(40, 6, 5, 2, 5);
   assert(both >= 0 && both <= 1);
   assert.throws(() => atLeastOne(4, 2, 5), RangeError);
+});
+
+test('template catalogue normalises, searches card names and expands physical copies by zone', () => {
+  const manifest = normaliseTemplateManifest({ schemaVersion: 1, format: 'gog-jush', decks: [{
+    id: 'fixture-control', name: 'Fixture Control', description: 'A patient control deck.', difficulty: 'Beginner',
+    tags: ['Control', 'House JUSH'], notes: 'Hold interaction for the right moment.',
+    main: [{ id: 1001, name: 'Fixture Main Effect', count: 3 }],
+    extra: [{ id: 2002, name: 'Fixture Fusion', count: 1 }], side: []
+  }, {
+    id: 'fixture-combo', name: 'Fixture Combo', description: 'A fast combo deck.', difficulty: 'Advanced',
+    tags: ['Combo', 'House JUSH'], notes: 'Sequence carefully.', main: [{ id: 3003, name: 'Hidden Search Target', count: 2 }], extra: [], side: []
+  }] });
+  assert.equal(manifest.decks.length, 2);
+  assert.equal(templateZoneCount(manifest.decks[0], 'main'), 3);
+  assert.deepEqual(templateZoneIds(manifest.decks[0], 'main'), [1001, 1001, 1001]);
+  assert.deepEqual(filterTemplates(manifest.decks, { query: 'hidden target' }).map(deck => deck.id), ['fixture-combo']);
+  assert.deepEqual(filterTemplates(manifest.decks, { difficulty: 'Beginner', tag: 'Control' }).map(deck => deck.id), ['fixture-control']);
+  assert.deepEqual(templateTags(manifest.decks), ['Combo', 'Control', 'House JUSH']);
+});
+
+test('template catalogue rejects malformed or duplicated data before rendering it', () => {
+  const deck = { id: 'same', name: 'Same', description: 'Description', difficulty: 'Advanced', tags: ['Tag'], notes: 'Notes', main: [], extra: [], side: [] };
+  assert.throws(() => normaliseTemplateManifest({ schemaVersion: 1, format: 'gog-jush', decks: [deck, deck] }), /duplicated/);
+  assert.throws(() => normaliseTemplateManifest({ schemaVersion: 2, format: 'gog-jush', decks: [deck] }), /not a supported/);
 });

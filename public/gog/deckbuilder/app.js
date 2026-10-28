@@ -6,9 +6,11 @@ import { DeckDatabase, StorageConflictError, makeBackup, parseBackup, sanitiseDe
 import { MAX_FILE_BYTES, encodeYdk, encodeYdke, parseYdk, parseYdke } from './deck-codecs.js';
 import { atLeast } from './probability.js';
 import { validationKey, remapValidation } from './validation.js';
+import { filterTemplates, normaliseTemplateManifest, templateTags, templateZoneCount, templateZoneIds } from './templates.js';
 
 const API = '/gog/api';
 const CARD_BACK = '/gog/deckbuilder/card-back.svg';
+const TEMPLATE_CATALOGUE_URL = '/gog/deckbuilder/template-decks.json';
 const $ = (id) => document.getElementById(id);
 const zoneLabel = (zone) => zone === 'main' ? 'Main Deck' : zone === 'extra' ? 'Extra Deck' : 'Side Deck';
 const statusLabel = (status) => ({ unlimited: 'Unlimited', semi_limited: 'Semi-Limited', limited: 'Limited', forbidden: 'Forbidden', unverified: 'Unverified' }[status] || 'Unverified');
@@ -61,6 +63,10 @@ let rulesCheck = null;
 let lastRulesCheck = 0;
 let rulesMayHaveChanged = false;
 const PUBLISHED_LIST_SIGNAL = 'gog-published-list';
+let templateCatalogue = null;
+let templateCatalogueRequest = null;
+let selectedTemplate = null;
+let templateDifficulty = '';
 
 function isMobileWorkspace() { return matchMedia(MOBILE_WORKSPACE_QUERY).matches; }
 
@@ -993,6 +999,161 @@ function info(title, content) {
   openDialog($('info-dialog'));
 }
 
+async function loadTemplateCatalogue() {
+  if (templateCatalogue) return templateCatalogue;
+  if (!templateCatalogueRequest) templateCatalogueRequest = fetch(TEMPLATE_CATALOGUE_URL, { headers: { Accept: 'application/json' } })
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`Template catalogue request failed (${response.status}).`);
+      return normaliseTemplateManifest(await response.json());
+    })
+    .then((manifest) => {
+      templateCatalogue = manifest;
+      const select = $('template-tag-filter');
+      select.replaceChildren(new Option('All tags', ''), ...templateTags(manifest.decks).map((tag) => new Option(tag, tag)));
+      $('template-catalogue-meta').textContent = `${manifest.decks.length} community deck ideas for the JUSH house format`;
+      return manifest;
+    })
+    .catch((error) => { templateCatalogueRequest = null; throw error; });
+  return templateCatalogueRequest;
+}
+
+function templateFiltersActive() {
+  return !!($('template-search').value.trim() || templateDifficulty || $('template-tag-filter').value);
+}
+
+function clearTemplateFilters() {
+  $('template-search').value = '';
+  $('template-tag-filter').value = '';
+  templateDifficulty = '';
+  document.querySelectorAll('[data-template-difficulty]').forEach((button) =>
+    button.classList.toggle('active', button.dataset.templateDifficulty === ''));
+  renderTemplateCatalogue();
+  $('template-search').focus();
+}
+
+function templateListItem(deck) {
+  const button = document.createElement('button');
+  button.type = 'button'; button.className = 'template-list-item'; button.role = 'option';
+  button.dataset.templateId = deck.id; button.setAttribute('aria-selected', String(selectedTemplate?.id === deck.id));
+  const heading = document.createElement('span'); heading.className = 'template-list-name';
+  const name = document.createElement('strong'); name.textContent = deck.name;
+  const difficulty = document.createElement('span'); difficulty.textContent = deck.difficulty;
+  heading.append(name, difficulty);
+  const description = document.createElement('p'); description.textContent = deck.description;
+  const counts = document.createElement('span'); counts.className = 'template-list-meta';
+  const values = [['Main', templateZoneCount(deck, 'main')], ['Extra', templateZoneCount(deck, 'extra')], ['Side', templateZoneCount(deck, 'side')]];
+  values.forEach(([label, value], index) => {
+    if (index) { const separator = document.createElement('i'); separator.setAttribute('aria-hidden', 'true'); counts.append(separator); }
+    const item = document.createElement('span'); const number = document.createElement('b'); number.textContent = value; item.append(number, ` ${label}`); counts.append(item);
+  });
+  button.append(heading, description, counts);
+  button.addEventListener('click', () => selectTemplate(deck, { showDetail: true }));
+  return button;
+}
+
+function renderTemplateCatalogue() {
+  if (!templateCatalogue) return;
+  $('template-empty-clear').hidden = false;
+  const filtered = filterTemplates(templateCatalogue.decks, {
+    query: $('template-search').value, difficulty: templateDifficulty, tag: $('template-tag-filter').value
+  });
+  if (selectedTemplate && !filtered.some((deck) => deck.id === selectedTemplate.id)) {
+    selectedTemplate = null; $('templates-dialog').classList.remove('detail-open'); renderTemplateDetail();
+  }
+  $('template-list').replaceChildren(...filtered.map(templateListItem));
+  $('template-list').setAttribute('aria-busy', 'false');
+  $('template-result-count').textContent = `${filtered.length.toLocaleString()} of ${templateCatalogue.decks.length.toLocaleString()} decks`;
+  $('template-empty').hidden = filtered.length > 0;
+  $('template-list').hidden = filtered.length === 0;
+  $('clear-template-filters').hidden = !templateFiltersActive();
+}
+
+function renderTemplateDetail() {
+  const deck = selectedTemplate;
+  $('template-detail-placeholder').hidden = !!deck;
+  $('template-detail-content').hidden = !deck;
+  $('copy-template').disabled = !deck;
+  $('template-copy-error').hidden = true;
+  if (!deck) return;
+  $('template-detail-difficulty').textContent = deck.difficulty;
+  $('template-detail-name').textContent = deck.name;
+  $('template-detail-description').textContent = deck.description;
+  $('template-detail-notes').textContent = deck.notes;
+  for (const zone of ZONES) $(`template-${zone}-count`).textContent = templateZoneCount(deck, zone);
+  $('template-detail-tags').replaceChildren(...deck.tags.map((tag) => { const chip = document.createElement('span'); chip.textContent = tag; return chip; }));
+  $('template-cardlist-zones').replaceChildren(...ZONES.map((zone) => {
+    const section = document.createElement('section');
+    const heading = document.createElement('h4'); heading.textContent = `${zoneLabel(zone)} (${templateZoneCount(deck, zone)})`;
+    const list = document.createElement('ul');
+    list.append(...deck[zone].map((card) => {
+      const item = document.createElement('li'); const quantity = document.createElement('b'); quantity.textContent = `${card.count}×`;
+      const name = document.createElement('span'); name.textContent = card.name; item.append(quantity, name); return item;
+    }));
+    if (!deck[zone].length) { const item = document.createElement('li'); item.textContent = 'No cards'; list.append(item); }
+    section.append(heading, list); return section;
+  }));
+}
+
+function selectTemplate(deck, { showDetail = false } = {}) {
+  selectedTemplate = deck;
+  document.querySelectorAll('.template-list-item').forEach((button) =>
+    button.setAttribute('aria-selected', String(button.dataset.templateId === deck.id)));
+  renderTemplateDetail();
+  if (showDetail && isMobileWorkspace()) {
+    $('templates-dialog').classList.add('detail-open');
+    requestAnimationFrame(() => $('template-back').focus({ preventScroll: true }));
+  }
+}
+
+async function openTemplateDecks(trigger = $('templates-button')) {
+  closeMenus();
+  const dialog = $('templates-dialog'); dialog.classList.remove('detail-open');
+  openDialog(dialog, trigger); $('template-list').setAttribute('aria-busy', 'true');
+  try {
+    await loadTemplateCatalogue(); renderTemplateCatalogue(); renderTemplateDetail();
+    requestAnimationFrame(() => $('template-search').focus({ preventScroll: true }));
+  } catch (error) {
+    $('template-list').setAttribute('aria-busy', 'false'); $('template-list').replaceChildren(); $('template-list').hidden = true;
+    $('template-result-count').textContent = 'Templates unavailable';
+    $('template-empty').hidden = false; $('template-empty').querySelector('strong').textContent = 'Template catalogue unavailable';
+    $('template-empty').querySelector('p').textContent = error.message;
+    $('template-empty-clear').hidden = true;
+  }
+}
+
+async function copySelectedTemplate() {
+  const template = selectedTemplate;
+  if (!template) return;
+  const button = $('copy-template'); const errorLine = $('template-copy-error');
+  button.disabled = true; button.textContent = 'Preparing deck…'; errorLine.hidden = true;
+  try {
+    const uniqueIds = [...new Set(ZONES.flatMap((zone) => templateZoneIds(template, zone)))];
+    const data = uniqueIds.length ? await api('/cards/resolve', { method: 'POST', body: JSON.stringify({ ids: uniqueIds }) }) : { results: [] };
+    const resolved = new Map(data.results.map((result) => [Number(result.inputId), result]));
+    const deck = newDeck(template.name); const warnings = [];
+    deck.notes = template.notes;
+    for (const zone of ZONES) deck[zone] = template[zone].flatMap((entry) => {
+      const result = resolved.get(entry.id);
+      if (result?.outcome !== 'resolved') warnings.push(`${entry.id}:${result?.outcome || 'metadata_unavailable'}`);
+      return Array.from({ length: entry.count }, () => result?.outcome === 'resolved'
+        ? instanceFromCard({ ...result.card, artworkId: result.artworkId || result.card.artworkId }, entry.id)
+        : unresolvedInstance(entry.id, result?.outcome || 'metadata_unavailable'));
+    });
+    deck.originalImport = { source: `template:${template.id}`.slice(0, 30), importedAt: new Date().toISOString(), warnings };
+    if (database) {
+      await saveNow(); await database.save(deck, { force: true }); closeDialog($('templates-dialog')); await switchDeck(deck, false);
+    } else {
+      history = new DeckHistory(deck, 100); bindHistory(); selectedCard = null; selectedInstanceId = null;
+      closeDialog($('templates-dialog')); render(); scheduleValidation(); setSaveState('error', 'Not saved — export a backup');
+    }
+    showToast(warnings.length ? `${template.name} copied with ${warnings.length} unresolved card entries.` : `${template.name} copied to a new local deck.`, warnings.length ? 'warning' : '');
+  } catch (error) {
+    errorLine.textContent = error.message || 'The template could not be copied.'; errorLine.hidden = false;
+  } finally {
+    button.textContent = 'Copy to Deckbuilder'; button.disabled = !selectedTemplate;
+  }
+}
+
 function validationDetails() {
   const wrap = document.createElement('div');
   if (!validationResult) { const p = document.createElement('p'); p.textContent = 'Validation is still running.'; wrap.append(p); }
@@ -1380,6 +1541,7 @@ async function runMobileCommand(command) {
   if (command === 'duplicate') { $('duplicate-deck').click(); return; }
   if (command === 'delete') { $('delete-deck').click(); return; }
   if (command === 'redo') { redoDeck(); return; }
+  if (command === 'templates') { openTemplateDecks(trigger); return; }
   if (command === 'import') { openImport(trigger); return; }
   if (command === 'export') { toggleMenu($('export-menu'), trigger); requestAnimationFrame(() => $('export-menu').querySelector('button')?.focus()); return; }
   if (command === 'overview') { openMobileTools('overview'); return; }
@@ -1408,6 +1570,21 @@ function wireEvents() {
     } finally { button.disabled = false; }
   });
   $('export-button').addEventListener('click', () => toggleMenu($('export-menu'), $('export-button')));
+  $('templates-button').addEventListener('click', (event) => openTemplateDecks(event.currentTarget));
+  $('template-search').addEventListener('input', delay(renderTemplateCatalogue, 100));
+  $('template-tag-filter').addEventListener('change', renderTemplateCatalogue);
+  document.querySelectorAll('[data-template-difficulty]').forEach((button) => button.addEventListener('click', () => {
+    templateDifficulty = button.dataset.templateDifficulty;
+    document.querySelectorAll('[data-template-difficulty]').forEach((item) => item.classList.toggle('active', item === button));
+    renderTemplateCatalogue();
+  }));
+  $('clear-template-filters').addEventListener('click', clearTemplateFilters);
+  $('template-empty-clear').addEventListener('click', clearTemplateFilters);
+  $('template-back').addEventListener('click', () => {
+    $('templates-dialog').classList.remove('detail-open');
+    requestAnimationFrame(() => document.querySelector(`.template-list-item[data-template-id="${selectedTemplate?.id || ''}"]`)?.focus({ preventScroll: true }));
+  });
+  $('copy-template').addEventListener('click', copySelectedTemplate);
   document.addEventListener('click', (event) => {
     if (!$('deck-menu').contains(event.target) && !$('deck-menu-button').contains(event.target) && !$('saved-decks-button').contains(event.target) &&
       !$('export-menu').contains(event.target) && !$('export-button').contains(event.target) && !$('mobile-actions-button').contains(event.target) &&
