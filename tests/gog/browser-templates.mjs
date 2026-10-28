@@ -138,10 +138,29 @@ try {
   assert(mobileOverflow <= 1, 'Mobile template detail must not overflow horizontally');
   await click('#template-back');
   assert.equal(await evaluate(`document.querySelector('#templates-dialog').classList.contains('detail-open')`), false);
+  await click('#templates-dialog .close-button');
+  await waitFor(`!document.querySelector('#templates-dialog').open`, 'closed mobile template catalogue');
+
+  const splitBefore = await evaluate(`(() => {const l=document.querySelector('#card-library-panel').getBoundingClientRect(),d=document.querySelector('#deck-workspace').getBoundingClientRect(),s=document.querySelector('#mobile-workspace-splitter').getBoundingClientRect();return {library:l.height,deck:d.height,splitter:{x:s.left+s.width/2,y:s.top+s.height/2,width:s.width,height:s.height},value:Number(document.querySelector('#mobile-workspace-splitter').getAttribute('aria-valuenow')),heading:getComputedStyle(document.querySelector('.library>.panel-heading')).display,total:document.querySelector('#library-total')}})()`);
+  assert.equal(splitBefore.heading, 'none'); assert.equal(splitBefore.total, null);
+  assert(splitBefore.splitter.height >= 44 && splitBefore.splitter.width >= 44, 'Resize handle needs a full touch target');
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: splitBefore.splitter.x, y: splitBefore.splitter.y });
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: splitBefore.splitter.x, y: splitBefore.splitter.y, button: 'left', buttons: 1, clickCount: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: splitBefore.splitter.x, y: splitBefore.splitter.y + 72, button: 'left', buttons: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: splitBefore.splitter.x, y: splitBefore.splitter.y + 72, button: 'left', buttons: 0, clickCount: 1 });
+  await sleep(100);
+  const splitAfterDrag = await evaluate(`({library:document.querySelector('#card-library-panel').getBoundingClientRect().height,deck:document.querySelector('#deck-workspace').getBoundingClientRect().height,value:Number(document.querySelector('#mobile-workspace-splitter').getAttribute('aria-valuenow')),stored:sessionStorage.getItem('gog-deckbuilder-mobile-split')})`);
+  assert(splitAfterDrag.library > splitBefore.library + 50 && splitAfterDrag.deck < splitBefore.deck - 50, 'Dragging down should give the library more space and the deck less');
+  assert(splitAfterDrag.value > splitBefore.value && splitAfterDrag.stored, 'Drag position should be announced and retained for this session');
+  await evaluate(`document.querySelector('#mobile-workspace-splitter').focus()`);
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowUp', code: 'ArrowUp', windowsVirtualKeyCode: 38 });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowUp', code: 'ArrowUp', windowsVirtualKeyCode: 38 });
+  const splitAfterKey = await evaluate(`({library:document.querySelector('#card-library-panel').getBoundingClientRect().height,value:Number(document.querySelector('#mobile-workspace-splitter').getAttribute('aria-valuenow')),label:document.querySelector('#mobile-workspace-splitter').getAttribute('aria-valuetext')})`);
+  assert(splitAfterKey.library < splitAfterDrag.library && splitAfterKey.value < splitAfterDrag.value && /Card library/.test(splitAfterKey.label), 'Arrow keys should provide an accessible resize alternative');
 
   assert.deepEqual(consoleErrors, [], `No browser errors expected: ${consoleErrors.join(' | ')}`);
   assert.deepEqual(failedResponses, [], `No failed responses expected: ${failedResponses.join(' | ')}`);
-  console.log(JSON.stringify({ chrome: version.Browser, templates: 397, desktop: desktopLayout, copied, mobileOverflow, checks: 'passed' }, null, 2));
+  console.log(JSON.stringify({ chrome: version.Browser, templates: 397, desktop: desktopLayout, copied, mobileOverflow, splitBefore, splitAfterDrag, splitAfterKey, checks: 'passed' }, null, 2));
 } finally {
   socket.close(); chrome.kill(); server.close();
   await Promise.race([new Promise(done => chrome.once('exit', done)), sleep(1500)]);

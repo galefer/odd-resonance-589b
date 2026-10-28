@@ -124,9 +124,9 @@
       </section>
     </aside>
 
-    <aside class="library-panel panel" data-workspace-panel="library">
+    <aside id="card-library-panel" class="library-panel panel" data-workspace-panel="library">
       <section class="library">
-        <div class="panel-heading"><h2>Card library</h2><span id="library-total">LOADING</span></div>
+        <div class="panel-heading"><h2>Card library</h2></div>
         <label class="search-box"><span aria-hidden="true">⌕</span><span class="sr-only">Search eligible cards: any TCG region through 1 August 2025, including BLMM</span><input id="search" type="search" autocomplete="off" placeholder="Search cards…"><kbd>/</kbd></label>
         <div class="library-filters" aria-label="Card category">
           <button class="active" data-category="" type="button">All</button><button data-category="Monster" type="button">Monster</button><button data-category="Spell" type="button">Spell</button><button data-category="Trap" type="button">Trap</button>
@@ -146,7 +146,12 @@
       </section>
     </aside>
 
-    <section class="deck-canvas" data-workspace-panel="deck">
+    <button id="mobile-workspace-splitter" class="mobile-workspace-splitter" type="button" role="separator" aria-label="Resize card library and deck" aria-orientation="horizontal" aria-controls="card-library-panel deck-workspace" aria-valuemin="20" aria-valuemax="80" aria-valuenow="55" aria-valuetext="Card library 55%, deck 45%" title="Drag to resize the card library and deck. Use arrow keys for precise control.">
+      <span class="splitter-grip" aria-hidden="true"></span>
+      <span class="sr-only">Drag vertically, or use the Up and Down arrow keys, to resize the card library and deck.</span>
+    </button>
+
+    <section id="deck-workspace" class="deck-canvas" data-workspace-panel="deck">
       <div class="canvas-heading"><div><p class="eyebrow">YU-GI-OH! JUSH HOUSE FORMAT</p><h1>Deckbuilder</h1><p id="mobile-count" class="mobile-count">Main 0 · Extra 0 · Side 0</p></div><div class="view-toggle" role="group" aria-label="Deck display"><button id="copies-view" class="active" type="button">▦ Copies</button><button id="grouped-view" type="button">▤ Grouped</button></div></div>
       <div class="mobile-deck-bar">
         <div id="mobile-zone-tabs" class="mobile-zone-tabs" role="tablist" aria-label="Deck sections">

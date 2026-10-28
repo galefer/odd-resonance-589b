@@ -171,7 +171,7 @@ try {
   assert.equal(await evaluate(`new URL(document.querySelector('.gog-primary-nav a:first-child').href).pathname`), '/gog/');
   assert.deepEqual(await evaluate(`[...document.querySelectorAll('.gog-primary-nav a')].map(a=>a.textContent.trim())`), ['Home','House Format','Deckbuilder']);
   const deckHeader = await evaluate(`(() => { const header=document.querySelector('.gog-site-header').getBoundingClientRect(); const logo=document.querySelector('.gog-brand img').getBoundingClientRect(); const brand=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:header.height,logoWidth:logo.width,logoHeight:logo.height,brandLeft:brand.left,brandTop:brand.top}; })()`);
-  assert.match(await evaluate(`document.querySelector('#library-total').textContent`), /ELIGIBLE/);
+  assert.equal(await evaluate(`document.querySelector('#library-total')`), null, 'Redundant eligible-count label is removed');
   assert.equal(await evaluate(`document.querySelector('#saved-label').textContent`), 'Saved on this device');
   assert.equal((await counts()).main, 0);
   evidence.checks.push('initial catalogue and IndexedDB state loaded');

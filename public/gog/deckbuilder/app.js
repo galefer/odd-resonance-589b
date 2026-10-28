@@ -17,6 +17,8 @@ const statusLabel = (status) => ({ unlimited: 'Unlimited', semi_limited: 'Semi-L
 const statusBadge = (status) => ({ forbidden: '0', limited: '1', semi_limited: '2' }[status] || '');
 const clone = (value) => structuredClone(value);
 const MOBILE_WORKSPACE_QUERY = '(max-width:767px)';
+const MOBILE_SPLIT_STORAGE_KEY = 'gog-deckbuilder-mobile-split';
+const DEFAULT_MOBILE_SPLIT_RATIO = 0.55;
 const delay = (fn, milliseconds) => {
   let timer = 0;
   return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), milliseconds); };
@@ -67,6 +69,10 @@ let templateCatalogue = null;
 let templateCatalogueRequest = null;
 let selectedTemplate = null;
 let templateDifficulty = '';
+let mobileSplitRatio;
+let mobileSplitPointerId = null;
+let mobileSplitFrame = 0;
+let mobileSplitClientY = null;
 
 function isMobileWorkspace() { return matchMedia(MOBILE_WORKSPACE_QUERY).matches; }
 
@@ -837,7 +843,6 @@ async function loadCatalogue({ append = false } = {}) {
       if (current) selectedCard = current;
     }
     catalogueHasMore = data.hasMore; catalogueMeta = data.catalogue;
-    $('library-total').textContent = data.catalogue.eligibleCards ? `${data.catalogue.eligibleCards.toLocaleString()} ELIGIBLE` : `${catalogueCards.length} LOADED`;
     $('library-state').hidden = catalogueCards.length > 0;
     $('library-state').textContent = catalogueCards.length ? '' : 'No eligible cards match these filters.';
     $('load-more').hidden = !catalogueHasMore;
@@ -1500,7 +1505,7 @@ function redoDeck() {
 
 function showKeyboardHelp() {
   const list = document.createElement('ul');
-  ['/ — focus card search', 'Ctrl/⌘ + Z — undo', 'Ctrl/⌘ + Shift + Z or Ctrl/⌘ + Y — redo', 'Delete — remove the selected deck copy', 'Alt + ← / → — reorder the selected copy', 'Escape — close a menu or dialog']
+  ['/ — focus card search', 'Mobile resize handle: ↑ / ↓ — adjust library and deck space', 'Ctrl/⌘ + Z — undo', 'Ctrl/⌘ + Shift + Z or Ctrl/⌘ + Y — redo', 'Delete — remove the selected deck copy', 'Alt + ← / → — reorder the selected copy', 'Escape — close a menu or dialog']
     .forEach((text) => { const item = document.createElement('li'); item.textContent = text; list.append(item); });
   info('Keyboard controls', list);
 }
@@ -1509,12 +1514,103 @@ function openImport(trigger = $('import-button')) {
   importTrigger = trigger; resetImport(); openDialog($('import-dialog'), trigger);
 }
 
+function mobileSplitMetrics() {
+  const workspace = $('workspace'), splitter = $('mobile-workspace-splitter');
+  const styles = getComputedStyle(workspace);
+  const paddingTop = Number.parseFloat(styles.paddingTop) || 0;
+  const paddingBottom = Number.parseFloat(styles.paddingBottom) || 0;
+  const dividerHeight = Number.parseFloat(styles.getPropertyValue('--mobile-splitter-track')) || 12;
+  const contentHeight = Math.max(1, workspace.clientHeight - paddingTop - paddingBottom);
+  const availableHeight = Math.max(1, contentHeight - dividerHeight);
+  const minimumPaneHeight = Math.min(148, Math.max(88, availableHeight * 0.25));
+  return {
+    workspace, splitter, availableHeight, dividerHeight,
+    contentTop: workspace.getBoundingClientRect().top + paddingTop,
+    minimumRatio: minimumPaneHeight / availableHeight,
+    maximumRatio: 1 - minimumPaneHeight / availableHeight
+  };
+}
+
+function setMobileSplitRatio(value, { persist = false } = {}) {
+  if (!isMobileWorkspace()) return;
+  const metrics = mobileSplitMetrics();
+  const ratio = Math.max(metrics.minimumRatio, Math.min(metrics.maximumRatio, Number(value) || DEFAULT_MOBILE_SPLIT_RATIO));
+  const percentage = Math.round(ratio * 100);
+  mobileSplitRatio = ratio;
+  metrics.workspace.style.setProperty('--mobile-library-height', `${Math.round(metrics.availableHeight * ratio)}px`);
+  metrics.splitter.setAttribute('aria-valuemin', String(Math.ceil(metrics.minimumRatio * 100)));
+  metrics.splitter.setAttribute('aria-valuemax', String(Math.floor(metrics.maximumRatio * 100)));
+  metrics.splitter.setAttribute('aria-valuenow', String(percentage));
+  metrics.splitter.setAttribute('aria-valuetext', `Card library ${percentage}%, deck ${100 - percentage}%`);
+  if (persist) {
+    try { sessionStorage.setItem(MOBILE_SPLIT_STORAGE_KEY, ratio.toFixed(4)); } catch { /* Resizing remains available without session storage. */ }
+  }
+}
+
+function syncMobileSplit() {
+  if (!isMobileWorkspace()) { document.body.classList.remove('workspace-resizing'); return; }
+  if (mobileSplitRatio === undefined) {
+    try {
+      const stored = Number(sessionStorage.getItem(MOBILE_SPLIT_STORAGE_KEY));
+      mobileSplitRatio = stored > 0 && stored < 1 ? stored : DEFAULT_MOBILE_SPLIT_RATIO;
+    } catch { mobileSplitRatio = DEFAULT_MOBILE_SPLIT_RATIO; }
+  }
+  setMobileSplitRatio(mobileSplitRatio);
+}
+
+function updateMobileSplitFromPointer(clientY, { persist = false } = {}) {
+  const metrics = mobileSplitMetrics();
+  const libraryHeight = clientY - metrics.contentTop - metrics.dividerHeight / 2;
+  setMobileSplitRatio(libraryHeight / metrics.availableHeight, { persist });
+}
+
+function startMobileSplit(event) {
+  if (!isMobileWorkspace() || event.button !== 0 && event.pointerType === 'mouse') return;
+  event.preventDefault();
+  mobileSplitPointerId = event.pointerId;
+  $('mobile-workspace-splitter').setPointerCapture?.(event.pointerId);
+  document.body.classList.add('workspace-resizing');
+  updateMobileSplitFromPointer(event.clientY);
+}
+
+function moveMobileSplit(event) {
+  if (event.pointerId !== mobileSplitPointerId) return;
+  event.preventDefault(); mobileSplitClientY = event.clientY;
+  if (mobileSplitFrame) return;
+  mobileSplitFrame = requestAnimationFrame(() => {
+    mobileSplitFrame = 0;
+    if (mobileSplitClientY != null) updateMobileSplitFromPointer(mobileSplitClientY);
+  });
+}
+
+function finishMobileSplit(event) {
+  if (event.pointerId !== mobileSplitPointerId) return;
+  event.preventDefault();
+  if (mobileSplitFrame) { cancelAnimationFrame(mobileSplitFrame); mobileSplitFrame = 0; }
+  if (event.type === 'pointerup') updateMobileSplitFromPointer(event.clientY, { persist: true });
+  else setMobileSplitRatio(mobileSplitRatio, { persist: true });
+  try { $('mobile-workspace-splitter').releasePointerCapture?.(event.pointerId); } catch { /* Pointer capture may already be released. */ }
+  mobileSplitPointerId = null; mobileSplitClientY = null; document.body.classList.remove('workspace-resizing');
+}
+
+function keyMobileSplit(event) {
+  if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  const metrics = mobileSplitMetrics();
+  const step = event.shiftKey ? 0.1 : 0.04;
+  const current = mobileSplitRatio ?? DEFAULT_MOBILE_SPLIT_RATIO;
+  const next = event.key === 'Home' ? metrics.minimumRatio : event.key === 'End' ? metrics.maximumRatio :
+    current + (event.key === 'ArrowDown' ? step : -step);
+  setMobileSplitRatio(next, { persist: true });
+}
+
 function syncMobileViewport() {
   const viewportHeight = window.visualViewport?.height || window.innerHeight;
   document.documentElement.style.setProperty('--mobile-viewport-height', `${Math.round(viewportHeight)}px`);
   const keyboardInset = window.innerHeight - viewportHeight;
   const searchFocused = document.activeElement === $('search');
   document.body.classList.toggle('search-keyboard-open', isMobileWorkspace() && searchFocused && keyboardInset > 120);
+  requestAnimationFrame(syncMobileSplit);
 }
 
 function handleWorkspaceResize() {
@@ -1626,6 +1722,12 @@ function wireEvents() {
     setActiveDeckZone(ZONES[next], { focus: true });
   });
   $('mobile-zone-menu-button').addEventListener('click', toggleMobileZoneMenu);
+  $('mobile-workspace-splitter').addEventListener('pointerdown', startMobileSplit);
+  $('mobile-workspace-splitter').addEventListener('pointermove', moveMobileSplit);
+  $('mobile-workspace-splitter').addEventListener('pointerup', finishMobileSplit);
+  $('mobile-workspace-splitter').addEventListener('pointercancel', finishMobileSplit);
+  $('mobile-workspace-splitter').addEventListener('keydown', keyMobileSplit);
+  $('mobile-workspace-splitter').addEventListener('dblclick', () => setMobileSplitRatio(DEFAULT_MOBILE_SPLIT_RATIO, { persist: true }));
   $('mobile-copies-view').addEventListener('click', () => setGroupedView(false));
   $('mobile-grouped-view').addEventListener('click', () => setGroupedView(true));
   $('mobile-sort-zone').addEventListener('click', () => { dispatch({ type: 'SORT_ZONE', zone: activeDeckZone }); closeMobileZoneMenu(); });
