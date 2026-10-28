@@ -6,11 +6,19 @@ import { DeckDatabase, StorageConflictError, makeBackup, parseBackup, sanitiseDe
 import { MAX_FILE_BYTES, encodeYdk, encodeYdke, parseYdk, parseYdke } from './deck-codecs.js';
 import { atLeast } from './probability.js';
 import { validationKey, remapValidation } from './validation.js';
-import { filterTemplates, normaliseTemplateManifest, templateTags, templateZoneCount, templateZoneIds } from './templates.js';
+import {
+  applyTemplatePresentation, filterTemplates, groupTemplates, normaliseTemplateManifest,
+  templateFacets, templateZoneCount, templateZoneIds
+} from './templates.js';
 
 const API = '/gog/api';
 const CARD_BACK = '/gog/deckbuilder/card-back.svg';
 const TEMPLATE_CATALOGUE_URL = '/gog/deckbuilder/template-decks.json';
+const TEMPLATE_PRESENTATION_URL = '/gog/deckbuilder/template-presentation.json';
+const TEMPLATE_COLLAPSED_KEY = 'gog-template-collapsed-families';
+const TEMPLATE_ROW_HEIGHT = 76;
+const TEMPLATE_GROUP_HEIGHT = 46;
+const TEMPLATE_OVERSCAN_PX = 320;
 const $ = (id) => document.getElementById(id);
 const zoneLabel = (zone) => zone === 'main' ? 'Main Deck' : zone === 'extra' ? 'Extra Deck' : 'Side Deck';
 const statusLabel = (status) => ({ unlimited: 'Unlimited', semi_limited: 'Semi-Limited', limited: 'Limited', forbidden: 'Forbidden', unverified: 'Unverified' }[status] || 'Unverified');
@@ -68,7 +76,16 @@ const PUBLISHED_LIST_SIGNAL = 'gog-published-list';
 let templateCatalogue = null;
 let templateCatalogueRequest = null;
 let selectedTemplate = null;
-let templateDifficulty = '';
+let templateRows = [];
+let templateListFrame = 0;
+let templateListScrollTop = 0;
+let templateActiveTab = 'overview';
+let templateCardZone = 'main';
+const templateTagFilters = new Set();
+const collapsedTemplateFamilies = new Set((() => {
+  try { const value = JSON.parse(localStorage.getItem(TEMPLATE_COLLAPSED_KEY) || '[]'); return Array.isArray(value) ? value : []; }
+  catch { return []; }
+})());
 let mobileSplitRatio;
 let mobileSplitPointerId = null;
 let mobileSplitFrame = 0;
@@ -1006,16 +1023,28 @@ function info(title, content) {
 
 async function loadTemplateCatalogue() {
   if (templateCatalogue) return templateCatalogue;
-  if (!templateCatalogueRequest) templateCatalogueRequest = fetch(TEMPLATE_CATALOGUE_URL, { headers: { Accept: 'application/json' } })
-    .then(async (response) => {
-      if (!response.ok) throw new Error(`Template catalogue request failed (${response.status}).`);
-      return normaliseTemplateManifest(await response.json());
-    })
-    .then((manifest) => {
+  if (!templateCatalogueRequest) templateCatalogueRequest = Promise.all([
+    fetch(TEMPLATE_CATALOGUE_URL, { headers: { Accept: 'application/json' } }),
+    fetch(TEMPLATE_PRESENTATION_URL, { headers: { Accept: 'application/json' } })
+  ]).then(async ([catalogueResponse, presentationResponse]) => {
+    if (!catalogueResponse.ok) throw new Error(`Template catalogue request failed (${catalogueResponse.status}).`);
+    if (!presentationResponse.ok) throw new Error(`Template presentation request failed (${presentationResponse.status}).`);
+    return applyTemplatePresentation(normaliseTemplateManifest(await catalogueResponse.json()), await presentationResponse.json());
+  }).then((manifest) => {
       templateCatalogue = manifest;
-      const select = $('template-tag-filter');
-      select.replaceChildren(new Option('All tags', ''), ...templateTags(manifest.decks).map((tag) => new Option(tag, tag)));
-      $('template-catalogue-meta').textContent = `${manifest.decks.length} community deck ideas for the JUSH house format`;
+      const facets = templateFacets(manifest.decks);
+      $('template-engine-filter').replaceChildren(new Option('All engines', ''),
+        ...facets.engines.map(({ value, count }) => new Option(`${value} (${count})`, value)));
+      $('template-build-filter').replaceChildren(new Option('All builds', ''),
+        ...facets.builds.map(({ value, count }) => new Option(`${value} (${count})`, value)));
+      $('template-tag-options').replaceChildren(...facets.tags.map(({ value, count }) => {
+        const label = document.createElement('label');
+        const input = document.createElement('input'); input.type = 'checkbox'; input.value = value; input.checked = templateTagFilters.has(value);
+        const text = document.createElement('span'); text.textContent = value;
+        const total = document.createElement('small'); total.textContent = count;
+        label.append(input, text, total); return label;
+      }));
+      $('template-catalogue-meta').textContent = `${manifest.decks.length} researched starting points · current Guild of Games house list`;
       return manifest;
     })
     .catch((error) => { templateCatalogueRequest = null; throw error; });
@@ -1023,54 +1052,211 @@ async function loadTemplateCatalogue() {
 }
 
 function templateFiltersActive() {
-  return !!($('template-search').value.trim() || templateDifficulty || $('template-tag-filter').value);
+  return !!($('template-search').value.trim() || $('template-engine-filter').value ||
+    $('template-build-filter').value || templateTagFilters.size);
 }
 
 function clearTemplateFilters() {
   $('template-search').value = '';
-  $('template-tag-filter').value = '';
-  templateDifficulty = '';
-  document.querySelectorAll('[data-template-difficulty]').forEach((button) =>
-    button.classList.toggle('active', button.dataset.templateDifficulty === ''));
+  $('template-engine-filter').value = '';
+  $('template-build-filter').value = '';
+  templateTagFilters.clear();
+  document.querySelectorAll('#template-tag-options input').forEach((input) => { input.checked = false; });
+  $('template-tag-filter').open = false;
   renderTemplateCatalogue();
   $('template-search').focus();
 }
 
-function templateListItem(deck) {
+function templateCoverUrl(deck) {
+  return Number(deck?.coverCardId) > 0 ? `${API}/cards/${deck.coverCardId}/image?size=cover&v=2` : CARD_BACK;
+}
+
+function renderActiveTemplateTags() {
+  const wrap = $('template-active-tags');
+  wrap.replaceChildren(...[...templateTagFilters].sort().map((tag) => {
+    const button = document.createElement('button'); button.type = 'button'; button.dataset.templateTag = tag;
+    button.setAttribute('aria-label', `Remove ${tag} filter`); button.append(tag, ' ×');
+    return button;
+  }));
+  wrap.hidden = !templateTagFilters.size;
+  $('template-tag-summary').textContent = templateTagFilters.size ? `${templateTagFilters.size} selected` : 'Any tag';
+}
+
+function templateRowKey(row) { return row.type === 'group' ? `group:${row.family}` : `deck:${row.deck.id}`; }
+
+function saveCollapsedTemplateFamilies() {
+  try { localStorage.setItem(TEMPLATE_COLLAPSED_KEY, JSON.stringify([...collapsedTemplateFamilies])); } catch { /* browsing still works without preference storage */ }
+}
+
+function templateRowKeydown(event) {
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  const key = event.currentTarget.dataset.templateRowKey;
+  const current = Math.max(0, templateRows.findIndex((row) => templateRowKey(row) === key));
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? templateRows.length - 1 :
+    Math.max(0, Math.min(templateRows.length - 1, current + (event.key === 'ArrowDown' ? 1 : -1)));
+  const row = templateRows[next], list = $('template-list');
+  if (!row) return;
+  if (row.top < list.scrollTop) list.scrollTop = row.top;
+  else if (row.top + row.height > list.scrollTop + list.clientHeight) list.scrollTop = row.top + row.height - list.clientHeight;
+  renderTemplateVirtualWindow(templateRowKey(row));
+}
+
+function templateGroupItem(row) {
   const button = document.createElement('button');
-  button.type = 'button'; button.className = 'template-list-item'; button.role = 'option';
-  button.dataset.templateId = deck.id; button.setAttribute('aria-selected', String(selectedTemplate?.id === deck.id));
-  const heading = document.createElement('span'); heading.className = 'template-list-name';
-  const name = document.createElement('strong'); name.textContent = deck.name;
-  const difficulty = document.createElement('span'); difficulty.textContent = deck.difficulty;
-  heading.append(name, difficulty);
-  const description = document.createElement('p'); description.textContent = deck.description;
-  const counts = document.createElement('span'); counts.className = 'template-list-meta';
-  const values = [['Main', templateZoneCount(deck, 'main')], ['Extra', templateZoneCount(deck, 'extra')], ['Side', templateZoneCount(deck, 'side')]];
-  values.forEach(([label, value], index) => {
-    if (index) { const separator = document.createElement('i'); separator.setAttribute('aria-hidden', 'true'); counts.append(separator); }
-    const item = document.createElement('span'); const number = document.createElement('b'); number.textContent = value; item.append(number, ` ${label}`); counts.append(item);
+  button.type = 'button'; button.className = 'template-group-item'; button.dataset.templateRowKey = templateRowKey(row);
+  button.setAttribute('aria-expanded', String(!collapsedTemplateFamilies.has(row.family)));
+  const marker = document.createElement('span'); marker.className = 'template-group-marker'; marker.textContent = collapsedTemplateFamilies.has(row.family) ? '›' : '⌄';
+  const name = document.createElement('strong'); name.textContent = row.family;
+  const count = document.createElement('small'); count.textContent = `${row.count} ${row.count === 1 ? 'deck' : 'decks'}`;
+  button.append(marker, name, count);
+  button.addEventListener('click', () => {
+    if (collapsedTemplateFamilies.has(row.family)) collapsedTemplateFamilies.delete(row.family);
+    else collapsedTemplateFamilies.add(row.family);
+    saveCollapsedTemplateFamilies(); renderTemplateCatalogue({ preserveScroll: true, focusKey: `group:${row.family}` });
   });
-  button.append(heading, description, counts);
-  button.addEventListener('click', () => selectTemplate(deck, { showDetail: true }));
+  button.addEventListener('keydown', templateRowKeydown);
   return button;
 }
 
-function renderTemplateCatalogue() {
+function templateListItem(deck) {
+  const button = document.createElement('button');
+  button.type = 'button'; button.className = 'template-list-item'; button.dataset.templateId = deck.id;
+  button.dataset.templateRowKey = `deck:${deck.id}`; button.setAttribute('aria-current', String(selectedTemplate?.id === deck.id));
+  button.setAttribute('aria-label', `${deck.name}, ${deck.buildCategory}`);
+  const artwork = document.createElement('img'); artwork.alt = ''; artwork.width = 64; artwork.height = 64;
+  artwork.loading = 'lazy'; artwork.decoding = 'async'; artwork.src = templateCoverUrl(deck);
+  artwork.addEventListener('error', () => { if (!artwork.src.endsWith(CARD_BACK)) artwork.src = CARD_BACK; }, { once: true });
+  const copy = document.createElement('span'); copy.className = 'template-list-copy';
+  const name = document.createElement('strong'); name.textContent = deck.name; name.title = deck.name;
+  const meta = document.createElement('span'); meta.textContent = deck.buildCategory;
+  copy.append(name, meta); button.append(artwork, copy);
+  button.addEventListener('click', () => selectTemplate(deck, { showDetail: true }));
+  button.addEventListener('keydown', templateRowKeydown);
+  return button;
+}
+
+function renderTemplateVirtualWindow(focusKey = '') {
+  const list = $('template-list');
+  if (!templateRows.length || list.hidden) { list.replaceChildren(); return; }
+  let space = list.querySelector('.template-virtual-space');
+  if (!space) { space = document.createElement('div'); space.className = 'template-virtual-space'; list.replaceChildren(space); }
+  const totalHeight = templateRows.at(-1).top + templateRows.at(-1).height;
+  space.style.height = `${totalHeight}px`;
+  const minimum = Math.max(0, list.scrollTop - TEMPLATE_OVERSCAN_PX);
+  const maximum = list.scrollTop + list.clientHeight + TEMPLATE_OVERSCAN_PX;
+  const visible = templateRows.filter((row) => row.top + row.height >= minimum && row.top <= maximum);
+  space.replaceChildren(...visible.map((row) => {
+    const element = row.type === 'group' ? templateGroupItem(row) : templateListItem(row.deck);
+    element.style.transform = `translateY(${row.top}px)`; element.style.height = `${row.height}px`;
+    return element;
+  }));
+  if (focusKey) requestAnimationFrame(() => space.querySelector(`[data-template-row-key="${CSS.escape(focusKey)}"]`)?.focus({ preventScroll: true }));
+}
+
+function buildTemplateRows(decks) {
+  const rows = [];
+  if ($('template-search').value.trim()) decks.forEach((deck) => rows.push({ type: 'deck', deck, height: TEMPLATE_ROW_HEIGHT }));
+  else for (const group of groupTemplates(decks)) {
+    rows.push({ type: 'group', family: group.family, count: group.decks.length, height: TEMPLATE_GROUP_HEIGHT });
+    if (!collapsedTemplateFamilies.has(group.family)) group.decks.forEach((deck) => rows.push({ type: 'deck', deck, height: TEMPLATE_ROW_HEIGHT }));
+  }
+  let top = 0;
+  rows.forEach((row) => { row.top = top; top += row.height; });
+  return rows;
+}
+
+function renderTemplateCatalogue({ preserveScroll = false, focusKey = '' } = {}) {
   if (!templateCatalogue) return;
+  const list = $('template-list');
+  const previousScroll = preserveScroll ? list.scrollTop : 0;
   $('template-empty-clear').hidden = false;
   const filtered = filterTemplates(templateCatalogue.decks, {
-    query: $('template-search').value, difficulty: templateDifficulty, tag: $('template-tag-filter').value
+    query: $('template-search').value,
+    engines: $('template-engine-filter').value ? [$('template-engine-filter').value] : [],
+    builds: $('template-build-filter').value ? [$('template-build-filter').value] : [],
+    tags: [...templateTagFilters]
   });
-  if (selectedTemplate && !filtered.some((deck) => deck.id === selectedTemplate.id)) {
-    selectedTemplate = null; $('templates-dialog').classList.remove('detail-open'); renderTemplateDetail();
-  }
-  $('template-list').replaceChildren(...filtered.map(templateListItem));
-  $('template-list').setAttribute('aria-busy', 'false');
-  $('template-result-count').textContent = `${filtered.length.toLocaleString()} of ${templateCatalogue.decks.length.toLocaleString()} decks`;
+  templateRows = buildTemplateRows(filtered);
+  list.setAttribute('aria-busy', 'false');
+  const familyCount = new Set(filtered.map((deck) => deck.family)).size;
+  $('template-result-count').textContent = `${filtered.length.toLocaleString()} of ${templateCatalogue.decks.length.toLocaleString()} decks${$('template-search').value.trim() ? '' : ` · ${familyCount} ${familyCount === 1 ? 'family' : 'families'}`}`;
   $('template-empty').hidden = filtered.length > 0;
-  $('template-list').hidden = filtered.length === 0;
+  list.hidden = filtered.length === 0;
   $('clear-template-filters').hidden = !templateFiltersActive();
+  renderActiveTemplateTags();
+  renderTemplateVirtualWindow(focusKey);
+  if (preserveScroll) list.scrollTop = Math.min(previousScroll, Math.max(0, (templateRows.at(-1)?.top || 0) - list.clientHeight + TEMPLATE_ROW_HEIGHT));
+  else list.scrollTop = 0;
+  renderTemplateVirtualWindow(focusKey);
+}
+
+function setTemplateTab(tab, { focus = false } = {}) {
+  templateActiveTab = ['overview', 'cards', 'sources'].includes(tab) ? tab : 'overview';
+  document.querySelectorAll('[data-template-tab]').forEach((button) => {
+    const active = button.dataset.templateTab === templateActiveTab;
+    button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active)); button.tabIndex = active ? 0 : -1;
+    if (active && focus) button.focus();
+  });
+  document.querySelectorAll('[data-template-panel]').forEach((panel) => { panel.hidden = panel.dataset.templatePanel !== templateActiveTab; });
+}
+
+function renderTemplateCardlist() {
+  const deck = selectedTemplate;
+  if (!deck) return;
+  $('template-card-zone-tabs').replaceChildren(...ZONES.map((zone) => {
+    const button = document.createElement('button'); button.type = 'button'; button.role = 'tab'; button.dataset.templateCardZone = zone;
+    button.classList.toggle('active', zone === templateCardZone); button.setAttribute('aria-selected', String(zone === templateCardZone));
+    button.textContent = `${zoneLabel(zone).replace(' Deck', '')} (${templateZoneCount(deck, zone)})`;
+    return button;
+  }));
+  const list = document.createElement('ul');
+  list.append(...deck[templateCardZone].map((card) => {
+    const item = document.createElement('li'); const quantity = document.createElement('b'); quantity.textContent = `${card.count}×`;
+    const name = document.createElement('span'); name.textContent = card.name; item.append(quantity, name); return item;
+  }));
+  if (!deck[templateCardZone].length) { const item = document.createElement('li'); item.className = 'template-no-cards'; item.textContent = 'No cards in this section.'; list.append(item); }
+  const heading = document.createElement('h4'); heading.textContent = `${zoneLabel(templateCardZone)} · ${templateZoneCount(deck, templateCardZone)} cards`;
+  $('template-cardlist-zone').replaceChildren(heading, list);
+}
+
+function renderTemplateSource() {
+  const deck = selectedTemplate, wrap = $('template-source-content'); wrap.replaceChildren();
+  if (!deck) return;
+  const classification = document.createElement('section');
+  const heading = document.createElement('h4'); heading.textContent = 'Build classification';
+  const description = document.createElement('p');
+  description.textContent = deck.buildCategory === 'Source-adapted' ? 'Adapted from a published deck source for the current Guild of Games house list.' :
+    deck.buildCategory === 'Reconstructed' ? 'Reconstructed from published engine evidence where an exact current-format list was not available.' :
+      'An experimental hybrid assembled from cited engine evidence; treat it as a testing starting point.';
+  classification.append(heading, description); wrap.append(classification);
+  if (deck.source?.url) {
+    const source = document.createElement('section'); const sourceHeading = document.createElement('h4'); sourceHeading.textContent = 'Primary source';
+    const link = document.createElement('a'); link.href = deck.source.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+    link.textContent = deck.source.title || 'Open source deck';
+    const context = [deck.source.player, deck.source.event, deck.source.placement].filter(Boolean);
+    const note = document.createElement('p'); note.textContent = context.length ? context.join(' · ') : 'Published deck source';
+    if (deck.source.sourceCount > 1) note.append(` · ${deck.source.sourceCount} sources reviewed`);
+    source.append(sourceHeading, link, note); wrap.append(source);
+  } else {
+    const note = document.createElement('p'); note.className = 'template-source-missing'; note.textContent = 'No individual external source record is attached to this template.'; wrap.append(note);
+  }
+  const changes = document.createElement('section'); const changeHeading = document.createElement('h4'); changeHeading.textContent = 'House-format changes'; changes.append(changeHeading);
+  if (deck.changes.length) {
+    const list = document.createElement('ul');
+    deck.changes.forEach((change) => {
+      const item = document.createElement('li'); const title = document.createElement('strong');
+      title.textContent = `${change.card} · ${change.from} → ${change.to} (${zoneLabel(change.zone)})`;
+      const reason = document.createElement('p'); reason.textContent = change.reason; item.append(title, reason); list.append(item);
+    });
+    changes.append(list);
+    if (deck.changeCount > deck.changes.length) { const more = document.createElement('p'); more.className = 'template-more-changes'; more.textContent = `Plus ${deck.changeCount - deck.changes.length} additional recorded source adjustments.`; changes.append(more); }
+  } else {
+    const note = document.createElement('p'); note.textContent = 'No card-count differences from the primary source were recorded.'; changes.append(note);
+  }
+  const disclaimer = document.createElement('p'); disclaimer.className = 'template-source-disclaimer';
+  disclaimer.textContent = 'Any event result belongs to the original source list, not this house-adapted copy. Live legality is checked when you use the template.';
+  changes.append(disclaimer); wrap.append(changes);
 }
 
 function renderTemplateDetail() {
@@ -1080,29 +1266,25 @@ function renderTemplateDetail() {
   $('copy-template').disabled = !deck;
   $('template-copy-error').hidden = true;
   if (!deck) return;
-  $('template-detail-difficulty').textContent = deck.difficulty;
+  $('template-detail-build').textContent = deck.buildCategory;
+  $('template-detail-family').textContent = deck.family;
   $('template-detail-name').textContent = deck.name;
   $('template-detail-description').textContent = deck.description;
   $('template-detail-notes').textContent = deck.notes;
+  const cover = $('template-detail-cover'); cover.src = templateCoverUrl(deck); cover.alt = `${deck.coverCardName} artwork for ${deck.name}`;
+  cover.onerror = () => { cover.onerror = null; cover.src = CARD_BACK; };
+  $('template-cover-name').textContent = deck.coverCardName;
   for (const zone of ZONES) $(`template-${zone}-count`).textContent = templateZoneCount(deck, zone);
-  $('template-detail-tags').replaceChildren(...deck.tags.map((tag) => { const chip = document.createElement('span'); chip.textContent = tag; return chip; }));
-  $('template-cardlist-zones').replaceChildren(...ZONES.map((zone) => {
-    const section = document.createElement('section');
-    const heading = document.createElement('h4'); heading.textContent = `${zoneLabel(zone)} (${templateZoneCount(deck, zone)})`;
-    const list = document.createElement('ul');
-    list.append(...deck[zone].map((card) => {
-      const item = document.createElement('li'); const quantity = document.createElement('b'); quantity.textContent = `${card.count}×`;
-      const name = document.createElement('span'); name.textContent = card.name; item.append(quantity, name); return item;
-    }));
-    if (!deck[zone].length) { const item = document.createElement('li'); item.textContent = 'No cards'; list.append(item); }
-    section.append(heading, list); return section;
-  }));
+  $('template-detail-engines').replaceChildren(...deck.engines.map((engine) => { const chip = document.createElement('span'); chip.textContent = engine; return chip; }));
+  $('template-detail-tags').replaceChildren(...deck.filterTags.map((tag) => { const chip = document.createElement('span'); chip.textContent = tag; return chip; }));
+  $('template-detail-tags').hidden = !deck.filterTags.length;
+  templateCardZone = 'main'; renderTemplateCardlist(); renderTemplateSource(); setTemplateTab(templateActiveTab);
 }
 
 function selectTemplate(deck, { showDetail = false } = {}) {
   selectedTemplate = deck;
   document.querySelectorAll('.template-list-item').forEach((button) =>
-    button.setAttribute('aria-selected', String(button.dataset.templateId === deck.id)));
+    button.setAttribute('aria-current', String(button.dataset.templateId === deck.id)));
   renderTemplateDetail();
   if (showDetail && isMobileWorkspace()) {
     $('templates-dialog').classList.add('detail-open');
@@ -1113,9 +1295,13 @@ function selectTemplate(deck, { showDetail = false } = {}) {
 async function openTemplateDecks(trigger = $('templates-button')) {
   closeMenus();
   const dialog = $('templates-dialog'); dialog.classList.remove('detail-open');
+  document.documentElement.classList.add('template-modal-open');
   openDialog(dialog, trigger); $('template-list').setAttribute('aria-busy', 'true');
   try {
-    await loadTemplateCatalogue(); renderTemplateCatalogue(); renderTemplateDetail();
+    await loadTemplateCatalogue();
+    if (selectedTemplate) collapsedTemplateFamilies.delete(selectedTemplate.family);
+    renderTemplateCatalogue(); renderTemplateDetail();
+    $('template-list').scrollTop = templateListScrollTop; renderTemplateVirtualWindow();
     requestAnimationFrame(() => $('template-search').focus({ preventScroll: true }));
   } catch (error) {
     $('template-list').setAttribute('aria-busy', 'false'); $('template-list').replaceChildren(); $('template-list').hidden = true;
@@ -1155,7 +1341,7 @@ async function copySelectedTemplate() {
   } catch (error) {
     errorLine.textContent = error.message || 'The template could not be copied.'; errorLine.hidden = false;
   } finally {
-    button.textContent = 'Copy to Deckbuilder'; button.disabled = !selectedTemplate;
+    button.textContent = 'Use this template'; button.disabled = !selectedTemplate;
   }
 }
 
@@ -1671,14 +1857,42 @@ function wireEvents() {
   $('export-button').addEventListener('click', () => toggleMenu($('export-menu'), $('export-button')));
   $('templates-button').addEventListener('click', (event) => openTemplateDecks(event.currentTarget));
   $('template-search').addEventListener('input', delay(renderTemplateCatalogue, 100));
-  $('template-tag-filter').addEventListener('change', renderTemplateCatalogue);
-  document.querySelectorAll('[data-template-difficulty]').forEach((button) => button.addEventListener('click', () => {
-    templateDifficulty = button.dataset.templateDifficulty;
-    document.querySelectorAll('[data-template-difficulty]').forEach((item) => item.classList.toggle('active', item === button));
+  $('template-engine-filter').addEventListener('change', renderTemplateCatalogue);
+  $('template-build-filter').addEventListener('change', renderTemplateCatalogue);
+  $('template-tag-options').addEventListener('change', (event) => {
+    if (!event.target.matches('input[type="checkbox"]')) return;
+    if (event.target.checked) templateTagFilters.add(event.target.value); else templateTagFilters.delete(event.target.value);
     renderTemplateCatalogue();
-  }));
+  });
+  $('template-active-tags').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-template-tag]'); if (!button) return;
+    templateTagFilters.delete(button.dataset.templateTag);
+    const input = [...document.querySelectorAll('#template-tag-options input')].find((item) => item.value === button.dataset.templateTag);
+    if (input) input.checked = false;
+    renderTemplateCatalogue();
+  });
+  $('template-list').addEventListener('scroll', () => {
+    templateListScrollTop = $('template-list').scrollTop;
+    if (templateListFrame) return;
+    templateListFrame = requestAnimationFrame(() => { templateListFrame = 0; renderTemplateVirtualWindow(); });
+  }, { passive: true });
   $('clear-template-filters').addEventListener('click', clearTemplateFilters);
   $('template-empty-clear').addEventListener('click', clearTemplateFilters);
+  document.querySelector('.template-detail-tabs').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-template-tab]'); if (button) setTemplateTab(button.dataset.templateTab);
+  });
+  document.querySelector('.template-detail-tabs').addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault(); const tabs = [...document.querySelectorAll('[data-template-tab]')];
+    const current = tabs.findIndex((button) => button.dataset.templateTab === templateActiveTab);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 :
+      (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    setTemplateTab(tabs[next].dataset.templateTab, { focus: true });
+  });
+  $('template-card-zone-tabs').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-template-card-zone]'); if (!button) return;
+    templateCardZone = button.dataset.templateCardZone; renderTemplateCardlist();
+  });
   $('template-back').addEventListener('click', () => {
     $('templates-dialog').classList.remove('detail-open');
     requestAnimationFrame(() => document.querySelector(`.template-list-item[data-template-id="${selectedTemplate?.id || ''}"]`)?.focus({ preventScroll: true }));
@@ -1795,6 +2009,10 @@ function wireEvents() {
   $('card-inspector-dialog').addEventListener('close', finishMobileInspectorClose);
   $('mobile-tools-dialog').addEventListener('close', () => { finishMobileToolsClose(); $('mobile-actions-button').focus({ preventScroll: true }); });
   document.querySelectorAll('dialog:not(#card-inspector-dialog):not(#mobile-tools-dialog)').forEach((dialog) => dialog.addEventListener('close', () => {
+    if (dialog.id === 'templates-dialog') {
+      templateListScrollTop = $('template-list').scrollTop;
+      document.documentElement.classList.remove('template-modal-open');
+    }
     const trigger = dialogTriggers.get(dialog); dialogTriggers.delete(dialog);
     if (trigger?.isConnected && !trigger.disabled) requestAnimationFrame(() => trigger.focus({ preventScroll: true }));
   }));

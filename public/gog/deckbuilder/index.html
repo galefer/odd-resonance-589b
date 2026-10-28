@@ -214,37 +214,59 @@
 
   <dialog id="templates-dialog" class="app-dialog template-dialog" aria-labelledby="templates-title">
     <form method="dialog" class="modal-header template-modal-header">
-      <div><p class="eyebrow">START WITH A PROVEN LIST</p><h2 id="templates-title">Template decks</h2><p id="template-catalogue-meta">397 community deck ideas for the JUSH house format</p></div>
+      <div><p class="eyebrow">FIND A STARTING DECK.</p><h2 id="templates-title">Template decks</h2><p id="template-catalogue-meta">397 researched starting points · current Guild of Games house list</p></div>
       <button class="close-button" value="cancel" aria-label="Close template decks">×</button>
     </form>
     <div class="template-layout">
       <section id="template-browser" class="template-browser" aria-label="Browse template decks">
-        <label class="template-search" for="template-search"><span aria-hidden="true">⌕</span><input id="template-search" type="search" autocomplete="off" placeholder="Search decks, cards or tags…"></label>
-        <div class="template-difficulty" role="group" aria-label="Difficulty">
-          <button class="active" type="button" data-template-difficulty="">All</button>
-          <button type="button" data-template-difficulty="Beginner">Beginner</button>
-          <button type="button" data-template-difficulty="Intermediate">Intermediate</button>
-          <button type="button" data-template-difficulty="Advanced">Advanced</button>
+        <label class="template-search" for="template-search"><span aria-hidden="true">⌕</span><input id="template-search" type="search" autocomplete="off" placeholder="Search decks, engines or cards…"></label>
+        <div class="template-filter-grid">
+          <label for="template-engine-filter"><span>Archetype or engine</span><select id="template-engine-filter"><option value="">All engines</option></select></label>
+          <label for="template-build-filter"><span>Build category</span><select id="template-build-filter"><option value="">All builds</option></select></label>
         </div>
-        <label class="template-tag-label" for="template-tag-filter"><span>Filter by tag</span><select id="template-tag-filter"><option value="">All tags</option></select></label>
+        <details id="template-tag-filter" class="template-tag-filter">
+          <summary><span>Tags</span><b id="template-tag-summary">Any tag</b><i aria-hidden="true">⌄</i></summary>
+          <div id="template-tag-options" class="template-tag-options" role="group" aria-label="Filter by tags"></div>
+        </details>
+        <div id="template-active-tags" class="template-active-tags" aria-label="Active tag filters" hidden></div>
         <div class="template-result-heading"><strong id="template-result-count">Loading templates…</strong><button id="clear-template-filters" class="text-button" type="button" hidden>Clear filters</button></div>
-        <div id="template-list" class="template-list" role="listbox" aria-label="Template decks" aria-busy="true"></div>
+        <div id="template-list" class="template-list" role="region" aria-label="Template deck results" aria-busy="true"></div>
         <div id="template-empty" class="template-empty" role="status" hidden><strong>No template decks found</strong><p>Try a card name, a broader tag, or clear the filters.</p><button id="template-empty-clear" class="button" type="button">Clear filters</button></div>
       </section>
       <section id="template-detail" class="template-detail" aria-live="polite">
         <button id="template-back" class="template-back" type="button">← Back to templates</button>
-        <div id="template-detail-placeholder" class="template-detail-placeholder"><span aria-hidden="true">✦</span><strong>Choose a template</strong><p>Pick a list to see its strategy, tags and complete card breakdown.</p></div>
+        <div id="template-detail-placeholder" class="template-detail-placeholder"><span aria-hidden="true">✦</span><strong>Choose a template</strong><p>Select a deck to see its game plan, complete card list and source adaptations.</p></div>
         <div id="template-detail-content" hidden>
-          <div class="template-detail-heading"><div><span id="template-detail-difficulty" class="template-difficulty-badge"></span><h3 id="template-detail-name"></h3></div><div class="template-zone-summary" aria-label="Deck size"><span><b id="template-main-count">0</b>Main</span><span><b id="template-extra-count">0</b>Extra</span><span><b id="template-side-count">0</b>Side</span></div></div>
-          <p id="template-detail-description" class="template-description"></p>
+          <div class="template-detail-hero">
+            <figure class="template-cover"><img id="template-detail-cover" alt="" width="320" height="320" decoding="async"><figcaption id="template-cover-name"></figcaption></figure>
+            <div class="template-detail-heading">
+              <div class="template-title-copy"><span id="template-detail-build" class="template-build-badge"></span><span id="template-detail-family" class="template-family-label"></span><h3 id="template-detail-name"></h3><p id="template-detail-description" class="template-description"></p></div>
+              <div class="template-zone-summary" aria-label="Deck size"><span><b id="template-main-count">0</b>Main</span><span><b id="template-extra-count">0</b>Extra</span><span><b id="template-side-count">0</b>Side</span></div>
+            </div>
+          </div>
+          <div id="template-detail-engines" class="template-engines" aria-label="Deck engines"></div>
           <div id="template-detail-tags" class="template-tags" aria-label="Deck tags"></div>
-          <section class="template-notes"><h4>How it plays</h4><p id="template-detail-notes"></p></section>
-          <details class="template-cardlist"><summary>View complete card list</summary><div id="template-cardlist-zones" class="template-cardlist-zones"></div></details>
+          <div class="template-detail-tabs" role="tablist" aria-label="Template information">
+            <button id="template-tab-overview" class="active" type="button" role="tab" aria-selected="true" aria-controls="template-panel-overview" data-template-tab="overview">Overview</button>
+            <button id="template-tab-cards" type="button" role="tab" aria-selected="false" aria-controls="template-panel-cards" data-template-tab="cards">Card list</button>
+            <button id="template-tab-sources" type="button" role="tab" aria-selected="false" aria-controls="template-panel-sources" data-template-tab="sources">Sources &amp; changes</button>
+          </div>
+          <section id="template-panel-overview" class="template-tab-panel" role="tabpanel" aria-labelledby="template-tab-overview" data-template-panel="overview">
+            <h4>Game plan</h4><p>Use the summary above as the quick read, then open the full notes for sequencing, locks and side-deck context.</p>
+            <details class="template-strategy-details"><summary>Full strategy and sequencing</summary><p id="template-detail-notes"></p></details>
+          </section>
+          <section id="template-panel-cards" class="template-tab-panel" role="tabpanel" aria-labelledby="template-tab-cards" data-template-panel="cards" hidden>
+            <div id="template-card-zone-tabs" class="template-card-zone-tabs" role="tablist" aria-label="Deck section"></div>
+            <div id="template-cardlist-zone" class="template-cardlist-zone"></div>
+          </section>
+          <section id="template-panel-sources" class="template-tab-panel" role="tabpanel" aria-labelledby="template-tab-sources" data-template-panel="sources" hidden>
+            <div id="template-source-content" class="template-source-content"></div>
+          </section>
         </div>
         <div class="template-copy-bar">
-          <p id="template-copy-help">A template is copied as a new local deck. Your current deck stays saved.</p>
+          <p id="template-copy-help">Creates a new local deck and checks it against the current house list. Your open deck stays saved.</p>
           <p id="template-copy-error" class="dialog-error" role="alert" hidden></p>
-          <button id="copy-template" class="button primary" type="button" disabled>Copy to Deckbuilder</button>
+          <button id="copy-template" class="button primary" type="button" disabled>Use this template</button>
         </div>
       </section>
     </div>

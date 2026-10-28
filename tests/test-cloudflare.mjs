@@ -467,6 +467,8 @@ assert(validation.issues.some(issue=>issue.code==='forbidden' && issue.name==='P
 const noBindingImage = await req('/cards/1111/image?size=thumb&v=2');
 assert.equal(noBindingImage.status,503);
 assert.equal(noBindingImage.headers.get('cache-control'),'no-store');
+const noBindingCover = await req('/cards/1111/image?size=cover&v=2');
+assert.equal(noBindingCover.status,503, 'Eligible cropped cover art uses the private image cache path');
 const unknownVersionedImage = await req('/cards/3333/image?size=full&v=2');
 assert.equal(unknownVersionedImage.status,404);
 

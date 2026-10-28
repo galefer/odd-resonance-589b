@@ -6,7 +6,10 @@ import { DeckHistory, addIssue, groupedCards, instanceFromCard, newDeck, portabl
 import { makeBackup, parseBackup, sanitiseDeck } from '../../public/gog/deckbuilder/persistence.js';
 import { atLeast, atLeastOne, atLeastOneFromBoth } from '../../public/gog/deckbuilder/probability.js';
 import { validationKey, remapValidation } from '../../public/gog/deckbuilder/validation.js';
-import { filterTemplates, normaliseTemplateManifest, templateTags, templateZoneCount, templateZoneIds } from '../../public/gog/deckbuilder/templates.js';
+import {
+  applyTemplatePresentation, filterTemplates, groupTemplates, normaliseTemplateManifest,
+  templateFacets, templateTags, templateZoneCount, templateZoneIds
+} from '../../public/gog/deckbuilder/templates.js';
 
 if (!globalThis.CustomEvent) globalThis.CustomEvent = class CustomEvent extends Event { constructor(type, options = {}) { super(type); this.detail = options.detail; } };
 
@@ -184,8 +187,8 @@ test('probability helpers cover zero/all hits, thresholds and overlapping groups
   assert.throws(() => atLeastOne(4, 2, 5), RangeError);
 });
 
-test('template catalogue normalises, searches card names and expands physical copies by zone', () => {
-  const manifest = normaliseTemplateManifest({ schemaVersion: 1, format: 'gog-jush', decks: [{
+test('template catalogue normalises presentation, searches card names and combines useful facets', () => {
+  const base = normaliseTemplateManifest({ schemaVersion: 1, format: 'gog-jush', decks: [{
     id: 'fixture-control', name: 'Fixture Control', description: 'A patient control deck.', difficulty: 'Beginner',
     tags: ['Control', 'House JUSH'], notes: 'Hold interaction for the right moment.',
     main: [{ id: 1001, name: 'Fixture Main Effect', count: 3 }],
@@ -194,12 +197,22 @@ test('template catalogue normalises, searches card names and expands physical co
     id: 'fixture-combo', name: 'Fixture Combo', description: 'A fast combo deck.', difficulty: 'Advanced',
     tags: ['Combo', 'House JUSH'], notes: 'Sequence carefully.', main: [{ id: 3003, name: 'Hidden Search Target', count: 2 }], extra: [], side: []
   }] });
+  const manifest = applyTemplatePresentation(base, { schemaVersion: 1, format: 'gog-jush-template-presentation', decks: {
+    'fixture-control': { family: 'Fixture Control', engines: ['Fixture', 'Labrynth'], tags: ['Control', 'Trap-focused'],
+      buildCategory: 'Source-adapted', coverCardId: 1001, coverCardName: 'Fixture Main Effect', source: null, changes: [], changeCount: 0 },
+    'fixture-combo': { family: 'Fixture Combo', engines: ['Fixture', 'Fiendsmith'], tags: ['Combo', 'Fusion'],
+      buildCategory: 'Experimental', coverCardId: 3003, coverCardName: 'Hidden Search Target', source: null, changes: [], changeCount: 0 }
+  } });
   assert.equal(manifest.decks.length, 2);
   assert.equal(templateZoneCount(manifest.decks[0], 'main'), 3);
   assert.deepEqual(templateZoneIds(manifest.decks[0], 'main'), [1001, 1001, 1001]);
   assert.deepEqual(filterTemplates(manifest.decks, { query: 'hidden target' }).map(deck => deck.id), ['fixture-combo']);
-  assert.deepEqual(filterTemplates(manifest.decks, { difficulty: 'Beginner', tag: 'Control' }).map(deck => deck.id), ['fixture-control']);
-  assert.deepEqual(templateTags(manifest.decks), ['Combo', 'Control', 'House JUSH']);
+  assert.deepEqual(filterTemplates(manifest.decks, { engines: ['Fiendsmith'], builds: ['Experimental'], tags: ['Combo'] }).map(deck => deck.id), ['fixture-combo']);
+  assert.deepEqual(filterTemplates(manifest.decks, { tags: ['Control', 'Fusion'] }).map(deck => deck.id), ['fixture-control', 'fixture-combo'], 'Tags use OR within their facet');
+  assert.deepEqual(filterTemplates(manifest.decks, { engines: ['Labrynth'], tags: ['Combo'] }), [], 'Different facets combine with AND');
+  assert.deepEqual(templateTags(manifest.decks), ['Combo', 'Control', 'Fusion', 'Trap-focused']);
+  assert.deepEqual(templateFacets(manifest.decks).builds, [{ value: 'Source-adapted', count: 1 }, { value: 'Experimental', count: 1 }]);
+  assert.deepEqual(groupTemplates(manifest.decks).map(group => group.family), ['Fixture Combo', 'Fixture Control']);
 });
 
 test('template catalogue rejects malformed or duplicated data before rendering it', () => {

@@ -11,7 +11,7 @@ const SESSION_SECONDS = 12 * 60 * 60;
 const LOGIN_WINDOW = 15 * 60 * 1000;
 // Leave a wide margin below R2's 10 GB monthly free storage allowance.
 const IMAGE_CACHE_LIMIT_BYTES = 5_000_000_000;
-const IMAGE_MAX_BYTES = Object.freeze({ thumb: 350_000, full: 2_000_000 });
+const IMAGE_MAX_BYTES = Object.freeze({ thumb: 350_000, cover: 900_000, full: 2_000_000 });
 // Use only 10% of R2's monthly free operation allowances. Calendar-month
 // counters preserve ample headroom even when Cloudflare's billing cycle differs.
 const R2_CLASS_A_MONTHLY_LIMIT = 100_000;
@@ -685,15 +685,15 @@ async function imageFor(context, id) {
   const size = url.searchParams.get('size') || 'thumb';
   const versioned = url.searchParams.get('v') === ASSET_REVISION;
   const failure = (status, cacheState = null) => versioned ? imageFailure(status, cacheState) : placeholderImage(cacheState);
-  if (!validCardId(validId) || !['thumb','full'].includes(size)) return failure(400);
+  if (!validCardId(validId) || !['thumb','cover','full'].includes(size)) return failure(400);
   const edgeHit = await edgeImageMatch(context.request);
   if (edgeHit) return edgeHit;
   // Image requests for unknown / post-cutoff IDs never reach the image host.
   const cached = await db.prepare(`SELECT a.artwork_id FROM card_artworks a JOIN cards_cache c ON c.card_id=a.canonical_id
     WHERE a.artwork_id=? AND c.pool_verified=1 LIMIT 1`).bind(validId).first();
   if (!cached || !context.env.GOG_IMAGES) return failure(cached ? 503 : 404, cached ? 'binding-missing' : 'unknown-card');
-  const bucketPrefix = size === 'full' ? 'cards' : 'cards-small';
-  const providerPrefix = size === 'full' ? 'cards' : 'cards_small';
+  const bucketPrefix = size === 'full' ? 'cards' : size === 'cover' ? 'cards-cropped' : 'cards-small';
+  const providerPrefix = size === 'full' ? 'cards' : size === 'cover' ? 'cards_cropped' : 'cards_small';
   const key = `${bucketPrefix}/${validId}.jpg`;
   if (!await reserveR2Operation(db, 'B')) return failure(503, 'operation-limit');
   let object;

@@ -109,15 +109,37 @@ try {
   assert.notEqual(order.visible, 'none'); assert(order.template < order.import, 'Template Decks belongs to the left of Import');
 
   await click('#templates-button');
-  await waitFor(`document.querySelector('#template-result-count')?.textContent === '397 of 397 decks'`, '397 template decks');
-  assert.equal(await evaluate(`document.querySelectorAll('.template-list-item').length`), 397);
+  await waitFor(`document.querySelector('#template-result-count')?.textContent.startsWith('397 of 397 decks')`, '397 template decks');
+  const initialCatalogue = await evaluate(`(() => {const list=document.querySelector('#template-list'),rows=document.querySelectorAll('.template-list-item,.template-group-item');return {mounted:rows.length,decks:document.querySelectorAll('.template-list-item').length,groups:document.querySelectorAll('.template-group-item').length,scrollHeight:list.scrollHeight,clientHeight:list.clientHeight,tags:[...document.querySelectorAll('#template-tag-options input')].map(input=>input.value),difficulty:document.querySelector('.template-difficulty'),heading:document.querySelector('.template-modal-header .eyebrow').textContent}})()`);
+  assert(initialCatalogue.mounted > 0 && initialCatalogue.mounted < 30, 'The 397-deck catalogue should mount only the viewport and overscan');
+  assert(initialCatalogue.scrollHeight > initialCatalogue.clientHeight * 10, 'Native scrollbar should represent the complete grouped catalogue');
+  assert.equal(initialCatalogue.difficulty, null, 'Difficulty is not a browsing facet');
+  assert.match(initialCatalogue.heading, /Find a starting deck/i);
+  assert(initialCatalogue.tags.includes('Midrange') && initialCatalogue.tags.includes('Fusion') && initialCatalogue.tags.includes('Going second'));
+  assert(!initialCatalogue.tags.includes('Mitsurugi') && !initialCatalogue.tags.some(tag => /Beginner|Intermediate|Advanced/.test(tag)), 'Tags exclude deck names and forced difficulty labels');
+  await evaluate(`(() => {const list=document.querySelector('#template-list');list.scrollTop=list.scrollHeight;list.dispatchEvent(new Event('scroll'));return true})()`);
+  await sleep(100);
+  assert((await evaluate(`document.querySelectorAll('.template-list-item,.template-group-item').length`)) < 30, 'Virtualization stays bounded at the end of the catalogue');
   const desktopLayout = await evaluate(`(() => {const d=document.querySelector('#templates-dialog'),r=d.getBoundingClientRect();return {open:d.open,width:r.width,height:r.height,overflow:Math.max(d.scrollWidth-d.clientWidth,document.documentElement.scrollWidth-innerWidth)}})()`);
-  assert(desktopLayout.open && desktopLayout.width > 900 && desktopLayout.height > 650 && desktopLayout.overflow <= 1, 'Desktop catalogue should be a spacious, non-overflowing popout');
+  assert(desktopLayout.open && desktopLayout.width > 1200 && desktopLayout.height > 650 && desktopLayout.overflow <= 1, 'Desktop catalogue should be a spacious, non-overflowing popout');
+  await setValue('#template-engine-filter', 'Fiendsmith');
+  await waitFor(`!document.querySelector('#template-result-count').textContent.startsWith('397 of 397')`, 'engine facet');
+  assert(await evaluate(`document.querySelector('#template-result-count').textContent.includes('decks')`));
+  await setValue('#template-engine-filter', '');
+  await evaluate(`(() => {const input=[...document.querySelectorAll('#template-tag-options input')].find(item=>item.value==='Fusion');input.checked=true;input.dispatchEvent(new Event('change',{bubbles:true}));return true})()`);
+  await waitFor(`document.querySelector('#template-tag-summary').textContent === '1 selected'`, 'tag facet');
+  assert(await evaluate(`document.querySelector('#template-result-count').textContent.startsWith('137 of 397')`));
+  await click('#clear-template-filters');
   await setValue('#template-search', 'Ame no Habakiri');
-  await waitFor(`document.querySelectorAll('.template-list-item').length > 0 && document.querySelectorAll('.template-list-item').length < 397`, 'card-name search');
+  await waitFor(`document.querySelectorAll('.template-list-item').length > 0 && parseInt(document.querySelector('#template-result-count').textContent,10) < 397`, 'card-name search');
   await click('.template-list-item');
   assert.match(await evaluate(`document.querySelector('#template-detail-name').textContent`), /Mitsurugi/i);
-  assert(await evaluate(`document.querySelector('#template-cardlist-zones').textContent.includes('Ame no Habakiri')`));
+  assert(await evaluate(`document.querySelector('#template-detail-cover').src.includes('size=cover') && document.querySelector('#template-detail-build').textContent === 'Source-adapted'`));
+  await click('#template-tab-cards');
+  assert(await evaluate(`document.querySelector('#template-cardlist-zone').textContent.includes('Ame no Habakiri')`));
+  await click('#template-tab-sources');
+  assert(await evaluate(`document.querySelector('#template-source-content a[href^="https://"]') !== null && document.querySelector('#template-source-content').textContent.includes('House-format changes')`));
+  await click('#template-tab-overview');
   await click('#copy-template');
   await waitFor(`!document.querySelector('#templates-dialog').open && document.querySelector('#deck-name').textContent.includes('Mitsurugi')`, 'template copy');
   const copied = await evaluate(`({name:document.querySelector('#deck-name').textContent,main:Number(document.querySelector('#count-main').textContent),extra:Number(document.querySelector('#count-extra').textContent),side:Number(document.querySelector('#count-side').textContent)})`);
@@ -138,6 +160,13 @@ try {
   assert(mobileOverflow <= 1, 'Mobile template detail must not overflow horizontally');
   await click('#template-back');
   assert.equal(await evaluate(`document.querySelector('#templates-dialog').classList.contains('detail-open')`), false);
+  assert.equal(await evaluate(`document.querySelector('#template-search').value`), 'Dark Magician Toy', 'Mobile Back restores the browse state');
+  await send('Emulation.setDeviceMetricsOverride', { width: 320, height: 700, deviceScaleFactor: 1, mobile: true });
+  await sleep(150);
+  const narrowOverflow = await evaluate(`Math.max(document.querySelector('#templates-dialog').scrollWidth-document.querySelector('#templates-dialog').clientWidth,document.documentElement.scrollWidth-innerWidth)`);
+  assert(narrowOverflow <= 1, 'The browse flow must not overflow on a 320px phone');
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await sleep(100);
   await click('#templates-dialog .close-button');
   await waitFor(`!document.querySelector('#templates-dialog').open`, 'closed mobile template catalogue');
 
@@ -175,7 +204,7 @@ try {
 
   assert.deepEqual(consoleErrors, [], `No browser errors expected: ${consoleErrors.join(' | ')}`);
   assert.deepEqual(failedResponses, [], `No failed responses expected: ${failedResponses.join(' | ')}`);
-  console.log(JSON.stringify({ chrome: version.Browser, templates: 397, desktop: desktopLayout, copied, mobileOverflow, splitBefore, splitAfterDrag, splitAfterKey, libraryCollapsed, deckCollapsed, checks: 'passed' }, null, 2));
+  console.log(JSON.stringify({ chrome: version.Browser, templates: 397, desktop: desktopLayout, copied, mobileOverflow, narrowOverflow, splitBefore, splitAfterDrag, splitAfterKey, libraryCollapsed, deckCollapsed, checks: 'passed' }, null, 2));
 } finally {
   socket.close(); chrome.kill(); server.close();
   await Promise.race([new Promise(done => chrome.once('exit', done)), sleep(1500)]);
