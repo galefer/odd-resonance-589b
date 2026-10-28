@@ -107,6 +107,20 @@
   font: 750 .75rem/1 Inter, ui-sans-serif, system-ui, sans-serif;
 }
 .gog-admin-link:hover { background: linear-gradient(135deg, #ffad68, #ff8439); }
+.gog-back-link {
+  min-height: 38px;
+  margin-left: auto;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gog-header-text);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 6px;
+  text-decoration: none;
+  font: 700 .78rem/1 Inter, ui-sans-serif, system-ui, sans-serif;
+}
+.gog-back-link:hover { color: #fff; border-color: var(--gog-orange-soft); background: rgba(255,122,46,.08); }
 .gog-mobile-nav { display: none; }
 
 @media (max-width: 760px) {
@@ -117,6 +131,7 @@
   .gog-brand small { font-size: .43rem; letter-spacing: .075em; }
   .gog-primary-nav { display: none; }
   .gog-admin-link { min-width: 64px; height: 34px; padding: 0 10px; font-size: .7rem; }
+  .gog-back-link { min-height: 34px; padding-inline: 10px; font-size: .7rem; }
   .gog-mobile-nav {
     height: 42px;
     display: grid;

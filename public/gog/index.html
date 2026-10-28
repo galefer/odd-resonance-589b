@@ -3,112 +3,455 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0b0b0c">
-  <meta name="description" content="Guild of Games in Rotherham: upcoming events and the Yu-Gi-Oh! JUSH House Format.">
-  <title>Guild of Games · Rotherham</title>
-  <link rel="icon" href="/gog/assets/guild-of-games-logo.png" type="image/png">
-  <link rel="stylesheet" href="/gog/home.css">
+  <meta name="theme-color" content="#041426">
+  <meta name="description" content="Guild of Games Yu-Gi-Oh! JUSH House Format: Justice Hunters card pool, altered banlist, card search and deckbuilder.">
+  <title>Yu-Gi-Oh! JUSH House Format · Guild of Games</title>
+  <link rel="canonical" href="https://www.gravetalestudios.com/gog/">
+  <link rel="icon" href="/gog/assets/jush/artwork/guild-of-games-logo-64.webp" type="image/webp">
+  <link rel="preload" as="image" href="/gog/assets/jush/artwork/jush-wordmark-1440.webp" imagesrcset="/gog/assets/jush/artwork/jush-wordmark-768.webp 768w, /gog/assets/jush/artwork/jush-wordmark-1440.webp 1440w, /gog/assets/jush/artwork/jush-wordmark-2172.webp 2172w" imagesizes="(max-width: 700px) 74vw, 42vw" fetchpriority="high">
+  <link rel="stylesheet" href="/gog/assets/jush/fonts/fonts.css">
+  <link rel="stylesheet" href="/gog/styles.css">
   <link rel="stylesheet" href="/gog/site-header.css">
+  <link rel="stylesheet" href="/gog/house-format/house-format.css">
 </head>
-<body>
-  <a class="skip-link" href="#main-content">Skip to content</a>
+<body class="house-format-page jush-theme jush-homepage">
+  <a class="skip-link" href="#main-content">Skip to card list</a>
 
   <header class="gog-site-header">
     <div class="gog-header-inner">
-      <a class="gog-brand" href="/gog/" aria-label="Guild of Games home">
-        <img src="/gog/assets/guild-of-games-logo.png" alt="" width="512" height="483">
-        <span><strong>Guild of Games</strong><small>Yu-Gi-Oh! JUSH House Format</small></span>
+      <a class="gog-brand" href="/gog/" aria-label="Guild of Games JUSH House Format home">
+        <img src="/gog/assets/jush/artwork/guild-of-games-logo-128.webp" srcset="/gog/assets/jush/artwork/guild-of-games-logo-64.webp 64w, /gog/assets/jush/artwork/guild-of-games-logo-128.webp 128w, /gog/assets/jush/artwork/guild-of-games-logo-256.webp 256w" sizes="54px" alt="" width="128" height="121">
+        <span><strong id="brand-short-name">Guild of Games</strong><small id="brand-store-name">Yu-Gi-Oh! JUSH House Format</small></span>
       </a>
-      <nav class="gog-primary-nav" aria-label="Guild of Games">
-        <a class="active" aria-current="page" href="/gog/">Home</a>
-        <a href="/gog/house-format/">House Format</a>
-        <a href="/gog/deckbuilder/">Deckbuilder</a>
-      </nav>
-      <a class="gog-admin-link" id="events-admin-link" href="/gog/?admin=events">Admin</a>
+      <p class="gog-context">Rotherham <span aria-hidden="true">·</span> Community duels</p>
     </div>
-    <nav class="gog-mobile-nav" aria-label="Guild of Games mobile navigation">
-      <a class="active" aria-current="page" href="/gog/">Home</a>
-      <a href="/gog/house-format/">House Format</a>
-      <a href="/gog/deckbuilder/">Deckbuilder</a>
-    </nav>
   </header>
 
   <main id="main-content">
-    <section class="home-hero">
-      <div class="home-shell hero-layout">
+    <section class="hero jush-surface--cream" aria-labelledby="format-name">
+      <div class="hero-stage">
+        <picture class="hero-paint hero-paint-left" aria-hidden="true">
+          <source srcset="/gog/assets/jush/artwork/paint-frame-left-256.webp 256w, /gog/assets/jush/artwork/paint-frame-left-512.webp 512w, /gog/assets/jush/artwork/paint-frame-left-887.webp 887w" sizes="(max-width: 700px) 220px, 40vw">
+          <img src="/gog/assets/jush/artwork/paint-frame-left-887.webp" alt="" width="887" height="1774" fetchpriority="high">
+        </picture>
+        <picture class="hero-paint hero-paint-right" aria-hidden="true">
+          <source srcset="/gog/assets/jush/artwork/paint-frame-right-256.webp 256w, /gog/assets/jush/artwork/paint-frame-right-512.webp 512w, /gog/assets/jush/artwork/paint-frame-right-887.webp 887w" sizes="(max-width: 700px) 220px, 40vw">
+          <img src="/gog/assets/jush/artwork/paint-frame-right-887.webp" alt="" width="887" height="1774" fetchpriority="high">
+        </picture>
+        <picture class="hero-character hero-character-left" aria-hidden="true">
+          <source srcset="/gog/assets/jush/artwork/hero-left-characters-384.webp 384w, /gog/assets/jush/artwork/hero-left-characters-768.webp 768w, /gog/assets/jush/artwork/hero-left-characters-1254.webp 1254w" sizes="(max-width: 700px) 260px, 46vw">
+          <img src="/gog/assets/jush/artwork/hero-left-characters-1254.webp" alt="" width="1254" height="1254" fetchpriority="high">
+        </picture>
+        <picture class="hero-character hero-character-right" aria-hidden="true">
+          <source srcset="/gog/assets/jush/artwork/hero-right-dragon-384.webp 384w, /gog/assets/jush/artwork/hero-right-dragon-768.webp 768w, /gog/assets/jush/artwork/hero-right-dragon-1254.webp 1254w" sizes="(max-width: 700px) 260px, 48vw">
+          <img src="/gog/assets/jush/artwork/hero-right-dragon-1254.webp" alt="" width="1254" height="1254" fetchpriority="high">
+        </picture>
+
         <div class="hero-copy">
-          <p class="eyebrow">Guild of Games · Rotherham</p>
-          <h1>Your next game.<br><span>Your local community.</span></h1>
-          <p>Welcome to Guild of Games, your tabletop game store in Rotherham. Meet other players, discover a new game, and join us for an evening at the table.</p>
-          <div class="hero-actions">
-            <a class="home-button primary" href="/gog/house-format/">Explore our house format <span aria-hidden="true">↗</span></a>
-            <a class="home-text-link" href="/gog/deckbuilder/">Build a deck <span aria-hidden="true">→</span></a>
+        <h1>
+          <span class="visually-hidden" id="format-name">Yu-Gi-Oh! JUSH House Format</span>
+          <span class="hero-brand-line" id="accent-label" aria-hidden="true">Guild of Games</span>
+          <span class="hero-community-line" aria-hidden="true">Community Duels</span>
+          <span class="hero-format-title" aria-hidden="true">House Format</span>
+          <img class="hero-wordmark" src="/gog/assets/jush/artwork/jush-wordmark-1440.webp" srcset="/gog/assets/jush/artwork/jush-wordmark-768.webp 768w, /gog/assets/jush/artwork/jush-wordmark-1440.webp 1440w, /gog/assets/jush/artwork/jush-wordmark-2172.webp 2172w" sizes="(max-width: 700px) 82vw, 640px" alt="" width="1440" height="480" fetchpriority="high">
+        </h1>
+        <p class="hero-ribbon">A player-run Yu-Gi-Oh! format.</p>
+        <p class="visually-hidden" id="format-description">A Guild of Games format using the Justice Hunters card pool and an altered Forbidden &amp; Limited List based on the JUSH-era banlist.</p>
+        <article class="next-event-panel" aria-labelledby="next-event-label">
+          <svg class="jush-icon event-panel-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-calendar-clock"></use></svg>
+          <div class="next-event-copy">
+            <p id="next-event-label">Next JUSH format</p>
+            <time id="next-event-date" datetime="">Schedule unavailable</time>
+            <p><span id="next-event-time">Checking schedule…</span><span aria-hidden="true"> · </span><span id="next-event-location">Guild of Games, Rotherham</span></p>
+            <span class="event-data-state" id="next-event-status" hidden></span>
+          </div>
+          <a class="jush-button event-deck-link" href="/gog/deckbuilder/">Build a deck <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-chevron-right"></use></svg></a>
+        </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="format-facts" aria-label="House format overview">
+      <div class="shell facts-grid">
+        <div class="format-fact">
+          <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-card-stack"></use></svg>
+          <span><strong>Card pool</strong><span>Justice Hunters · cutoff <time id="pool-cutoff" datetime="2025-08-01">1 August 2025</time></span></span>
+        </div>
+        <div class="format-fact">
+          <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-file-list"></use></svg>
+          <span><strong>House list</strong><span id="version-label">Loading…</span><span class="visually-hidden">Effective <time id="effective-date">—</time></span></span>
+        </div>
+        <div class="format-fact">
+          <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-users"></use></svg>
+          <span><strong>Community</strong><span>Player-run format</span></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="search-zone" aria-labelledby="search-heading">
+      <div class="shell">
+        <div class="search-panel">
+          <div class="search-heading-row">
+            <div>
+              <p class="search-kicker">Know your limits</p>
+              <h2 id="search-heading">Check a card. Build with confidence.</h2>
+              <p>Eligible cards not on the restricted list are Unlimited. Cards outside the Justice Hunters pool are not legal.</p>
+            </div>
+            <div class="api-state" id="api-state" hidden>
+              <span class="status-dot"></span>
+              <span>Catalogue temporarily offline. Showing local matches.</span>
+            </div>
+          </div>
+
+          <label class="search-field-label" for="card-search">Search card names or archetypes</label>
+          <div class="search-control">
+            <span class="search-icon" aria-hidden="true">
+              <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-search"></use></svg>
+            </span>
+            <input id="card-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search card names or archetypes…" aria-controls="search-suggestions">
+            <button class="clear-search" id="clear-search" type="button" aria-label="Clear search" hidden>×</button>
+            <span class="search-spinner" id="search-spinner" hidden aria-label="Searching"></span>
+          </div>
+
+          <div class="search-suggestions" id="search-suggestions" role="listbox" aria-label="Card search results" hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="list-section" id="list-workspace">
+      <div class="shell">
+        <div class="list-toolbar">
+          <button class="button filter-toggle" id="filter-toggle" type="button" aria-expanded="false" aria-controls="filters-panel">
+            <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-filter"></use></svg>
+            Filters
+            <span class="filter-count" id="filter-count" hidden>0</span>
+          </button>
+        </div>
+
+        <div class="list-workspace-grid">
+          <aside class="filters-panel" id="filters-panel" aria-label="Card filters">
+            <div class="filters-heading">
+              <h3>Filters</h3>
+              <button class="text-button" id="clear-filters" type="button">Clear</button>
+            </div>
+            <fieldset class="filter-group status-filter">
+              <legend class="filter-label">Status</legend>
+              <div class="chip-row">
+                <label class="filter-chip forbidden"><input type="checkbox" value="forbidden" data-filter="status"><span>Forbidden</span></label>
+                <label class="filter-chip limited"><input type="checkbox" value="limited" data-filter="status"><span>Limited</span></label>
+                <label class="filter-chip semi-limited"><input type="checkbox" value="semi_limited" data-filter="status"><span>Semi-Limited</span></label>
+                <label class="filter-chip unlimited"><input type="checkbox" value="unlimited" data-filter="status"><span>Unlimited</span></label>
+              </div>
+            </fieldset>
+
+            <fieldset class="filter-group category-filter">
+              <legend class="filter-label">Card type</legend>
+              <div class="chip-row filter-choice-grid">
+                <label class="filter-chip neutral"><input type="checkbox" value="Monster" data-filter="category"><span>Monster</span></label>
+                <label class="filter-chip spell"><input type="checkbox" value="Spell" data-filter="category"><span>Spell</span></label>
+                <label class="filter-chip trap"><input type="checkbox" value="Trap" data-filter="category"><span>Trap</span></label>
+              </div>
+            </fieldset>
+
+            <fieldset class="filter-group subtype-group" id="subtype-group">
+              <legend class="filter-label">Monster subtype</legend>
+              <div class="chip-row filter-choice-grid">
+                <label class="filter-chip neutral"><input type="checkbox" value="Normal" data-filter="subtype"><span>Normal</span></label>
+                <label class="filter-chip neutral"><input type="checkbox" value="Effect" data-filter="subtype"><span>Effect</span></label>
+                <label class="filter-chip neutral"><input type="checkbox" value="Ritual" data-filter="subtype"><span>Ritual</span></label>
+                <label class="filter-chip neutral"><input type="checkbox" value="Fusion" data-filter="subtype"><span>Fusion</span></label>
+                <label class="filter-chip neutral"><input type="checkbox" value="Synchro" data-filter="subtype"><span>Synchro</span></label>
+                <label class="filter-chip neutral"><input type="checkbox" value="Xyz" data-filter="subtype"><span>Xyz</span></label>
+                <label class="filter-chip neutral"><input type="checkbox" value="Pendulum" data-filter="subtype"><span>Pendulum</span></label>
+                <label class="filter-chip neutral"><input type="checkbox" value="Link" data-filter="subtype"><span>Link</span></label>
+              </div>
+            </fieldset>
+
+            <div class="filter-footer">
+              <label class="sort-control">Sort
+                <select id="sort-select">
+                  <option value="status-name">Status, then name</option>
+                  <option value="name">Card name</option>
+                  <option value="type">Card type</option>
+                </select>
+              </label>
+            </div>
+          </aside>
+
+          <div class="results-column">
+            <div class="results-header">
+              <div>
+                <h2 id="results-title">Forbidden &amp; Limited List</h2>
+                <p class="results-kicker" id="results-kicker">Current restrictions for the eligible JUSH card pool.</p>
+              </div>
+              <div class="results-controls">
+                <label class="changes-control" for="changes-only">
+                  <input id="changes-only" type="checkbox">
+                  <span>Show house changes only</span>
+                  <b id="changes-count">0</b>
+                </label>
+                <p class="results-count" id="results-count" aria-live="polite">Loading cards…</p>
+              </div>
+            </div>
+
+            <p class="changes-help">House changes compare the current list with the fixed JUSH-era baseline and remain marked until the restrictions match again.</p>
+
+            <div class="active-filters" id="active-filters" hidden aria-label="Active filters"></div>
+
+            <div class="restriction-key" aria-label="Filter by copy limit">
+              <button type="button" data-rule-filter="forbidden"><span>0</span> Forbidden</button>
+              <button type="button" data-rule-filter="limited"><span>1</span> Limited</button>
+              <button type="button" data-rule-filter="semi_limited"><span>2</span> Semi-Limited</button>
+              <button type="button" data-rule-filter="unlimited"><span>3</span> Unlimited</button>
+            </div>
+
+            <div id="results-panel">
+              <div class="card-list" id="card-list" aria-live="polite" aria-busy="true"></div>
+              <div class="empty-state" id="empty-state" hidden>
+                <div class="empty-symbol" aria-hidden="true">◇</div>
+                <h3>No cards match those filters</h3>
+                <p>Clear a filter or try another search.</p>
+                <button class="button ghost-dark" id="empty-clear" type="button">Clear filters</button>
+              </div>
+            </div>
           </div>
         </div>
-        <img class="hero-emblem" src="/gog/assets/guild-of-games-logo.png" alt="Guild of Games" width="512" height="483">
       </div>
     </section>
 
-    <section class="events-section" id="upcoming-events" aria-labelledby="events-title">
-      <div class="home-shell">
-        <div class="section-heading">
-          <div><p class="eyebrow">Make a night of it</p><h2 id="events-title">Upcoming events</h2></div>
-          <p>The next four Advanced Thursdays, plus House Format and one-off events.</p>
-        </div>
-        <div class="event-groups">
-          <section class="event-group" aria-labelledby="advanced-events-title">
-            <div class="event-group-heading"><p>Next four Thursdays</p><h3 id="advanced-events-title">Advanced TCG</h3></div>
-            <div class="event-grid" id="advanced-event-grid" aria-live="polite" aria-busy="true">
-              <div class="event-skeleton"></div><div class="event-skeleton"></div><div class="event-skeleton"></div>
-            </div>
-          </section>
-          <section class="event-group" aria-labelledby="special-events-title">
-            <div class="event-group-heading"><p>House Format and one-offs</p><h3 id="special-events-title">Special Events</h3></div>
-            <div class="event-grid special-event-grid" id="special-event-grid" aria-live="polite" aria-busy="true">
-              <div class="event-skeleton"></div>
-            </div>
-          </section>
-        </div>
-      </div>
-    </section>
-
-    <section class="format-note">
-      <div class="home-shell">
+    <section class="about-strip" id="format-rules">
+      <div class="shell about-grid">
         <div>
-          <p class="eyebrow">Our game. Our house rules.</p>
-          <h2>Yu-Gi-Oh! JUSH House Format</h2>
-          <p>Our Justice Hunters card pool uses an altered banlist based on the official JUSH-era list. The card list clearly marks every Guild of Games change from that baseline.</p>
+          <p class="eyebrow">Guild of Games house rules</p>
+          <h2>Justice Hunters card pool. One altered banlist.</h2>
         </div>
-        <a class="home-button" href="/gog/house-format/">View the card list</a>
+        <p>The Guild of Games house format is based on the JUSH-era banlist, with its own published changes. It fully replaces the standard Advanced Format list. A card is eligible if it was released in any TCG region, including North America, on or before 1 August 2025. Battles of Legend: Monster Mayhem (BLMM) qualifies through its <a href="https://www.yugioh-card.com/en/products/blmm/">13 June 2025 North American release</a>, even where it arrived later. Later reprints of eligible cards remain eligible; an OCG-only release does not qualify. Eligible cards are only restricted when they appear here. Main Deck, Extra Deck, and Side Deck copies are counted together.</p>
       </div>
     </section>
   </main>
 
-  <footer class="home-footer"><div class="home-shell"><span>Guild of Games · Rotherham</span><span>Card artwork via <a href="https://ygoprodeck.com/" target="_blank" rel="noopener noreferrer">YGOPRODeck</a> · © Studio Dice/SHUEISHA, TV TOKYO, KONAMI</span></div></footer>
+  <footer class="site-footer">
+    <div class="shell footer-inner">
+      <div>
+        <strong id="footer-format-name">Yu-Gi-Oh! JUSH House Format</strong>
+        <p>Unofficial community format. Not affiliated with or endorsed by Konami Digital Entertainment.</p>
+      </div>
+      <div class="footer-meta">
+        <span>Card data powered by <a href="https://ygoprodeck.com/" target="_blank" rel="noopener noreferrer">YGOPRODeck</a></span>
+        <span id="footer-version">Version —</span>
+        <span class="footer-admin-links"><button id="admin-button" type="button">Manage house list</button><a id="events-admin-link" href="/gog/?admin=events">Manage events</a></span>
+      </div>
+    </div>
+  </footer>
 
-  <dialog id="events-admin-dialog" aria-labelledby="events-admin-title">
-    <div class="dialog-header"><h2 id="events-admin-title">Event administration</h2><button class="dialog-close" id="events-admin-close" type="button" aria-label="Close">×</button></div>
+  <dialog class="modal card-modal" id="card-modal">
+    <div class="modal-shell">
+      <button class="modal-close" type="button" data-close-dialog="card-modal" aria-label="Close card details">×</button>
+      <div class="card-detail-loading" id="card-detail-loading">
+        <span class="large-spinner"></span>
+        <p>Loading card details…</p>
+      </div>
+      <div class="card-detail" id="card-detail" hidden>
+        <div class="card-image-column">
+          <img id="detail-image" alt="" width="421" height="614">
+        </div>
+        <div class="card-detail-copy">
+          <div class="detail-badges">
+            <span class="status-badge" id="detail-status"></span>
+            <span class="house-change-badge" id="detail-house-change" hidden>House change</span>
+            <span class="type-badge" id="detail-type"></span>
+          </div>
+          <h2 id="detail-name"></h2>
+          <p class="detail-meta" id="detail-meta"></p>
+          <div class="copy-limit-box">
+            <strong id="detail-copy-count"></strong>
+            <span>across Main, Extra, and Side Deck combined</span>
+          </div>
+          <p class="detail-description" id="detail-description"></p>
+          <div class="house-note" id="detail-note" hidden>
+            <strong>House-format note</strong>
+            <p></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="modal admin-modal" id="admin-modal">
+    <div class="admin-shell">
+      <button class="modal-close admin-close" type="button" data-close-dialog="admin-modal" aria-label="Close administration">×</button>
+
+      <section class="admin-auth" id="admin-auth">
+        <div class="admin-auth-brand">
+          <img class="brand-logo large" src="/gog/assets/guild-of-games-logo.png" alt="Guild of Games" width="512" height="483">
+          <p class="eyebrow dark">Restricted access</p>
+          <h2 id="auth-title">Administrator login</h2>
+          <p id="auth-description">Sign in to edit the draft list, review changes, and publish a new version.</p>
+        </div>
+
+        <form id="login-form" class="stack-form">
+          <label>Email address<input type="email" id="login-email" required autocomplete="username"></label>
+          <label>Password<input type="password" id="login-password" required autocomplete="current-password"></label>
+          <p class="form-error" id="login-error" hidden></p>
+          <button class="button gold wide" type="submit">Sign in</button>
+        </form>
+
+        <form id="setup-form" class="stack-form" hidden>
+          <div class="setup-notice"><strong>First-run setup</strong><span>Create the only administrator account. Public registration is permanently disabled after this.</span></div>
+          <label id="setup-token-label" hidden>Remote setup token<input type="password" id="setup-token" autocomplete="one-time-code"><small>Set this using the GOG_SETUP_TOKEN secret in Cloudflare Pages settings.</small></label>
+          <label>Administrator email<input type="email" id="setup-email" required autocomplete="username"></label>
+          <label>Password<input type="password" id="setup-password" required minlength="12" autocomplete="new-password"><small>At least 12 characters.</small></label>
+          <label>Confirm password<input type="password" id="setup-password-confirm" required minlength="12" autocomplete="new-password"></label>
+          <p class="form-error" id="setup-error" hidden></p>
+          <button class="button gold wide" type="submit">Create administrator</button>
+        </form>
+      </section>
+
+      <section class="admin-app" id="admin-app" hidden>
+        <aside class="admin-sidebar">
+          <div class="admin-sidebar-brand">
+            <img class="brand-logo" src="/gog/assets/guild-of-games-logo.png" alt="" width="512" height="483">
+            <span><strong>Guild of Games</strong><small id="admin-email"></small></span>
+          </div>
+          <nav class="admin-nav" aria-label="Administrator sections">
+            <button class="active" data-admin-section="editor"><span>✦</span> List editor</button>
+            <button data-admin-section="publish"><span>✓</span> Review &amp; publish</button>
+            <button data-admin-section="history"><span>↶</span> Version history</button>
+            <button data-admin-section="settings"><span>⚙</span> Format settings</button>
+          </nav>
+          <div class="admin-sidebar-footer">
+            <a class="button ghost-dark wide" href="/gog/api/admin/export.csv">Export draft CSV</a>
+            <button class="text-button danger" id="logout-button" type="button">Sign out</button>
+          </div>
+        </aside>
+
+        <div class="admin-content">
+          <header class="admin-topbar">
+            <div>
+              <p class="eyebrow dark" id="admin-section-kicker">Draft workspace</p>
+              <h2 id="admin-section-title">List editor</h2>
+            </div>
+            <div class="draft-state"><span></span> Changes saved to draft</div>
+          </header>
+
+          <div class="admin-scroll">
+            <section class="admin-section active" data-section-panel="editor">
+              <div class="admin-card add-card-panel">
+                <div class="admin-card-heading">
+                  <div><h3>Add or change a card</h3><p>Search the card database. No passcodes or manual card typing required.</p></div>
+                </div>
+                <div class="admin-search-row">
+                  <div class="admin-search-wrap">
+                    <label class="visually-hidden" for="admin-card-search">Search card database</label>
+                    <input id="admin-card-search" type="search" autocomplete="off" placeholder="Search by card name…">
+                    <span class="search-spinner small" id="admin-search-spinner" hidden></span>
+                  </div>
+                  <select id="admin-status-select" aria-label="New restriction status">
+                    <option value="forbidden">Forbidden · 0</option>
+                    <option value="limited">Limited · 1</option>
+                    <option value="semi_limited">Semi-Limited · 2</option>
+                    <option value="unlimited">Unlimited · remove</option>
+                  </select>
+                </div>
+                <div class="admin-search-results" id="admin-search-results"></div>
+              </div>
+
+              <div class="admin-card">
+                <div class="admin-card-heading split">
+                  <div><h3>Draft list</h3><p id="draft-entry-count">Loading entries…</p></div>
+                  <div class="compact-search"><label class="visually-hidden" for="draft-filter">Filter draft list</label><input id="draft-filter" type="search" placeholder="Filter draft…"></div>
+                </div>
+                <div class="draft-table-wrap">
+                  <table class="draft-table">
+                    <thead><tr><th>Card</th><th>Type</th><th>Status</th><th>Note</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+                    <tbody id="draft-table-body"></tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            <section class="admin-section" data-section-panel="publish" hidden>
+              <div class="publish-grid">
+                <div class="admin-card">
+                  <div class="admin-card-heading"><div><h3>Changes in this draft</h3><p>Compared with the currently published list.</p></div></div>
+                  <div class="change-review-list" id="change-review-list"></div>
+                </div>
+                <div class="admin-card publish-card">
+                  <div class="admin-card-heading"><div><h3>Publish new version</h3><p>The live site remains unchanged until you publish.</p></div></div>
+                  <form id="publish-form" class="stack-form compact-form">
+                    <label>Version label<input type="text" id="publish-version" required placeholder="e.g. House List v1.1"></label>
+                    <label>Effective date<input type="date" id="publish-date" required></label>
+                    <label>Public summary<textarea id="publish-summary" rows="5" placeholder="Briefly explain the goals of this update…"></textarea></label>
+                    <div class="publish-warning"><strong>This action updates the public list immediately.</strong><span>A complete version snapshot is preserved and can be restored later.</span></div>
+                    <p class="form-error" id="publish-error" hidden></p>
+                    <button class="button gold wide" type="submit">Publish this version</button>
+                  </form>
+                </div>
+              </div>
+            </section>
+
+            <section class="admin-section" data-section-panel="history" hidden>
+              <div class="admin-card">
+                <div class="admin-card-heading"><div><h3>Version history</h3><p>Every published snapshot remains available for inspection or restoration.</p></div></div>
+                <div class="version-list" id="version-list"></div>
+              </div>
+            </section>
+
+            <section class="admin-section" data-section-panel="settings" hidden>
+              <div class="settings-grid">
+                <div class="admin-card">
+                  <div class="admin-card-heading"><div><h3>Public identity</h3><p>These fields control the name and wording shown across the site.</p></div></div>
+                  <form id="settings-form" class="stack-form compact-form">
+                    <label>Store name<input type="text" id="setting-store-name" maxlength="80"></label>
+                    <label>Format name<input type="text" id="setting-format-name" maxlength="100"></label>
+                    <label>Short header name<input type="text" id="setting-short-name" maxlength="30"></label>
+                    <label>Eyebrow label<input type="text" id="setting-accent-label" maxlength="40"></label>
+                    <label>Description<textarea id="setting-description" rows="4" maxlength="300"></textarea></label>
+                    <p class="form-error" id="settings-error" hidden></p>
+                    <button class="button gold" type="submit">Save format settings</button>
+                  </form>
+                </div>
+                <div class="admin-card">
+                  <div class="admin-card-heading"><div><h3>Change password</h3><p>Changing the password signs out other active administrator sessions.</p></div></div>
+                  <form id="password-form" class="stack-form compact-form">
+                    <label>Current password<input type="password" id="current-password" required autocomplete="current-password"></label>
+                    <label>New password<input type="password" id="new-password" required minlength="12" autocomplete="new-password"></label>
+                    <label>Confirm new password<input type="password" id="new-password-confirm" required minlength="12" autocomplete="new-password"></label>
+                    <p class="form-error" id="password-error" hidden></p>
+                    <button class="button ghost-dark" type="submit">Change password</button>
+                  </form>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </div>
+  </dialog>
+
+  <dialog class="events-admin-dialog" id="events-admin-dialog" aria-labelledby="events-admin-title">
+    <div class="dialog-header"><h2 id="events-admin-title">Event administration</h2><button class="dialog-close" id="events-admin-close" type="button" aria-label="Close event administration">×</button></div>
     <section class="admin-login" id="events-admin-login">
-      <img src="/gog/assets/guild-of-games-logo.png" alt="" width="512" height="483">
+      <img src="/gog/assets/jush/artwork/guild-of-games-logo-128.webp" alt="" width="128" height="121">
       <h3>Administrator login</h3>
       <p>Sign in to update upcoming dates and one-off events.</p>
       <form class="event-form" id="events-login-form">
         <label>Email<input id="events-login-email" type="email" autocomplete="username" required></label>
         <label>Password<input id="events-login-password" type="password" autocomplete="current-password" minlength="12" required></label>
         <p class="form-error" id="events-login-error" hidden></p>
-        <button class="home-button primary" type="submit">Sign in</button>
+        <button class="event-admin-button primary" type="submit">Sign in</button>
       </form>
     </section>
     <section id="events-admin-app" hidden>
       <div class="admin-topline"><span>Signed in as <strong id="events-admin-email"></strong></span><button class="text-button" id="events-logout" type="button">Sign out</button></div>
-      <div class="admin-content">
-        <p class="admin-intro">Edits to a recurring event affect only that date. The homepage automatically rolls forward to the next Advanced and House Format dates.</p>
+      <div class="events-admin-content">
+        <p class="admin-intro">Edits to a recurring event affect only that date. The homepage automatically rolls forward to the next scheduled JUSH format night.</p>
         <section class="admin-section">
-          <div class="admin-section-heading"><div><h3>Recurring event dates</h3><p>Edit or cancel the currently displayed occurrence.</p></div></div>
+          <div class="admin-section-heading"><div><h3>Recurring event dates</h3><p>Edit, reschedule, or cancel a displayed occurrence.</p></div></div>
           <div class="admin-event-list" id="recurring-admin-list"></div>
         </section>
         <section class="admin-section">
-          <div class="admin-section-heading"><div><h3>Add a one-off event</h3><p>It disappears from the public page after its date has passed.</p></div></div>
+          <div class="admin-section-heading"><div><h3>Add a one-off event</h3><p>One-off events remain separate from the recurring JUSH schedule.</p></div></div>
           <div class="add-event-card">
             <form class="event-form" id="add-event-form">
               <label>Event name<input name="title" maxlength="120" required placeholder="e.g. Yu-Gi-Oh! Win-a-Box"></label>
@@ -129,7 +472,10 @@
     </section>
   </dialog>
 
-  <div class="toast" id="home-toast" role="status" hidden></div>
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <div class="home-toast" id="home-toast" role="status" hidden></div>
+
+  <script type="module" src="/gog/app.js"></script>
   <script src="/gog/home.js" defer></script>
 </body>
 </html>

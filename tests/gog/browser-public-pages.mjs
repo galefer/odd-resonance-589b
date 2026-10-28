@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Dependency-free Chrome DevTools smoke test for the local Pages preview. */
+/** Dependency-free Chrome DevTools smoke test for the public JUSH pages. */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -9,7 +9,7 @@ import { join, resolve, sep } from 'node:path';
 const origin = process.argv[2] || 'http://127.0.0.1:8790';
 const chromePath = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const artifacts = resolve(import.meta.dirname, 'artifacts');
-const profile = await mkdtemp(join(tmpdir(), 'gog-deckbuilder-chrome-'));
+const profile = await mkdtemp(join(tmpdir(), 'gog-public-chrome-'));
 const debugPort = 9300 + Math.floor(Math.random() * 300);
 await mkdir(artifacts, { recursive: true });
 
@@ -17,7 +17,7 @@ const chrome = spawn(chromePath, [
   '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
   '--disable-background-networking', '--disable-breakpad', '--disable-crash-reporter',
   `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`,
-  '--window-size=1440,1000', 'about:blank'
+  '--window-size=1536,1000', 'about:blank'
 ], { stdio: ['ignore', 'ignore', 'pipe'] });
 let chromeError = '';
 chrome.stderr.on('data', (chunk) => { chromeError += chunk; });
@@ -33,7 +33,7 @@ async function pollJson(url, options) {
   throw last || new Error(`Timed out waiting for ${url}`);
 }
 
-const version = await pollJson(`http://127.0.0.1:${debugPort}/json/version`);
+await pollJson(`http://127.0.0.1:${debugPort}/json/version`);
 const target = await pollJson(`http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(`${origin}/gog/`)}`, { method: 'PUT' });
 const socket = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((resolvePromise, reject) => { socket.onopen = resolvePromise; socket.onerror = reject; });
@@ -79,81 +79,93 @@ const screenshot = async (name) => {
   await writeFile(resolve(artifacts, name), Buffer.from(result.data, 'base64'));
 };
 const evidence = { origin, viewports: [], checks: [], failedResponses, consoleErrors: errors };
+
 try {
   await Promise.all([send('Page.enable'), send('Runtime.enable'), send('Network.enable'), send('Log.enable')]);
   await send('Emulation.setEmulatedMedia', { features: [{name:'prefers-reduced-motion',value:'reduce'}] });
-  const headers = new Map();
-  for (const route of ['home','house-format']) {
-    await send('Page.navigate', { url: `${origin}/gog/${route === 'home' ? '' : 'house-format/'}` });
-    await waitFor(route === 'home' ? `document.querySelectorAll('.event-card').length>=2` : `document.querySelectorAll('.card-row').length>0`, route);
-    for (const width of [375,768,1024,1440]) {
-      await send('Emulation.setDeviceMetricsOverride', { width,height:900,deviceScaleFactor:1,mobile:width<600 });
-      await evaluate('window.scrollTo(0,0)');
-      await sleep(100);
-      const geometry = await evaluate(`(() => {
-        const h=document.querySelector('.gog-site-header').getBoundingClientRect();
-        const b=document.querySelector('.gog-brand').getBoundingClientRect();
-        return {overflow:document.documentElement.scrollWidth-innerWidth,header:{height:h.height,left:b.left,top:b.top},
-          clipped:[...document.querySelectorAll('main button,main input,main a,main h1,main h2,main h3')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&(r.left<0||r.right>innerWidth+1)}).map(e=>e.id||e.className),
-          font:getComputedStyle(document.querySelector('main h2')).fontFamily};
-      })()`);
-      assert(geometry.overflow<=1,`${route} ${width}px overflow`);
-      assert.deepEqual(geometry.clipped,[],`${route} ${width}px clipped controls`);
-      assert(!/Georgia|Times/.test(geometry.font));
-      if (headers.has(width)) assert.deepEqual(geometry.header,headers.get(width),`Header consistency at ${width}px`);
-      else headers.set(width,geometry.header);
-      if (route==='home') {
-        await evaluate(`document.querySelector('.event-groups').scrollIntoView({block:'center'})`);
-        await waitFor(`[...document.querySelectorAll('.event-artwork')].every(img=>img.complete&&img.naturalWidth>0)`,'artwork');
-        const times=await evaluate(`[...document.querySelectorAll('.event-card:not(.special) .event-time')].map(e=>e.textContent)`);
-        assert.equal(times.length,5);
-        assert(times.every(t=>t.includes('5:30pm – 9:00pm')));
-        assert.equal(await evaluate(`[...document.querySelectorAll('.event-full-date')].every(e=>e.textContent.trim().startsWith('Thursday'))`),true);
-        assert.equal(await evaluate(`document.querySelector('#events-title').textContent.trim()`),'Upcoming events');
-        assert.equal(await evaluate(`document.querySelectorAll('#advanced-event-grid .event-card.advanced').length`),4);
-        assert.equal(await evaluate(`document.querySelectorAll('#special-event-grid .event-card.house').length`),1);
-        assert.equal(await evaluate(`document.body.textContent.includes('Earlier this month')`),false);
-        const eventWidths=await evaluate(`({advanced:document.querySelector('#advanced-event-grid .event-card').getBoundingClientRect().width,special:document.querySelector('#special-event-grid .event-card').getBoundingClientRect().width})`);
-        assert(Math.abs(eventWidths.advanced-eventWidths.special)<=1);
-      } else {
-        await evaluate(`document.querySelector('.list-toolbar').scrollIntoView()`);
-        const panel = await evaluate(`getComputedStyle(document.querySelector('#filters-panel')).display`);
-        if (width===375) {
-          assert.equal(panel,'none');
-          await click('#filter-toggle');
-          assert.equal(await evaluate(`document.querySelector('#filter-toggle').getAttribute('aria-expanded')`),'true');
-          await click('#filter-toggle');
-        } else assert.notEqual(panel,'none');
-        if (width===1440) {
-          const positions=await evaluate(`(() => {const f=document.querySelector('#filters-panel').getBoundingClientRect(),r=document.querySelector('#results-panel').getBoundingClientRect();return {filterRight:f.right,resultsLeft:r.left}})()`);
-          assert(positions.filterRight<positions.resultsLeft,'Desktop filters should sit beside the results');
-        }
-      }
-      await screenshot(`${route}-${width}-details.png`);
-      evidence.viewports.push({route,width,...geometry});
+  await send('Page.navigate', { url: `${origin}/gog/` });
+  await waitFor(`document.querySelectorAll('.card-row').length>0 && document.querySelector('#next-event-time').textContent!=='Checking schedule…'`, 'JUSH homepage');
+
+  for (const width of [390,768,1440,1536,1920,2048]) {
+    await send('Emulation.setDeviceMetricsOverride', { width,height:1000,deviceScaleFactor:1,mobile:width<600 });
+    await evaluate('window.scrollTo(0,0)');
+    await sleep(120);
+    const geometry = await evaluate(`(() => {
+      const hero=document.querySelector('.hero').getBoundingClientRect();
+      const event=document.querySelector('.next-event-panel').getBoundingClientRect();
+      const build=[...document.querySelectorAll('a,button')].filter(e=>e.textContent.trim().toLowerCase()==='build a deck');
+      return {
+        overflow:document.documentElement.scrollWidth-innerWidth,
+        clipped:[...document.querySelectorAll('main button,main input,main a,main h1,main h2,main h3')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&(r.left<0||r.right>innerWidth+1)}).map(e=>e.id||e.className),
+        bodyFont:getComputedStyle(document.body).fontFamily,
+        headingFont:getComputedStyle(document.querySelector('#search-heading')).fontFamily,
+        hero:{height:hero.height,left:hero.left,right:hero.right}, event:{left:event.left,right:event.right,height:event.height},
+        buildCount:build.length,
+        oldNavigation:document.querySelectorAll('.gog-primary-nav,.gog-mobile-nav,.view-tabs,.feature-card,.hero-actions').length,
+        filterDisplay:getComputedStyle(document.querySelector('#filters-panel')).display
+      };
+    })()`);
+    assert(geometry.overflow<=1,`${width}px overflow`);
+    assert.deepEqual(geometry.clipped,[],`${width}px clipped controls`);
+    assert.match(geometry.bodyFont,/Barlow/i);
+    assert.match(geometry.headingFont,/Barlow Condensed/i);
+    assert.equal(geometry.buildCount,1,`${width}px single Build a deck action`);
+    assert.equal(geometry.oldNavigation,0,`${width}px obsolete navigation/components`);
+    if (width <= 768) {
+      assert.equal(geometry.filterDisplay,'none');
+      await click('#filter-toggle');
+      assert.equal(await evaluate(`document.querySelector('#filter-toggle').getAttribute('aria-expanded')`),'true');
+      await click('#filter-toggle');
+    } else {
+      assert.notEqual(geometry.filterDisplay,'none');
+      const positions=await evaluate(`(() => {const f=document.querySelector('#filters-panel').getBoundingClientRect(),r=document.querySelector('.results-column').getBoundingClientRect();return {filterRight:f.right,resultsLeft:r.left}})()`);
+      assert(positions.filterRight<positions.resultsLeft,'Desktop filters should sit beside results');
     }
+    await screenshot(`jush-home-${width}.png`);
+    evidence.viewports.push({width,...geometry});
   }
+
+  await send('Page.navigate', { url: `${origin}/gog/house-format/?view=changes#list-workspace` });
+  await waitFor(`location.pathname==='/gog/' && document.querySelectorAll('.card-row').length>0`, 'legacy route redirect');
+  assert.equal(await evaluate(`location.search`),'?view=changes');
+  assert.equal(await evaluate(`location.hash`),'#list-workspace');
+  assert.equal(await evaluate(`document.querySelector('#changes-only').checked`),true);
+
   await click('[data-filter="status"][value="forbidden"]');
   await click('[data-filter="status"][value="limited"]');
   await click('[data-filter="category"][value="Spell"]');
-  const filtered=await evaluate(`[...document.querySelectorAll('.card-row')].map(e=>({status:e.className,type:e.querySelector('.card-type-cell strong').textContent}))`);
+  const filtered=await evaluate(`[...document.querySelectorAll('.card-row')].map(e=>({status:e.className,meta:e.querySelector('.card-metadata').textContent}))`);
   assert(filtered.length>0);
-  assert(filtered.every(e=>/status-forbidden|status-limited/.test(e.status)&&e.type==='Spell'));
+  assert(filtered.every(e=>/status-forbidden|status-limited/.test(e.status)&&e.meta.includes('Spell')));
   await click('#clear-filters');
-  await click('#changes-tab');
-  assert.equal(await evaluate(`document.querySelector('#results-title').textContent`),'House Banlist Tweaks');
-  await click('#current-tab');
+  await click('#changes-only');
+  assert.equal(await evaluate(`document.querySelector('#changes-only').checked`),false);
+  await click('#changes-only');
+  assert.equal(await evaluate(`new URLSearchParams(location.search).get('view')`),'changes');
+  await click('[data-rule-filter="unlimited"]');
+  assert(await evaluate(`document.querySelectorAll('.card-row.status-unlimited').length>0`),'Unlimited house changes must remain in the comparison set');
+  assert.equal(await evaluate(`[...document.querySelectorAll('.house-change-badge')].every(e=>e.textContent.trim()==='House change')`),true);
+  await click('#clear-filters');
+
   await setValue('#card-search','Pot of Greed');
-  await waitFor(`[...document.querySelectorAll('.suggestion-name')].some(e=>e.textContent.toLowerCase()==='pot of greed')`,'exact search');
+  await waitFor(`[...document.querySelectorAll('.suggestion-name')].some(e=>e.textContent.toLowerCase()==='pot of greed')`,'restricted-card search');
   await click('#clear-search');
   await setValue('#card-search','Dracotail');
-  await waitFor(`[...document.querySelectorAll('.suggestion-name')].some(e=>e.textContent.includes('Dracotail'))`,'partial search');
+  await waitFor(`[...document.querySelectorAll('.suggestion-name')].some(e=>e.textContent.includes('Dracotail'))`,'eligible-card search');
   await click('.suggestion-row');
   await waitFor(`document.querySelector('#card-modal').open && !document.querySelector('#card-detail').hidden`,'card details');
   assert((await evaluate(`document.querySelector('#detail-name').textContent`)).includes('Dracotail'));
   await click('[data-close-dialog="card-modal"]');
-  evidence.checks.push('multi-status + card-type filters, persistent house-tweaks view, exact and partial search, eligible JUSH card details');
-  evidence.checks.push('375/768/1024/1440px layouts, consistent headers, event artwork and full time ranges');
+
+  assert.equal(await evaluate(`document.querySelector('.event-deck-link').getAttribute('href')`),'/gog/deckbuilder/');
+  await send('Page.navigate', { url: `${origin}/gog/deckbuilder/` });
+  await waitFor(`document.querySelector('#workspace') && document.querySelector('#card-library')`, 'deckbuilder direct load');
+  assert.equal(await evaluate(`document.querySelectorAll('.gog-primary-nav,.gog-mobile-nav').length`),0);
+  assert.equal(await evaluate(`document.querySelector('.gog-back-link').getAttribute('href')`),'/gog/');
+
+  evidence.checks.push('single JUSH homepage route, preserved legacy query/hash redirect and direct deckbuilder route');
+  evidence.checks.push('one deck CTA, live JUSH event panel, house-change checkbox, combined filters, eligible search and card details');
+  evidence.checks.push('390/768/1440/1536/1920/2048px layouts, local fonts, no overflow or clipped controls');
   assert.deepEqual(failedResponses,[]);
   assert.deepEqual(errors,[]);
   await writeFile(resolve(artifacts,'public-pages.json'),JSON.stringify(evidence,null,2));

@@ -5,7 +5,8 @@ INSERT OR IGNORE INTO settings(key,value) VALUES
   ('format_short_name','Guild of Games'),
   ('format_description','A Guild of Games format using the Justice Hunters card pool and an altered Forbidden & Limited List based on the official JUSH-era banlist. All eligible cards not on this list are Unlimited.'),
   ('store_name','Yu-Gi-Oh! JUSH House Format'),
-  ('accent_label','Guild of Games');
+  ('accent_label','Guild of Games'),
+  ('house_event_start','2026-11-26');
 INSERT OR IGNORE INTO versions(id,version_label,effective_date,summary,status,source,created_at,published_at)
  VALUES (1,'April 2025 TCG Foundation','2025-04-07','Official April 7, 2025 TCG Advanced list, frozen as the starting point for a standalone JUSH-era house format.','published','tcg-apr-2025',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 INSERT OR IGNORE INTO entries(version_id,name,sort_name,card_id,category,subtype,card_type,status,note) VALUES

@@ -1,6 +1,9 @@
 const API_BASE = '/gog/api';
 const $ = (selector, root = document) => root.querySelector(selector);
 const state = { csrf: null, email: null, events: [] };
+const EVENT_CACHE_KEY = 'gog-jush-event-schedule-v1';
+let eventRefreshTimer = 0;
+let eventsLoadedAt = 0;
 
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -67,7 +70,7 @@ function eventCard(event) {
       <p class="event-full-date"><time datetime="${escapeHtml(event.eventDate)}">${escapeHtml(displayDate(event.eventDate))}</time></p>
       <div class="event-meta"><p class="event-time">${eventIcon('clock')}<span>${escapeHtml(time)}</span></p><p>${eventIcon('location')}<span>${escapeHtml(event.location)}</span></p></div>
       ${event.description ? `<p class="event-description">${escapeHtml(event.description)}</p>` : ''}
-      ${artwork?.theme === 'house' ? '<a class="event-link" href="/gog/house-format/">Explore the house rules <span aria-hidden="true">→</span></a>' : ''}
+      ${artwork?.theme === 'house' ? '<a class="event-link" href="/gog/">Explore the house rules <span aria-hidden="true">→</span></a>' : ''}
     </div>
   </article>`;
 }
@@ -78,13 +81,102 @@ function renderEventGroup(selector, events, emptyMessage) {
   grid.innerHTML = events.length ? events.map(eventCard).join('') : `<p class="empty-events">${emptyMessage}</p>`;
 }
 
+function eventDisplayDate(value) {
+  if (!value) return 'Schedule to be confirmed';
+  return new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC'
+  }).format(new Date(`${value}T12:00:00Z`)).toUpperCase();
+}
+
+function londonClock() {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).formatToParts(new Date()).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
+}
+
+function eventHasFinished(event) {
+  const now = londonClock();
+  if (event.eventDate < now.date) return true;
+  if (event.eventDate > now.date) return false;
+  return !!event.endTime && now.time >= event.endTime;
+}
+
+function isJushEvent(event) {
+  return event.slug === 'yugioh-house-friday' || /\b(jush|house format)\b/i.test(`${event.title || ''} ${event.description || ''}`);
+}
+
+function londonWallTimeInstant(date, time) {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute] = time.split(':').map(Number);
+  let instant = Date.UTC(year, month - 1, day, hour, minute);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    }).formatToParts(new Date(instant)).filter((part) => part.type !== 'literal').map((part) => [part.type, Number(part.value)]));
+    const represented = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
+    instant += Date.UTC(year, month - 1, day, hour, minute) - represented;
+  }
+  return instant;
+}
+
+function scheduleEventBoundaryRefresh(event) {
+  clearTimeout(eventRefreshTimer);
+  if (!event?.eventDate || !event?.endTime) return;
+  const delay = londonWallTimeInstant(event.eventDate, event.endTime) - Date.now() + 1000;
+  if (delay <= 0) return;
+  eventRefreshTimer = setTimeout(() => loadEvents().catch(renderEventUnavailable), Math.min(delay, 2_147_000_000));
+}
+
+function renderEventUnavailable(error) {
+  $('#next-event-date').textContent = 'Schedule unavailable';
+  $('#next-event-date').removeAttribute('datetime');
+  $('#next-event-time').textContent = 'Event details could not be loaded';
+  $('#next-event-location').textContent = 'Guild of Games, Rotherham';
+  $('#next-event-status').textContent = error?.message ? `Schedule service unavailable: ${error.message}` : 'Schedule service unavailable.';
+  $('#next-event-status').hidden = false;
+}
+
+function renderNextJushEvent(events, cached = false) {
+  const event = events
+    .filter((item) => isJushEvent(item) && item.status !== 'cancelled' && !eventHasFinished(item))
+    .sort((a, b) => a.eventDate.localeCompare(b.eventDate) || (a.startTime || '99:99').localeCompare(b.startTime || '99:99'))[0];
+  if (!event) {
+    $('#next-event-date').textContent = 'Schedule to be confirmed';
+    $('#next-event-date').removeAttribute('datetime');
+    $('#next-event-time').textContent = 'No upcoming JUSH date is currently published';
+    $('#next-event-location').textContent = 'Guild of Games, Rotherham';
+    $('#next-event-status').textContent = cached ? 'Showing the last known schedule state.' : '';
+    $('#next-event-status').hidden = !cached;
+    return;
+  }
+  $('#next-event-date').textContent = eventDisplayDate(event.eventDate);
+  $('#next-event-date').dateTime = event.eventDate;
+  $('#next-event-time').textContent = displayTime(event.startTime) + (event.endTime ? `–${displayTime(event.endTime)}` : '');
+  $('#next-event-location').textContent = event.location || 'Guild of Games, Rotherham';
+  $('#next-event-status').textContent = cached ? 'Live schedule unavailable; showing the last known event.' : '';
+  $('#next-event-status').hidden = !cached;
+  scheduleEventBoundaryRefresh(event);
+}
+
 async function loadEvents() {
-  const payload = await api('/events');
+  let payload;
+  let cached = false;
+  try {
+    payload = await api('/events');
+    try { sessionStorage.setItem(EVENT_CACHE_KEY, JSON.stringify(payload)); } catch {}
+  } catch (error) {
+    let saved = null;
+    try { saved = sessionStorage.getItem(EVENT_CACHE_KEY); } catch {}
+    if (!saved) throw error;
+    payload = JSON.parse(saved);
+    cached = true;
+  }
   state.events = payload.events || [];
-  const advanced = state.events.filter((event) => event.slug === 'yugioh-advanced-thursday');
-  const special = state.events.filter((event) => event.slug !== 'yugioh-advanced-thursday');
-  renderEventGroup('#advanced-event-grid', advanced, 'No upcoming Advanced TCG events are currently listed.');
-  renderEventGroup('#special-event-grid', special, 'No upcoming special events are currently listed.');
+  eventsLoadedAt = Date.now();
+  renderNextJushEvent(state.events, cached);
 }
 
 let toastTimer;
@@ -238,10 +330,12 @@ $('#events-admin-app').addEventListener('click', async (event) => {
   } catch (error) { toast(error.message); }
 });
 
-loadEvents().catch((error) => {
-  const message = `Upcoming events could not be loaded. ${escapeHtml(error.message)}`;
-  renderEventGroup('#advanced-event-grid', [], message);
-  renderEventGroup('#special-event-grid', [], message);
+loadEvents().catch(renderEventUnavailable);
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && Date.now() - eventsLoadedAt > 60_000) {
+    loadEvents().catch(renderEventUnavailable);
+  }
 });
 
 if (new URLSearchParams(location.search).get('admin') === 'events') {

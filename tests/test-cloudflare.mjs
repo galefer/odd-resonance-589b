@@ -48,7 +48,7 @@ upgradeDb.close();
 // Upgrade real pre-end-time tables without changing event customisations.
 const eventUpgrade = new DatabaseSync(':memory:');
 eventUpgrade.exec(schemaSql
-  .replaceAll(" end_time TEXT NOT NULL DEFAULT '',\n", '')
+  .replace(/ end_time TEXT NOT NULL DEFAULT '',\r?\n/g, '')
   .replace(/ recurrence_pattern[^\r\n]*\r?\n/, ''));
 eventUpgrade.exec(`INSERT INTO recurring_events(slug,title,weekday,start_time,created_at,updated_at) VALUES
   ('yugioh-advanced-thursday','Advanced',4,'','fixture','fixture'),
@@ -61,6 +61,7 @@ eventUpgrade.exec(`INSERT INTO recurring_events(slug,title,weekday,start_time,cr
   VALUES ('One-off','2030-01-05','12:00','fixture','fixture');`);
 eventUpgrade.exec(readFileSync(new URL('../database/migrations/0007_event_end_times.sql', import.meta.url), 'utf8'));
 eventUpgrade.exec(readFileSync(new URL('../database/migrations/0009_monthly_event_schedule.sql', import.meta.url), 'utf8'));
+eventUpgrade.exec(readFileSync(new URL('../database/migrations/0011_house_event_start.sql', import.meta.url), 'utf8'));
 assert.deepEqual(eventUpgrade.prepare('SELECT start_time,end_time FROM recurring_events WHERE id=1').get(),
   Object.assign(Object.create(null), {start_time:'17:30',end_time:'21:00'}));
 assert.deepEqual({...eventUpgrade.prepare('SELECT title,status,start_time,end_time FROM event_overrides WHERE recurring_event_id=1').get()},
@@ -73,6 +74,7 @@ assert.deepEqual({...eventUpgrade.prepare("SELECT weekday,recurrence_pattern FRO
   {weekday:4,recurrence_pattern:'weekly_except_last'});
 assert.deepEqual({...eventUpgrade.prepare("SELECT weekday,recurrence_pattern FROM recurring_events WHERE slug='yugioh-house-friday'").get()},
   {weekday:4,recurrence_pattern:'last'});
+assert.equal(eventUpgrade.prepare("SELECT value FROM settings WHERE key='house_event_start'").get().value,'2026-11-26');
 eventUpgrade.close();
 
 db.exec(readFileSync(new URL('../database/schema.sql', import.meta.url), 'utf8'));
@@ -182,7 +184,7 @@ assert(!starting.entries.some(e=>e.isHouseChange));
 
 const eventsAtStart = await get('/events');
 assert.equal(eventsAtStart.timezone, 'Europe/London');
-const HOUSE_FORMAT_DEBUT = '2026-11-26';
+const HOUSE_FORMAT_DEBUT = config.settings.house_event_start;
 const addDays = (date, days) => {
   const value = new Date(`${date}T12:00:00Z`);
   value.setUTCDate(value.getUTCDate()+days);
@@ -204,17 +206,39 @@ while (expectedAdvancedDates.length<4) {
 const recurringEvents = eventsAtStart.events.filter(event=>event.source==='recurring');
 const advancedEvents = recurringEvents.filter(event=>event.slug==='yugioh-advanced-thursday');
 const houseEvents = recurringEvents.filter(event=>event.slug==='yugioh-house-friday');
-assert.equal(recurringEvents.length,5);
+assert.equal(recurringEvents.length,8);
 assert.equal(advancedEvents.length,4);
-assert.equal(houseEvents.length,1);
+assert.equal(houseEvents.length,4);
 assert.deepEqual(advancedEvents.map(event=>event.eventDate),expectedAdvancedDates);
 assert(recurringEvents.every(event=>weekday(event.eventDate)===4));
 assert(recurringEvents.every(event=>event.eventDate>=eventsAtStart.generatedFor));
-assert.equal(houseEvents[0].eventDate,lastThursday(houseEvents[0].eventDate));
-assert(houseEvents[0].eventDate>=HOUSE_FORMAT_DEBUT);
+assert(houseEvents.every(event=>event.eventDate===lastThursday(event.eventDate)));
+assert(houseEvents.every(event=>event.eventDate>=HOUSE_FORMAT_DEBUT));
 if (eventsAtStart.generatedFor<=HOUSE_FORMAT_DEBUT) assert.equal(houseEvents[0].eventDate,HOUSE_FORMAT_DEBUT);
-assert(!advancedEvents.some(event=>event.eventDate===houseEvents[0].eventDate));
+assert(!advancedEvents.some(event=>houseEvents.some(house=>house.eventDate===event.eventDate)));
 assert(eventsAtStart.events.every(event=>event.source==='recurring' && event.status==='scheduled'));
+
+async function eventsAt(iso) {
+  const RealDate = globalThis.Date;
+  const fixedTime = new RealDate(iso).getTime();
+  globalThis.Date = class extends RealDate {
+    constructor(...args) { super(...(args.length ? args : [fixedTime])); }
+    static now() { return fixedTime; }
+  };
+  try { return await get('/events'); }
+  finally { globalThis.Date = RealDate; }
+}
+const beforeHouseEnd = await eventsAt('2026-11-26T20:59:00Z');
+assert.equal(beforeHouseEnd.events.find(event=>event.slug==='yugioh-house-friday')?.eventDate,'2026-11-26');
+const afterHouseEnd = await eventsAt('2026-11-26T21:01:00Z');
+assert.equal(afterHouseEnd.events.find(event=>event.slug==='yugioh-house-friday')?.eventDate,'2026-12-31');
+const afterYearEnd = await eventsAt('2026-12-31T21:01:00Z');
+assert.equal(afterYearEnd.events.find(event=>event.slug==='yugioh-house-friday')?.eventDate,'2027-01-28');
+db.exec(`INSERT INTO special_events(title,event_date,start_time,end_time,location,description,status,created_at,updated_at)
+  VALUES ('All-day JUSH fixture','2026-11-26','','','Guild of Games, Rotherham','','scheduled','fixture','fixture')`);
+assert((await eventsAt('2026-11-26T23:59:00Z')).events.some(event=>event.title==='All-day JUSH fixture'));
+assert(!(await eventsAt('2026-11-27T00:01:00Z')).events.some(event=>event.title==='All-day JUSH fixture'));
+db.exec("DELETE FROM special_events WHERE title='All-day JUSH fixture'");
 
 const unauthed = await req('/admin/draft');
 assert.equal(unauthed.status, 401);
@@ -264,7 +288,7 @@ assert.equal((await req(`/admin/events/recurring/${advancedOccurrence.seriesId}/
 publicEvents = await get('/events');
 assert.equal(publicEvents.events.find(event=>event.slug==='yugioh-advanced-thursday').status, 'scheduled');
 
-const upcomingDate = eventsAtStart.generatedFor;
+const upcomingDate = addDays(eventsAtStart.generatedFor,1);
 const createdEvent = await req('/admin/events', 'POST', { title:'One-off championship', eventDate:upcomingDate,
   startTime:'12:00', endTime:'16:00', location:'Guild of Games, Rotherham', description:'Single date.', status:'scheduled' });
 assert.equal(createdEvent.status, 200);

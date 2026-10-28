@@ -804,12 +804,14 @@ function checkedStatus(status) {
 }
 const EVENT_STATUSES = new Set(['scheduled', 'cancelled']);
 const EVENT_TIME = /^(?:|(?:[01]\d|2[0-3]):[0-5]\d)$/;
-function londonToday() {
+function londonNow() {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit'
+    timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
   }).formatToParts(new Date()).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
-  return `${parts.year}-${parts.month}-${parts.day}`;
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
 }
+function londonToday() { return londonNow().date; }
 function addCalendarDays(date, days) {
   const [year, month, day] = date.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
@@ -831,26 +833,38 @@ function lastWeekdayOfMonth(date, targetWeekday) {
   last.setUTCDate(last.getUTCDate() - (last.getUTCDay() - Number(targetWeekday) + 7) % 7);
   return last.toISOString().slice(0, 10);
 }
-const HOUSE_FORMAT_DEBUT = '2026-11-26';
-function isHouseFormatDate(date) {
-  return date >= HOUSE_FORMAT_DEBUT && date === lastWeekdayOfMonth(date, 4);
+function isHouseFormatDate(date, startsOn = '') {
+  return (!startsOn || date >= startsOn) && date === lastWeekdayOfMonth(date, 4);
 }
-function nextHouseFormatDate(date) {
-  const firstEligibleDate = date < HOUSE_FORMAT_DEBUT ? HOUSE_FORMAT_DEBUT : date;
-  const thisMonth = lastWeekdayOfMonth(firstEligibleDate, 4);
-  return thisMonth >= firstEligibleDate ? thisMonth : lastWeekdayOfMonth(firstDayOfNextMonth(firstEligibleDate), 4);
-}
-function nextAdvancedDates(date, count = 4) {
+function nextHouseFormatDates(date, startsOn = '', count = 6) {
+  const firstEligibleDate = startsOn && date < startsOn ? startsOn : date;
   const dates = [];
-  for (let eventDate = nextWeekday(date, 4); dates.length < count; eventDate = addCalendarDays(eventDate, 7)) {
-    if (!isHouseFormatDate(eventDate)) dates.push(eventDate);
+  let cursor = firstEligibleDate;
+  while (dates.length < count) {
+    const candidate = lastWeekdayOfMonth(cursor, 4);
+    if (candidate >= firstEligibleDate) dates.push(candidate);
+    cursor = firstDayOfNextMonth(cursor);
   }
   return dates;
 }
-function upcomingDatesForSeries(date, series) {
-  if (series.slug === 'yugioh-advanced-thursday') return nextAdvancedDates(date);
-  if (series.slug === 'yugioh-house-friday') return [nextHouseFormatDate(date)];
+function nextAdvancedDates(date, count = 8, houseStartsOn = '') {
+  const dates = [];
+  for (let eventDate = nextWeekday(date, 4); dates.length < count; eventDate = addCalendarDays(eventDate, 7)) {
+    if (!isHouseFormatDate(eventDate, houseStartsOn)) dates.push(eventDate);
+  }
+  return dates;
+}
+function upcomingDatesForSeries(date, series, houseStartsOn = '') {
+  if (series.recurrencePattern === 'weekly_except_last' || series.slug === 'yugioh-advanced-thursday')
+    return nextAdvancedDates(date, 8, houseStartsOn);
+  if (series.recurrencePattern === 'last' || series.slug === 'yugioh-house-friday')
+    return nextHouseFormatDates(date, houseStartsOn, 6);
   return [nextWeekday(date, series.weekday)];
+}
+function eventHasEnded(event, now) {
+  if (event.eventDate < now.date) return true;
+  if (event.eventDate > now.date) return false;
+  return !!event.endTime && now.time >= event.endTime;
 }
 function eventValues(body, fallback = {}) {
   const title = String(body.title ?? fallback.title ?? '').trim().slice(0, 120);
@@ -871,15 +885,18 @@ function eventValues(body, fallback = {}) {
   return { title, eventDate, startTime, endTime, location, description, status };
 }
 async function eventSchedule(db) {
-  const today = londonToday();
-  const [seriesResult, specialResult] = await Promise.all([
-    db.prepare(`SELECT id,slug,title,weekday,start_time AS startTime,end_time AS endTime,location,description,sort_order AS sortOrder
+  const now = londonNow();
+  const today = now.date;
+  const [seriesResult, specialResult, houseStartSetting] = await Promise.all([
+    db.prepare(`SELECT id,slug,title,weekday,recurrence_pattern AS recurrencePattern,start_time AS startTime,end_time AS endTime,location,description,sort_order AS sortOrder
       FROM recurring_events WHERE active=1 ORDER BY sort_order,id`).all(),
     db.prepare(`SELECT id,title,event_date AS eventDate,start_time AS startTime,end_time AS endTime,location,description,status
-      FROM special_events WHERE event_date>=? ORDER BY event_date,start_time,id`).bind(today).all()
+      FROM special_events WHERE event_date>=? ORDER BY event_date,start_time,id`).bind(today).all(),
+    db.prepare("SELECT value FROM settings WHERE key='house_event_start'").first()
   ]);
+  const houseStartsOn = VALID_DATE.test(houseStartSetting?.value || '') ? houseStartSetting.value : '';
   const recurring = (await Promise.all(seriesResult.results.map(async (series) => {
-    return Promise.all(upcomingDatesForSeries(today, series).map(async (eventDate) => {
+    const candidates = await Promise.all(upcomingDatesForSeries(today, series, houseStartsOn).map(async (eventDate) => {
       const override = await db.prepare(`SELECT title,start_time AS startTime,end_time AS endTime,location,description,status
         FROM event_overrides WHERE recurring_event_id=? AND event_date=?`).bind(series.id, eventDate).first();
       return {
@@ -890,8 +907,12 @@ async function eventSchedule(db) {
         customised: !!override, sortOrder: series.sortOrder
       };
     }));
+    const visible = candidates.filter((event) => !eventHasEnded(event, now));
+    return visible.slice(0, series.slug === 'yugioh-advanced-thursday' ? 4 : 4);
   }))).flat();
-  const special = specialResult.results.map((event) => ({ ...event, id: `special-${event.id}`, eventId: event.id, source: 'special' }));
+  const special = specialResult.results
+    .map((event) => ({ ...event, id: `special-${event.id}`, eventId: event.id, source: 'special' }))
+    .filter((event) => !eventHasEnded(event, now));
   return [...recurring, ...special].sort((a, b) => a.eventDate.localeCompare(b.eventDate)
     || (a.startTime || '99:99').localeCompare(b.startTime || '99:99') || (a.sortOrder || 0) - (b.sortOrder || 0));
 }
@@ -1017,7 +1038,9 @@ async function handle(context) {
       if (!series) throw fail(404, 'Recurring event not found.');
       const body = await inputJson(request);
       const expectedDate = String(body.eventDate || '');
-      const validDates = upcomingDatesForSeries(londonToday(), series);
+      const houseStartSetting = await db.prepare("SELECT value FROM settings WHERE key='house_event_start'").first();
+      const houseStartsOn = VALID_DATE.test(houseStartSetting?.value || '') ? houseStartSetting.value : '';
+      const validDates = upcomingDatesForSeries(londonToday(), series, houseStartsOn);
       if (!validDates.includes(expectedDate)) throw fail(409, 'This occurrence is outside the current schedule. Refresh and try again.');
       const existing = await db.prepare(`SELECT title,start_time AS startTime,end_time AS endTime,location,description,status
         FROM event_overrides WHERE recurring_event_id=? AND event_date=?`).bind(series.id, expectedDate).first();

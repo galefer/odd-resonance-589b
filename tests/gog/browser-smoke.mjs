@@ -168,8 +168,8 @@ try {
   await waitFor(`document.readyState==='complete' && document.querySelectorAll('.library-card').length>0`, 'initial card catalogue');
   assert.equal(await evaluate(`document.querySelector('.gog-brand strong').textContent.trim()`), 'Guild of Games');
   assert(await evaluate(`document.querySelector('.gog-brand img').naturalWidth > 0`), 'Guild of Games logo should load in the deckbuilder header');
-  assert.equal(await evaluate(`new URL(document.querySelector('.gog-primary-nav a:first-child').href).pathname`), '/gog/');
-  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.gog-primary-nav a')].map(a=>a.textContent.trim())`), ['Home','House Format','Deckbuilder']);
+  assert.equal(await evaluate(`new URL(document.querySelector('.gog-back-link').href).pathname`), '/gog/');
+  assert.equal(await evaluate(`document.querySelectorAll('.gog-primary-nav,.gog-mobile-nav').length`), 0, 'Deckbuilder uses one quiet back link instead of site tabs');
   const deckHeader = await evaluate(`(() => { const header=document.querySelector('.gog-site-header').getBoundingClientRect(); const logo=document.querySelector('.gog-brand img').getBoundingClientRect(); const brand=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:header.height,logoWidth:logo.width,logoHeight:logo.height,brandLeft:brand.left,brandTop:brand.top}; })()`);
   assert.equal(await evaluate(`document.querySelector('#library-total')`), null, 'Redundant eligible-count label is removed');
   assert.equal(await evaluate(`document.querySelector('#saved-label').textContent`), 'Saved on this device');
@@ -467,70 +467,47 @@ try {
 
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: `${origin}/gog/` });
-  await waitFor(`document.readyState==='complete' && document.querySelectorAll('.event-groups .event-card').length>=2`, 'Guild of Games homepage events');
-  const homeBrand = await evaluate(`({
+  await waitFor(`document.readyState==='complete' && document.querySelectorAll('#card-list .card-row').length>0 && document.querySelector('#next-event-date').dateTime`, 'JUSH homepage data');
+  const cardListBrand = await evaluate(`({
     brand:document.querySelector('.gog-brand strong').textContent.trim(),
-    navigation:[...document.querySelectorAll('.gog-primary-nav a')].map(a=>a.textContent.trim()),
-    heading:document.querySelector('.hero-copy h1').textContent.trim(),
-    eventsHeading:document.querySelector('#events-title').textContent.trim(),
-    events:[...document.querySelectorAll('.event-card')].map(card=>card.textContent.trim()),
-    eventDates:[...document.querySelectorAll('.event-full-date')].map(e=>e.textContent.trim()),
-    advancedArtwork:document.querySelector('.event-card.advanced .event-artwork')?.getAttribute('src'),
-    logoLoaded:document.querySelector('.hero-emblem').naturalWidth>0,
+    context:document.querySelector('.gog-context').textContent.trim(),
+    heading:document.querySelector('#format-name').textContent.trim(),
+    note:document.querySelector('#format-description').textContent.trim(),
+    facts:[...document.querySelectorAll('.format-fact strong')].map(e=>e.textContent.trim()),
+    eventDate:document.querySelector('#next-event-date').textContent.trim(),
+    eventTime:document.querySelector('#next-event-time').textContent.trim(),
+    eventLocation:document.querySelector('#next-event-location').textContent.trim(),
+    buildActions:document.querySelectorAll('a.event-deck-link').length,
+    navigation:document.querySelectorAll('.gog-primary-nav,.gog-mobile-nav').length,
+    artLoaded:[...document.querySelectorAll('.hero-character img,.hero-wordmark')].every(img=>img.complete && img.naturalWidth>0),
+    logoLoaded:document.querySelector('.gog-brand img').naturalWidth>0,
     overflow:document.documentElement.scrollWidth-innerWidth,
-    header:(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()
+    rows:document.querySelectorAll('#card-list .card-row').length
   })`);
-  assert.equal(homeBrand.brand, 'Guild of Games');
-  assert.deepEqual(homeBrand.navigation, ['Home','House Format','Deckbuilder']);
-  assert(homeBrand.events.some(text=>text.includes('Yu-Gi-Oh! TCG Advanced')));
-  assert(homeBrand.events.some(text=>text.includes('Yu-Gi-Oh! TCG House')));
-  assert.equal(homeBrand.eventsHeading, 'Upcoming events');
-  assert.equal(homeBrand.eventDates.length,5);
-  assert(homeBrand.eventDates.every(text=>text.startsWith('Thursday')));
-  assert.equal(homeBrand.advancedArtwork, '/gog/assets/magician-of-black-chaos-art.jpg');
-  assert.equal(homeBrand.events.some(text=>text.includes('Earlier this month')),false);
-  assert.equal(await evaluate(`document.querySelectorAll('#advanced-event-grid .event-card.advanced').length`),4);
-  assert.equal(await evaluate(`document.querySelectorAll('#special-event-grid .event-card.house').length`),1);
-  assert(homeBrand.logoLoaded);
-  assert.equal(await evaluate(`document.querySelector('a[href="#upcoming-events"]')`),null);
+  assert.equal(cardListBrand.brand, 'Guild of Games');
+  assert.match(cardListBrand.context, /Rotherham.*Community duels/i);
+  assert.equal(cardListBrand.heading, 'Yu-Gi-Oh! JUSH House Format');
+  assert.match(cardListBrand.note, /Justice Hunters.*altered/i);
+  assert.deepEqual(cardListBrand.facts, ['Card pool','House list','Community']);
+  assert.match(cardListBrand.eventDate, /Thursday/i);
+  assert.match(cardListBrand.eventTime, /5:30pm.*9:00pm/i);
+  assert.match(cardListBrand.eventLocation, /Guild of Games.*Rotherham/i);
+  assert.equal(cardListBrand.buildActions, 1);
+  assert.equal(cardListBrand.navigation, 0);
+  assert(cardListBrand.artLoaded && cardListBrand.logoLoaded, 'Homepage artwork should load');
+  assert(cardListBrand.rows > 0);
+  assert(cardListBrand.overflow <= 1, `Homepage horizontal overflow: ${cardListBrand.overflow}`);
   assert.equal(await evaluate(`document.querySelectorAll('#add-event-form input[name=endTime]').length`),1);
-  await waitFor(`[...document.querySelectorAll('.event-artwork')].every(img=>img.complete && img.naturalWidth>0)`, 'event artwork');
-  assert(await evaluate(`[...document.querySelectorAll('.event-card:not(.special) .event-time')].every(e=>e.textContent.includes('5:30pm – 9:00pm'))`));
-  assert(homeBrand.overflow <= 1, `Homepage horizontal overflow: ${homeBrand.overflow}`);
-  assert.deepEqual(homeBrand.header, deckHeader, 'Homepage and deckbuilder headers should have identical sizing and placement');
   await click('#events-admin-link');
   await waitFor(`document.querySelector('#events-admin-dialog').open`, 'event administrator dialog');
   assert(await evaluate(`document.querySelector('#events-admin-login img').naturalWidth>0`));
   await click('#events-admin-close');
   await screenshot('gog-home.png');
-  evidence.home = homeBrand;
+  evidence.home = cardListBrand;
 
-  await send('Page.navigate', { url: `${origin}/gog/house-format/` });
-  await waitFor(`document.readyState==='complete' && document.querySelectorAll('#card-list .card-row').length>0`, 'branded card list');
-  const cardListBrand = await evaluate(`({
-    brand:document.querySelector('.gog-brand strong').textContent.trim(),
-    heading:document.querySelector('#format-name').textContent.trim(),
-    pool:document.querySelector('.pool-note').textContent.trim(),
-    note:document.querySelector('#format-description').textContent.trim(),
-    baselineNote:document.querySelector('.reference-note').textContent.trim(),
-    logoLoaded:document.querySelector('.gog-brand img').naturalWidth>0,
-    homePath:new URL(document.querySelector('.gog-primary-nav a[href="/gog/"]').href).pathname,
-    deckbuilderPath:new URL(document.querySelector('.gog-primary-nav a[href="/gog/deckbuilder/"]').href).pathname,
-    overflow:document.documentElement.scrollWidth-innerWidth,
-    background:getComputedStyle(document.body).backgroundColor,
-    header:(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()
-  })`);
-  assert.equal(cardListBrand.brand, 'Guild of Games');
-  assert.equal(cardListBrand.heading, 'Yu-Gi-Oh! JUSH House Format');
-  assert.match(cardListBrand.pool, /Justice Hunters.*1 August 2025 inclusive/i);
-  assert.match(cardListBrand.note, /altered/i);
-  assert.match(cardListBrand.baselineNote, /fixed JUSH-era banlist.*Not just the latest update/i);
-  assert(cardListBrand.logoLoaded, 'Guild of Games header logo should load');
-  assert.equal(cardListBrand.homePath, '/gog/');
-  assert.equal(cardListBrand.deckbuilderPath, '/gog/deckbuilder/');
-  assert(cardListBrand.overflow <= 1, `Card-list horizontal overflow: ${cardListBrand.overflow}`);
-  assert.deepEqual(cardListBrand.header, deckHeader, 'House Format and deckbuilder headers should have identical sizing and placement');
-  assert.equal(await evaluate(`document.querySelector('#rules-button')`), null);
+  await send('Page.navigate', { url: `${origin}/gog/house-format/?view=changes#list-workspace` });
+  await waitFor(`location.pathname==='/gog/' && location.search.includes('view=changes') && location.hash==='#list-workspace' && document.querySelectorAll('#card-list .card-row').length>0`, 'legacy house-format redirect');
+  assert(await evaluate(`document.querySelector('#changes-only').checked`), 'Legacy query restores house-change view');
   await click('#admin-button');
   await waitFor(`document.querySelector('#admin-modal').open`, 'administrator dialog');
   assert(await evaluate(`document.querySelector('#admin-modal .brand-logo').naturalWidth>0`), 'Guild of Games logo should load in administrator login');
@@ -541,38 +518,25 @@ try {
   await sleep(180);
   const mobileCardList = await evaluate(`({
     overflow:document.documentElement.scrollWidth-innerWidth,
-    desktopNav:getComputedStyle(document.querySelector('.gog-primary-nav')).display,
-    mobileNav:getComputedStyle(document.querySelector('.gog-mobile-nav')).display,
+    filterToggle:getComputedStyle(document.querySelector('#filter-toggle')).display,
+    filtersHidden:document.querySelector('#filters-panel').hasAttribute('hidden'),
+    buildActions:document.querySelectorAll('a.event-deck-link').length,
+    eventVisible:document.querySelector('.next-event-panel').getBoundingClientRect().height>0,
     logoLoaded:document.querySelector('.gog-brand img').naturalWidth>0,
     header:(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()
   })`);
   assert(mobileCardList.overflow <= 1, `Mobile card-list horizontal overflow: ${mobileCardList.overflow}`);
-  assert.equal(mobileCardList.desktopNav, 'none');
-  assert.notEqual(mobileCardList.mobileNav, 'none');
+  assert.notEqual(mobileCardList.filterToggle, 'none');
+  assert(mobileCardList.filtersHidden);
+  assert.equal(mobileCardList.buildActions, 1);
+  assert(mobileCardList.eventVisible);
   assert(mobileCardList.logoLoaded);
   assert(mobileCardList.header.height > deckMobileHeader.height && mobileCardList.header.logoWidth > deckMobileHeader.logoWidth,
     'Only the deckbuilder should use the compact mobile editing header');
-  await screenshot('card-list-mobile.png');
-  await send('Page.navigate', { url: `${origin}/gog/` });
-  await waitFor(`document.readyState==='complete' && document.querySelectorAll('.event-groups .event-card').length>=2`, 'mobile homepage events');
-  const mobileHome = await evaluate(`({
-    overflow:document.documentElement.scrollWidth-innerWidth,
-    eventCards:document.querySelectorAll('.event-groups .event-card').length,
-    navigation:[...document.querySelectorAll('.gog-mobile-nav a')].map(a=>({text:a.textContent.trim(),left:a.getBoundingClientRect().left,right:a.getBoundingClientRect().right,display:getComputedStyle(a).display})),
-    admin:(() => { const a=document.querySelector('.gog-admin-link'); const r=a.getBoundingClientRect(); return {text:a.textContent.trim(),left:r.left,right:r.right,display:getComputedStyle(a).display}; })(),
-    header:(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()
-  })`);
-  assert(mobileHome.overflow <= 1, `Mobile homepage horizontal overflow: ${mobileHome.overflow}`);
-  assert.equal(mobileHome.eventCards >= 2, true);
-  assert.deepEqual(mobileHome.navigation.map(item=>item.text), ['Home','House Format','Deckbuilder']);
-  assert(mobileHome.navigation.every(item=>item.display!=='none' && item.left>=0 && item.right<=391));
-  assert(mobileHome.admin.display!=='none' && mobileHome.admin.left>=0 && mobileHome.admin.right<=391);
-  assert.deepEqual(mobileHome.header, mobileCardList.header, 'Non-editor Guild of Games pages keep the shared mobile header');
   await screenshot('gog-home-mobile.png');
   evidence.cardListBrand = cardListBrand;
   evidence.mobileCardList = mobileCardList;
-  evidence.mobileHome = mobileHome;
-  evidence.checks.push('shared Guild of Games branding and two-way navigation');
+  evidence.checks.push('single-page JUSH homepage, event panel, legacy redirect and responsive card list');
 
   const unexpectedFailures = failedResponses.filter(({ url, status }) => status >= 400 && !url.includes('/gog/api/cards/') && !url.endsWith('favicon.ico'));
   if (failedResponses.length || errors.length) console.log(JSON.stringify({ failedResponses, consoleErrors: errors }, null, 2));

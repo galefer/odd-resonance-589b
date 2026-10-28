@@ -95,7 +95,7 @@ function statusBadge(status) {
 
 function houseChangeBadge(card) {
   return card?.isHouseChange
-    ? '<span class="house-change-badge" title="Different from the official JUSH baseline">NEW</span>'
+    ? '<span class="house-change-badge" title="Different from the fixed JUSH-era baseline">House change</span>'
     : '';
 }
 
@@ -134,7 +134,7 @@ async function loadPublicData() {
   state.changes = listPayload.changes || [];
   state.config.version = listPayload.version || configPayload.version;
   applyConfig();
-  $('#feature-changes-count').textContent = state.changes.length;
+  $('#changes-count').textContent = state.changes.length;
   renderList();
 }
 
@@ -142,7 +142,7 @@ function applyConfig() {
   const settings = state.config?.settings || {};
   const version = state.config?.version;
   $('#brand-short-name').textContent = settings.format_short_name || 'Guild of Games';
-  $('#brand-store-name').textContent = settings.store_name || 'Yu-Gi-Oh! JUSH House Format';
+  $('#brand-store-name').textContent = 'Yu-Gi-Oh! JUSH House Format';
   $('#format-name').textContent = settings.format_name || 'Yu-Gi-Oh! JUSH House Format';
   $('#format-description').textContent = settings.format_description || 'A Guild of Games format using the Justice Hunters card pool and an altered Forbidden & Limited List based on the JUSH-era banlist.';
   $('#accent-label').textContent = settings.accent_label || 'Guild of Games';
@@ -155,29 +155,6 @@ function applyConfig() {
   $('#pool-cutoff').dateTime = cutoff;
   $('#footer-version').textContent = `Version ${version?.label || 'Foundation'}`;
   document.title = `${settings.format_name || 'Yu-Gi-Oh! JUSH House Format'} · Guild of Games`;
-}
-
-function compactEventDate(value) {
-  if (!value) return 'View schedule';
-  const date = new Date(`${value}T12:00:00Z`);
-  return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(date);
-}
-
-function compactEventTime(value) {
-  if (!value) return '';
-  const [hour, minute] = value.split(':').map(Number);
-  const suffix = hour >= 12 ? 'pm' : 'am';
-  return `${hour % 12 || 12}:${String(minute).padStart(2, '0')}${suffix}`;
-}
-
-async function loadEventFeature() {
-  const payload = await api('/api/events');
-  const events = (payload.events || []).filter((event) => event.status !== 'cancelled');
-  const event = events.find((item) => item.slug === 'yugioh-house-friday') || events[0];
-  if (!event) return;
-  $('#next-event-date').textContent = compactEventDate(event.eventDate);
-  const time = [compactEventTime(event.startTime), compactEventTime(event.endTime)].filter(Boolean).join(' – ');
-  $('#next-event-meta').textContent = time || event.title || 'View event details';
 }
 
 function currentDataset() {
@@ -205,10 +182,12 @@ function renderList() {
   const data = filteredDataset();
   const isChanges = state.view === 'changes';
   $('#changes-count').textContent = state.changes.length;
-  $('#results-kicker').textContent = isChanges ? 'Compared with the official JUSH baseline' : 'Current restricted cards';
-  $('#results-title').textContent = isChanges ? 'House Banlist Tweaks' : 'Forbidden & Limited List';
+  $('#changes-only').checked = isChanges;
+  $('#results-kicker').textContent = isChanges
+    ? 'Showing persistent differences from the fixed JUSH-era baseline.'
+    : 'Current restrictions for the eligible JUSH card pool.';
+  $('#results-title').textContent = 'Forbidden & Limited List';
   $('#results-count').textContent = `${data.length} ${data.length === 1 ? 'card' : 'cards'} shown`;
-  $('#results-panel').setAttribute('aria-labelledby', isChanges ? 'changes-tab' : 'current-tab');
   list.setAttribute('aria-busy', 'false');
 
   if (!data.length) {
@@ -244,9 +223,10 @@ function renderList() {
 function renderCardRow(card) {
   const status = STATUS[card.status] || STATUS.unlimited;
   const note = card.note ? `<span class="card-note-preview">${escapeHtml(card.note)}</span>` : '';
-  const changeMarkup = card.changeType === 'note_updated' ? '<span class="change-arrow">House-format note updated</span>' : card.previousStatus ? `
-    <span class="change-arrow"><span class="old-status">${STATUS[card.previousStatus]?.label || 'Unlimited'}</span><span aria-hidden="true">→</span><span>${status.label}</span></span>` :
-    `<small>${status.copies} ${status.copies === 1 ? 'copy' : 'copies'} maximum</small>`;
+  const baselineStatus = card.baselineStatus || card.previousStatus;
+  const changeContext = card.isHouseChange && baselineStatus
+    ? `<span class="change-context">Baseline ${STATUS[baselineStatus]?.label || 'Unlimited'} <span aria-hidden="true">→</span> current ${status.label}</span>`
+    : card.changeType === 'note_updated' ? '<span class="change-context">House-format note changed</span>' : '';
   return `
     <article class="card-row status-${card.status}${card.isHouseChange ? ' is-house-change' : ''}" data-card-name="${escapeHtml(card.name)}">
       <div class="card-thumbnail ${card.category.toLowerCase()}">
@@ -255,10 +235,10 @@ function renderCardRow(card) {
       </div>
       <div>
         <h3 class="card-name">${escapeHtml(smartTitle(card.name))}${houseChangeBadge(card)}</h3>
+        <div class="card-metadata"><span>${escapeHtml(card.category)} · ${escapeHtml(card.subtype)}</span>${changeContext}</div>
         ${note}
       </div>
-      <div class="card-type-cell"><strong>${escapeHtml(card.category)}</strong>${escapeHtml(card.subtype)}</div>
-      <div class="status-cell">${statusBadge(card.status)}${changeMarkup}</div>
+      <div class="status-cell">${statusBadge(card.status)}</div>
       <button class="card-open" type="button" data-open-card="${escapeHtml(card.name)}" aria-label="View ${escapeHtml(smartTitle(card.name))}">›</button>
     </article>`;
 }
@@ -296,7 +276,7 @@ function updateUrl() {
   for (const [group, values] of Object.entries(state.filters)) if (values.size) params.set(group, [...values].join(','));
   if (state.sort !== 'status-name') params.set('sort', state.sort);
   const query = params.toString();
-  try { history.replaceState(null, '', query ? `${location.pathname}?${query}` : location.pathname); } catch {}
+  try { history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}${location.hash}`); } catch {}
 }
 
 function restoreUrlState() {
@@ -316,12 +296,7 @@ function restoreUrlState() {
 
 function switchView(view, update = true) {
   state.view = view;
-  $$('.view-tab').forEach((tab) => {
-    const active = tab.dataset.view === view;
-    tab.classList.toggle('active', active);
-    tab.setAttribute('aria-selected', String(active));
-    tab.tabIndex = active ? 0 : -1;
-  });
+  $('#changes-only').checked = view === 'changes';
   if (update) {
     updateUrl();
     renderList();
@@ -639,23 +614,14 @@ function wireEvents() {
     $$('[data-filter="status"]').forEach((input) => { input.checked = input.value === status; });
     switchView(status === 'unlimited' ? 'changes' : 'current', false);
     updateFilterUi();
-    $('.list-toolbar').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('#list-workspace').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }));
   $$('[data-close-dialog]').forEach((button) => button.addEventListener('click', () => $(`#${button.dataset.closeDialog}`).close()));
   $$('.modal').forEach((dialog) => dialog.addEventListener('click', (event) => {
     if (event.target === dialog) dialog.close();
   }));
 
-  $$('.view-tab').forEach((tab) => tab.addEventListener('click', () => switchView(tab.dataset.view)));
-  $('.view-tabs').addEventListener('keydown', (event) => {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-    event.preventDefault();
-    const tabs = $$('.view-tab');
-    const current = Math.max(0, tabs.indexOf(document.activeElement));
-    const index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
-    tabs[index].focus();
-    switchView(tabs[index].dataset.view);
-  });
+  $('#changes-only').addEventListener('change', (event) => switchView(event.target.checked ? 'changes' : 'current'));
   $('#filter-toggle').addEventListener('click', () => {
     const panel = $('#filters-panel');
     panel.classList.toggle('open');
@@ -863,7 +829,6 @@ async function init() {
   restoreUrlState();
   try {
     await loadPublicData();
-    loadEventFeature().catch(() => {});
   }
   catch (error) {
     $('#card-list').innerHTML = `<div class="empty-state"><h3>Could not load the house-format list</h3><p>${escapeHtml(error.message)}</p></div>`;

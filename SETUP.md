@@ -29,11 +29,11 @@ odd-resonance-589b/                  <- existing repo root
 │  ├─ style.css                     <- your existing CSS; leave alone
 │  ├─ assets/ ...                   <- leave alone
 │  └─ gog/                          <- NEW
-│     ├─ index.html                 <- store homepage and events
-│     ├─ home.css / home.js
-│     ├─ site-header.css            <- shared navigation
+│     ├─ index.html                 <- JUSH format homepage, event panel and card list
+│     ├─ home.js                    <- event schedule and protected event administration
+│     ├─ site-header.css            <- shared identity header
 │     ├─ styles.css / app.js        <- house-format list assets
-│     ├─ house-format/index.html
+│     ├─ house-format/index.html    <- legacy redirect to /gog/
 │     └─ deckbuilder/ ...
 ├─ functions/                       <- NEW; must be sibling of public/
 │  └─ gog/api/[[path]].js            <- Cloudflare Pages Functions API
@@ -153,7 +153,7 @@ npx wrangler d1 execute aec66a35-3c9b-460d-8721-abeea167770a --remote --file=./d
 
 The migration adds finish times to recurring events, occurrence overrides and one-off events. Both recurring series default to **17:30–21:00, Europe/London**. Existing cancellations and descriptions are preserved; an explicitly customised start time remains unchanged. Administrators can edit both times for the displayed occurrence or a one-off event. A finish time must follow its start time on the same day; leave both blank for an unannounced one-off schedule.
 
-The event illustrations in `public/gog/assets/` are static Pages assets with source credits in `CREDITS.md`. They do not use the card-image function, D1 or R2. The public-page browser check is `node tests/gog/browser-public-pages.mjs [origin]`; it checks responsive layouts, matching headers, event times, combined filters and card lookup without editing production data.
+The JUSH decorative artwork in `public/gog/assets/jush/` is static Pages content. It does not use the card-image function, D1 or R2. The public-page browser check is `node tests/gog/browser-public-pages.mjs [origin]`; it checks the homepage and legacy route, responsive layouts, the single deckbuilder CTA, event details, combined filters and card lookup without editing production data.
 
 ### Upcoming Thursday event schedule
 
@@ -163,7 +163,15 @@ The upcoming event layout is backward-compatible with the existing event schema.
 npx wrangler d1 execute aec66a35-3c9b-460d-8721-abeea167770a --remote --file=./database/migrations/0009_monthly_event_schedule.sql
 ```
 
-This adds the recurrence pattern field for stored schedule metadata. The application shows the next four Advanced Thursdays, starts House Format on 26 November 2026, and then reserves each month's final Thursday for House Format. Existing per-date overrides remain in the database, and only upcoming dates are displayed.
+This adds the recurrence pattern field for stored schedule metadata. Existing per-date overrides remain in the database, and only upcoming dates are displayed.
+
+Store the first published JUSH monthly occurrence as event configuration rather than application logic:
+
+```cmd
+npx wrangler d1 execute aec66a35-3c9b-460d-8721-abeea167770a --remote --file=./database/migrations/0011_house_event_start.sql
+```
+
+The public panel uses that saved start date, occurrence overrides and cancellations, then calculates later final Thursdays using Europe/London calendar dates.
 
 ## 3. Bind D1 to your existing Cloudflare Pages project
 
@@ -234,9 +242,9 @@ Wait for Cloudflare's deployment to finish, then open the Guild of Games homepag
 
 **https://gravetalestudios.com/gog/**
 
-The house-format card list is available at:
-
-**https://gravetalestudios.com/gog/house-format/**
+The JUSH house-format card list is part of the Guild of Games homepage. The old
+`/gog/house-format/` address redirects to `/gog/` while preserving query strings
+and fragments.
 
 The local deckbuilder is available at:
 
@@ -248,15 +256,15 @@ Your existing `/`, `/null/`, `/outworld/`, etc. remain unchanged.
 
 ## 7. Create your administrator
 
-1. Visit the deployed `/gog/house-format/` page.
-2. Click **Manage the house list**.
+1. Visit the deployed `/gog/` page.
+2. Click **Manage house list** in the footer.
 3. Enter your administrator email, a password of at least 12 characters, and the `GOG_SETUP_TOKEN` from step 4.
 4. After creation, the site logs you in and disables further public admin registration.
 5. Use **Draft editor** to change cards, **Review & publish** to make changes public, and **Version history** to restore a prior published snapshot.
 
-The same administrator account manages homepage events. Visit `/gog/`, click **Admin**, and edit any displayed upcoming Thursday. Those edits apply only to that date. Add one-off events in the same panel; future one-offs appear in the Special Events row.
+The same administrator account manages homepage events. Visit `/gog/`, click **Manage events** in the footer, and edit any displayed upcoming Thursday. Those edits apply only to that date. Add one-off events in the same panel; the next scheduled JUSH event appears in the homepage event panel.
 
-The public **House tweaks** view and every `NEW` badge compare the current published status with the original `tcg-apr-2025` foundation. They do not reset when another house version is published. A card loses the marker only when its status matches that fixed baseline again.
+The **Show house changes only** checkbox and every **House change** badge compare the current published status with the original `tcg-apr-2025` foundation. They do not reset when another house version is published. A card loses the marker only when its status matches that fixed baseline again.
 
 **Sanity-check these cards:**
 
@@ -272,7 +280,7 @@ The public **House tweaks** view and every `NEW` badge compare the current publi
 | --- | --- |
 | `/gog/` is 404 | Check the site output root is `public` and `public/gog/index.html` was pushed. |
 | Homepage events fail to load | Inspect the event schema. Apply `0003_events.sql` if tables are absent, then apply `0007_event_end_times.sql` once if `end_time` is absent. |
-| `/gog/house-format/` is 404 | Check `public/gog/house-format/index.html` was pushed. |
+| `/gog/house-format/` does not redirect | Check `public/gog/house-format/index.html` was pushed. |
 | `/gog/deckbuilder/` opens but the library is unavailable | Apply `0002_deckbuilder_catalogue.sql`, run the generated catalogue import, and verify `SELECT * FROM catalogue_meta;`. |
 | Website opens but reports `GOG_DB` missing | Add D1 Pages binding named exactly `GOG_DB` in Production; redeploy. |
 | Website reports the JUSH foundation is missing | Run both `schema.sql` and `seed.sql` with `--remote` against `gog-house-format`. |
