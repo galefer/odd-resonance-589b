@@ -489,7 +489,7 @@ try {
   assert.equal(cardListBrand.heading, 'Yu-Gi-Oh! JUSH House Format');
   assert.match(cardListBrand.note, /Justice Hunters.*altered/i);
   assert.deepEqual(cardListBrand.facts, ['Card pool','House list','Community']);
-  assert.match(cardListBrand.eventDate, /Thursday/i);
+  assert.match(cardListBrand.eventDate, /Thu/i);
   assert.match(cardListBrand.eventTime, /5:30pm.*9:00pm/i);
   assert.match(cardListBrand.eventLocation, /Guild of Games.*Rotherham/i);
   assert.equal(cardListBrand.buildActions, 1);
@@ -519,7 +519,7 @@ try {
   const mobileCardList = await evaluate(`({
     overflow:document.documentElement.scrollWidth-innerWidth,
     filterToggle:getComputedStyle(document.querySelector('#filter-toggle')).display,
-    filtersHidden:document.querySelector('#filters-panel').hasAttribute('hidden'),
+    filtersDisplay:getComputedStyle(document.querySelector('#filters-panel')).display,
     buildActions:document.querySelectorAll('a.event-deck-link').length,
     eventVisible:document.querySelector('.next-event-panel').getBoundingClientRect().height>0,
     logoLoaded:document.querySelector('.gog-brand img').naturalWidth>0,
@@ -527,7 +527,7 @@ try {
   })`);
   assert(mobileCardList.overflow <= 1, `Mobile card-list horizontal overflow: ${mobileCardList.overflow}`);
   assert.notEqual(mobileCardList.filterToggle, 'none');
-  assert(mobileCardList.filtersHidden);
+  assert.equal(mobileCardList.filtersDisplay, 'none');
   assert.equal(mobileCardList.buildActions, 1);
   assert(mobileCardList.eventVisible);
   assert(mobileCardList.logoLoaded);
