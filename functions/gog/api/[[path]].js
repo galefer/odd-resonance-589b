@@ -699,6 +699,23 @@ async function imageFor(context, id) {
   let object;
   try { object = await context.env.GOG_IMAGES.get(key); }
   catch { return failure(503, 'r2-error'); }
+  if (object) {
+    try {
+      const accounting = await db.prepare(`SELECT
+        (SELECT 1 FROM image_cache_v2 WHERE asset_key=? LIMIT 1) AS ledgered,
+        (SELECT size_bytes FROM image_cache_reservations WHERE asset_key=? LIMIT 1) AS reserved_bytes`)
+        .bind(key, key).first();
+      const objectBytes = Number(object.size || accounting?.reserved_bytes || 0);
+      if (!accounting?.ledgered && Number.isFinite(objectBytes) && objectBytes > 0) {
+        await db.batch([
+          db.prepare('DELETE FROM image_cache_reservations WHERE asset_key=?').bind(key),
+          db.prepare(`INSERT INTO image_cache_v2(asset_key,card_id,variant,size_bytes,cached_at)
+            VALUES (?,?,?,?,?) ON CONFLICT(asset_key) DO UPDATE SET size_bytes=excluded.size_bytes,cached_at=excluded.cached_at`)
+            .bind(key, validId, size, objectBytes, nowIso())
+        ]);
+      }
+    } catch { /* Keep serving a confirmed R2 object; its reservation remains conservatively counted. */ }
+  }
   if (!object) {
     try {
       const response = await fetch(`https://images.ygoprodeck.com/images/${providerPrefix}/${validId}.jpg`, { signal: AbortSignal.timeout(9000) });

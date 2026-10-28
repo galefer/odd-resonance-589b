@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS image_cache (
 CREATE TABLE IF NOT EXISTS image_cache_v2 (
  asset_key TEXT PRIMARY KEY,
  card_id INTEGER NOT NULL,
- variant TEXT NOT NULL CHECK(variant IN ('thumb','full')),
+ variant TEXT NOT NULL CHECK(variant IN ('thumb','cover','full')),
  size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
  cached_at TEXT NOT NULL
 );

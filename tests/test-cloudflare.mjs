@@ -9,6 +9,7 @@ import { blmmCards } from './gog/fixtures/blmm.mjs';
 const db = new DatabaseSync(':memory:');
 const schemaSql = readFileSync(new URL('../database/schema.sql', import.meta.url), 'utf8');
 const storageMigration = readFileSync(new URL('../database/migrations/0006_image_storage_counter.sql', import.meta.url), 'utf8');
+const coverMigration = readFileSync(new URL('../database/migrations/0010_template_cover_images.sql', import.meta.url), 'utf8');
 // Upgrade populated ledgers without losing their data, and safely rerun migration.
 const upgradeDb = new DatabaseSync(':memory:');
 upgradeDb.exec(schemaSql.split('-- Additive migration: count existing artwork once')[0]);
@@ -24,6 +25,25 @@ upgradeDb.exec(`DELETE FROM image_cache WHERE card_id=1;
   UPDATE image_cache_v2 SET size_bytes=25;
   DELETE FROM image_cache_reservations;`);
 assert.equal(upgradeDb.prepare('SELECT size_bytes FROM image_storage_usage').get().size_bytes,25);
+
+// Widen the populated image ledger for cropped covers without losing rows,
+// reservations, exact storage accounting or the counter triggers.
+const coverUpgradeDb = new DatabaseSync(':memory:');
+coverUpgradeDb.exec(`CREATE TABLE image_cache(card_id INTEGER PRIMARY KEY,size_bytes INTEGER NOT NULL,cached_at TEXT NOT NULL);
+  CREATE TABLE image_cache_v2(asset_key TEXT PRIMARY KEY,card_id INTEGER NOT NULL,variant TEXT NOT NULL CHECK(variant IN ('thumb','full')),size_bytes INTEGER NOT NULL,cached_at TEXT NOT NULL);
+  CREATE INDEX idx_image_cache_v2_card ON image_cache_v2(card_id);
+  CREATE TABLE image_cache_reservations(asset_key TEXT PRIMARY KEY,size_bytes INTEGER NOT NULL,token TEXT NOT NULL,created_at TEXT NOT NULL);
+  CREATE TABLE image_storage_usage(id INTEGER PRIMARY KEY,size_bytes INTEGER NOT NULL);
+  INSERT INTO image_cache VALUES(1,10,'fixture');
+  INSERT INTO image_cache_v2 VALUES('cards-small/2.jpg',2,'thumb',20,'fixture');
+  INSERT INTO image_cache_reservations VALUES('cards-cropped/3.jpg',25,'fixture','fixture');
+  INSERT INTO image_storage_usage VALUES(1,55);`);
+coverUpgradeDb.exec(coverMigration);
+assert.equal(coverUpgradeDb.prepare('SELECT COUNT(*) AS n FROM image_cache_v2').get().n,1);
+assert.equal(coverUpgradeDb.prepare('SELECT size_bytes FROM image_storage_usage WHERE id=1').get().size_bytes,55);
+coverUpgradeDb.exec(`INSERT INTO image_cache_v2 VALUES('cards-cropped/4.jpg',4,'cover',7,'fixture')`);
+assert.equal(coverUpgradeDb.prepare('SELECT size_bytes FROM image_storage_usage WHERE id=1').get().size_bytes,62);
+coverUpgradeDb.close();
 upgradeDb.close();
 // Upgrade real pre-end-time tables without changing event customisations.
 const eventUpgrade = new DatabaseSync(':memory:');
@@ -483,7 +503,7 @@ const imageObjects = new Map();
 let imageReads = 0;
 let imageFetches = 0;
 contextBase.env.GOG_IMAGES = {
-  async get(key) { imageReads += 1; const body = imageObjects.get(key); return body ? { body } : null; },
+  async get(key) { imageReads += 1; const body = imageObjects.get(key); return body ? { body, size: body.byteLength } : null; },
   async put(key, value) { imageObjects.set(key, value); },
   async delete(key) { imageObjects.delete(key); }
 };
@@ -504,6 +524,19 @@ assert.equal(imageFetches,1);
 let operationUsage = db.prepare('SELECT class_a_operations,class_b_operations FROM r2_operation_usage').get();
 assert.equal(operationUsage.class_a_operations,1);
 assert.equal(operationUsage.class_b_operations,2);
+
+// A confirmed R2 object left behind by an interrupted ledger write is adopted
+// without another provider fetch, and its conservative reservation is released.
+const recoveredCoverBytes = new Uint8Array([0xff,0xd8,0x01,0xff,0xd9]);
+imageObjects.set('cards-cropped/1111.jpg', recoveredCoverBytes);
+db.prepare(`INSERT INTO image_cache_reservations(asset_key,size_bytes,token,created_at) VALUES(?,?,?,?)`)
+  .run('cards-cropped/1111.jpg', recoveredCoverBytes.byteLength, 'cover-recovery', new Date().toISOString());
+const fetchesBeforeRecovery = imageFetches;
+const recoveredCover = await req('/cards/1111/image?size=cover&v=2');
+assert.equal(recoveredCover.headers.get('x-gog-image-cache'),'hit');
+assert.equal(imageFetches,fetchesBeforeRecovery);
+assert.equal(db.prepare(`SELECT variant FROM image_cache_v2 WHERE asset_key='cards-cropped/1111.jpg'`).get().variant,'cover');
+assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM image_cache_reservations WHERE asset_key='cards-cropped/1111.jpg'`).get().n,0);
 
 // The cache never writes beyond 5 GB; artwork still renders when storage is full.
 imageObjects.clear();
