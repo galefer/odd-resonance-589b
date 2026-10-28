@@ -129,7 +129,7 @@
 .house-format-page .hero-copy h1 { width: 100%; margin: 0; display: grid; justify-items: center; line-height: 1; }
 .house-format-page .hero-brand-line,
 .house-format-page .hero-community-line,
-.house-format-page .hero-format-title { display: block; font-family: 'Barlow Condensed', Barlow, sans-serif; font-weight: 800; text-transform: uppercase; }
+.house-format-page .hero-format-title { display: block; color: #071525; font-family: 'Barlow Condensed', Barlow, sans-serif; font-weight: 800; text-transform: uppercase; }
 .house-format-page .hero-brand-line { font-size: .78rem; letter-spacing: .36em; }
 .house-format-page .hero-community-line { margin-top: 1px; display: flex; align-items: center; gap: 12px; font-size: .6rem; letter-spacing: .28em; }
 .house-format-page .hero-community-line::before,
@@ -599,8 +599,8 @@
   .house-format-page .hero-format-title { font-size: 1.75rem; }
   .house-format-page .hero-wordmark { width: min(390px, 98%); margin-top: 0; }
   .house-format-page .hero-ribbon { width: min(340px, 90%); margin-top: -7px; }
-  .house-format-page .hero-character-left { width: 112vw; left: -73%; top: 22%; opacity: .38; }
-  .house-format-page .hero-character-right { width: 112vw; right: -76%; top: 18%; opacity: .38; }
+  .house-format-page .hero-character-left { width: 112vw; left: -73%; top: 22%; opacity: .48; }
+  .house-format-page .hero-character-right { width: 112vw; right: -76%; top: 18%; opacity: .48; }
   .house-format-page .hero-paint { width: 92vw; top: -23%; opacity: .55; }
   .house-format-page .hero-paint-left { left: -55%; }
   .house-format-page .hero-paint-right { right: -55%; }

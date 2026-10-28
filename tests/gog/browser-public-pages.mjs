@@ -159,7 +159,7 @@ try {
 
   assert.equal(await evaluate(`document.querySelector('.event-deck-link').getAttribute('href')`),'/gog/deckbuilder/');
   await send('Page.navigate', { url: `${origin}/gog/deckbuilder/` });
-  await waitFor(`document.querySelector('#workspace') && document.querySelector('#card-library')`, 'deckbuilder direct load');
+  await waitFor(`document.querySelector('#workspace') && document.querySelector('#card-library-panel') && document.querySelectorAll('.library-card').length>0`, 'deckbuilder direct load');
   assert.equal(await evaluate(`document.querySelectorAll('.gog-primary-nav,.gog-mobile-nav').length`),0);
   assert.equal(await evaluate(`document.querySelector('.gog-back-link').getAttribute('href')`),'/gog/');
 
