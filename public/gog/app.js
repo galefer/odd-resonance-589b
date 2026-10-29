@@ -186,12 +186,6 @@ function renderList() {
   const isHouse = state.view === 'changes';
   const isRecent = state.view === 'recent';
   $$('[data-list-view]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.listView === state.view)));
-  $('#results-kicker').textContent = isHouse
-    ? 'Compared with the fixed April 2025 JUSH baseline. Status changes remain marked until the restrictions match again.'
-    : isRecent
-      ? `Changes introduced in ${state.config?.version?.label || 'the latest revision'} compared with the previous published revision.`
-      : '';
-  $('#results-kicker').hidden = !(isHouse || isRecent);
   $('#results-title').textContent = 'Forbidden & Limited List';
   $('#results-count').textContent = `${data.length} ${data.length === 1 ? 'card' : 'cards'} shown`;
   list.setAttribute('aria-busy', 'false');
@@ -235,11 +229,11 @@ function renderCardRow(card) {
   const note = card.note ? `<span class="card-note-preview">${escapeHtml(card.note)}</span>` : '';
   const baselineStatus = card.baselineStatus || card.previousStatus;
   const changeContext = state.view === 'changes' && card.isHouseChange && baselineStatus
-    ? `<span class="change-context">Baseline ${STATUS[baselineStatus]?.label || 'Unlimited'} <span aria-hidden="true">→</span> current ${status.label}</span>`
+    ? `<span class="change-context">${STATUS[baselineStatus]?.label || 'Unlimited'} <span aria-hidden="true">&gt;</span> ${status.label}</span>`
     : state.view === 'recent' && card.changeType === 'note_updated'
-      ? '<span class="change-context">House-format note changed in this revision</span>'
+      ? '<span class="change-context">Note updated</span>'
       : state.view === 'recent' && card.previousStatus
-        ? `<span class="change-context">Previous ${STATUS[card.previousStatus]?.label || 'Unlimited'} <span aria-hidden="true">→</span> current ${status.label}</span>`
+        ? `<span class="change-context">${STATUS[card.previousStatus]?.label || 'Unlimited'} <span aria-hidden="true">&gt;</span> ${status.label}</span>`
         : '';
   return `
     <article class="card-row status-${card.status}${card.isHouseChange ? ' is-house-change' : ''}" data-card-name="${escapeHtml(card.name)}">

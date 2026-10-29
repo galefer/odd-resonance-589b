@@ -218,8 +218,9 @@ try {
   assert.equal(await evaluate(`location.search`),'?view=changes');
   assert.equal(await evaluate(`location.hash`),'#list-workspace');
   assert.equal(await evaluate(`document.querySelector('[data-list-view="changes"]').getAttribute('aria-pressed')`),'true');
-  assert(await evaluate(`document.querySelectorAll('.change-context').length>0`),'Comparison view should show baseline-to-current context');
-  assert.equal(await evaluate(`document.querySelector('#results-kicker').hidden`),false);
+  assert(await evaluate(`document.querySelectorAll('.change-context').length>0`),'House view should show status comparisons');
+  assert.equal(await evaluate(`document.querySelector('#results-kicker')`),null);
+  assert(await evaluate(`[...document.querySelectorAll('.change-context')].every(element=>/^(Forbidden|Limited|Semi-Limited|Unlimited) > (Forbidden|Limited|Semi-Limited|Unlimited)$/.test(element.textContent.trim()))`),'House comparisons should contain statuses only');
   await screenshot('jush-home-changes-1536.png');
 
   await click('[data-filter="status"][value="forbidden"]');
@@ -234,6 +235,7 @@ try {
   await click('[data-list-view="recent"]');
   assert.equal(await evaluate(`new URLSearchParams(location.search).get('view')`),'recent');
   assert.equal(await evaluate(`document.querySelector('[data-list-view="recent"]').getAttribute('aria-pressed')`),'true');
+  assert(await evaluate(`[...document.querySelectorAll('.change-context')].every(element=>/^(?:(Forbidden|Limited|Semi-Limited|Unlimited) > (Forbidden|Limited|Semi-Limited|Unlimited)|Note updated)$/.test(element.textContent.trim()))`),'Recent comparisons should contain statuses only');
   await click('[data-list-view="changes"]');
   assert.equal(await evaluate(`new URLSearchParams(location.search).get('view')`),'changes');
   await click('[data-rule-filter="unlimited"]');

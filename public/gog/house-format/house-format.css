@@ -278,8 +278,7 @@
 .house-format-page .search-zone { position: relative; z-index: 2; margin-top: 0; padding: 14px 0 10px; }
 .house-format-page .search-panel { position: relative; padding: 0; background: transparent; border: 0; box-shadow: none; }
 .house-format-page .search-heading-row { margin: 0; display: flex; align-items: end; justify-content: space-between; gap: 24px; }
-.house-format-page .search-kicker,
-.house-format-page .results-kicker {
+.house-format-page .search-kicker {
   margin: 0;
   color: var(--jush-cyan);
   font-family: 'Barlow Condensed', Barlow, sans-serif;
@@ -441,7 +440,6 @@
 .house-format-page .results-column { min-width: 0; }
 .house-format-page .results-header { margin: 0 0 8px; display: flex; align-items: end; justify-content: space-between; gap: 24px; }
 .house-format-page .results-header h2 { font-size: clamp(1.8rem, 2.1vw, 2rem); }
-.house-format-page .results-kicker { max-width: 680px; margin-top: 5px; color: var(--jush-muted); font-family: Barlow, sans-serif; font-size: .88rem; font-weight: 400; letter-spacing: 0; text-transform: none; }
 .house-format-page .results-controls { display: flex; align-items: center; justify-content: flex-end; gap: 16px; }
 .house-format-page .list-view-toggles { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 7px; }
 .house-format-page .list-view-toggles button {
