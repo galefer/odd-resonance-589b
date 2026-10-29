@@ -1040,6 +1040,7 @@ body.deckbuilder-page .tool-section label { font-family: var(--font); }
 
 @media (max-width: 767px) {
   body.deckbuilder-page { font-size: 14px; }
+  body.deckbuilder-page .workspace { gap: 0; }
   body.deckbuilder-page .gog-header-inner { height: var(--mobile-site-header,48px); padding: 0 8px; }
   body.deckbuilder-page .gog-brand { max-width: 42px; }
   body.deckbuilder-page .gog-brand img { width: 34px; height: 34px; }

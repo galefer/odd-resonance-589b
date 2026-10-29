@@ -170,9 +170,10 @@ try {
   await click('#templates-dialog .close-button');
   await waitFor(`!document.querySelector('#templates-dialog').open`, 'closed mobile template catalogue');
 
-  const splitBefore = await evaluate(`(() => {const l=document.querySelector('#card-library-panel').getBoundingClientRect(),d=document.querySelector('#deck-workspace').getBoundingClientRect(),s=document.querySelector('#mobile-workspace-splitter').getBoundingClientRect();return {library:l.height,deck:d.height,splitter:{x:s.left+s.width/2,y:s.top+s.height/2,width:s.width,height:s.height},value:Number(document.querySelector('#mobile-workspace-splitter').getAttribute('aria-valuenow')),heading:getComputedStyle(document.querySelector('.library>.panel-heading')).display,total:document.querySelector('#library-total')}})()`);
+  const splitBefore = await evaluate(`(() => {const l=document.querySelector('#card-library-panel').getBoundingClientRect(),d=document.querySelector('#deck-workspace').getBoundingClientRect(),splitter=document.querySelector('#mobile-workspace-splitter'),s=splitter.getBoundingClientRect();return {library:l.height,deck:d.height,splitter:{x:s.left+s.width/2,y:s.top+s.height/2,width:s.width,height:s.height},minimum:Number(splitter.getAttribute('aria-valuemin')),maximum:Number(splitter.getAttribute('aria-valuemax')),value:Number(splitter.getAttribute('aria-valuenow')),heading:getComputedStyle(document.querySelector('.library>.panel-heading')).display,total:document.querySelector('#library-total')}})()`);
   assert.equal(splitBefore.heading, 'none'); assert.equal(splitBefore.total, null);
   assert(splitBefore.splitter.height >= 44 && splitBefore.splitter.width >= 44, 'Resize handle needs a full touch target');
+  assert.equal(splitBefore.minimum + splitBefore.maximum, 100, 'Library and deck collapse limits should be symmetrical');
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: splitBefore.splitter.x, y: splitBefore.splitter.y });
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: splitBefore.splitter.x, y: splitBefore.splitter.y, button: 'left', buttons: 1, clickCount: 1 });
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: splitBefore.splitter.x, y: splitBefore.splitter.y + 72, button: 'left', buttons: 1 });
@@ -196,11 +197,14 @@ try {
   };
   const workspaceBounds = await evaluate(`(() => {const r=document.querySelector('#workspace').getBoundingClientRect();return {top:r.top,bottom:r.bottom}})()`);
   await dragSplitterTo(workspaceBounds.top - 80);
-  const libraryCollapsed = await evaluate(`({library:document.querySelector('#card-library-panel').getBoundingClientRect().height,controls:document.querySelector('.library-filters').getBoundingClientRect().bottom-document.querySelector('#card-library-panel').getBoundingClientRect().top,results:document.querySelector('#library-results-scroll').getBoundingClientRect().height,deck:document.querySelector('#deck-workspace').getBoundingClientRect().height})`);
-  assert(libraryCollapsed.library <= libraryCollapsed.controls + 6 && libraryCollapsed.results <= 2, 'Library should collapse fully to its search and filter controls with no forced card row');
+  const libraryCollapsed = await evaluate(`({library:document.querySelector('#card-library-panel').getBoundingClientRect().height,search:document.querySelector('.search-box').getBoundingClientRect().bottom-document.querySelector('#card-library-panel').getBoundingClientRect().top,results:document.querySelector('#library-results-scroll').getBoundingClientRect().height,deck:document.querySelector('#deck-workspace').getBoundingClientRect().height,value:Number(document.querySelector('#mobile-workspace-splitter').getAttribute('aria-valuenow'))})`);
+  assert(libraryCollapsed.library <= libraryCollapsed.search + 6 && libraryCollapsed.results <= 2, 'Library should collapse to its primary search row with no forced filter or card row');
+  assert.equal(libraryCollapsed.value, splitBefore.minimum, 'Library collapse should reach the announced minimum');
   await dragSplitterTo(workspaceBounds.bottom + 80);
-  const deckCollapsed = await evaluate(`({deck:document.querySelector('#deck-workspace').getBoundingClientRect().height,header:document.querySelector('.mobile-deck-bar').getBoundingClientRect().height,zones:document.querySelector('#deck-zones').getBoundingClientRect().height,library:document.querySelector('#card-library-panel').getBoundingClientRect().height})`);
+  const deckCollapsed = await evaluate(`({deck:document.querySelector('#deck-workspace').getBoundingClientRect().height,header:document.querySelector('.mobile-deck-bar').getBoundingClientRect().height,zones:document.querySelector('#deck-zones').getBoundingClientRect().height,library:document.querySelector('#card-library-panel').getBoundingClientRect().height,value:Number(document.querySelector('#mobile-workspace-splitter').getAttribute('aria-valuenow'))})`);
   assert(deckCollapsed.deck <= deckCollapsed.header + 2 && deckCollapsed.zones <= 2, 'Deck should collapse fully to its zone-tab header');
+  assert.equal(deckCollapsed.value, splitBefore.maximum, 'Deck collapse should reach the announced maximum');
+  assert(Math.abs(libraryCollapsed.library - deckCollapsed.deck) <= 2, 'Library and deck should collapse to the same physical height');
 
   assert.deepEqual(consoleErrors, [], `No browser errors expected: ${consoleErrors.join(' | ')}`);
   assert.deepEqual(failedResponses, [], `No failed responses expected: ${failedResponses.join(' | ')}`);

@@ -1733,15 +1733,12 @@ function mobileSplitMetrics() {
   const dividerHeight = Number.parseFloat(styles.getPropertyValue('--mobile-splitter-track')) || 12;
   const contentHeight = Math.max(1, workspace.clientHeight - paddingTop - paddingBottom);
   const availableHeight = Math.max(1, contentHeight - dividerHeight);
-  const libraryTop = $('card-library-panel').getBoundingClientRect().top;
-  const libraryControlsBottom = document.querySelector('.library-filters').getBoundingClientRect().bottom;
-  const minimumLibraryHeight = Math.max(88, Math.ceil(libraryControlsBottom - libraryTop + 4));
-  const minimumDeckHeight = Math.max(50, Math.ceil(document.querySelector('.mobile-deck-bar').getBoundingClientRect().height));
+  const minimumPaneHeight = Math.max(50, Math.ceil(document.querySelector('.mobile-deck-bar').getBoundingClientRect().height));
   return {
     workspace, splitter, availableHeight, dividerHeight,
     contentTop: workspace.getBoundingClientRect().top + paddingTop,
-    minimumRatio: Math.min(0.5, minimumLibraryHeight / availableHeight),
-    maximumRatio: Math.max(0.5, 1 - minimumDeckHeight / availableHeight)
+    minimumRatio: Math.min(0.5, minimumPaneHeight / availableHeight),
+    maximumRatio: Math.max(0.5, 1 - minimumPaneHeight / availableHeight)
   };
 }
 
