@@ -128,10 +128,10 @@ async function checkInsertionLine(leftSelector, rightSelector) {
     const m=marker.getBoundingClientRect(), anchor=r||l;
     return {x:m.left+m.width/2,expectedX:l&&r?(l.right+r.left)/2:r?r.left-4:l.right+4,top:m.top,expectedTop:anchor.top,height:m.height,expectedHeight:anchor.height,color:getComputedStyle(marker).backgroundColor};
   })()`);
-  assert(result, 'Valid drop should show a yellow insertion line');
+  assert(result, 'Valid drop should show a magenta insertion line');
   assert(Math.abs(result.x-result.expectedX)<1, 'Line should match the exact gap or card edge');
   assert(Math.abs(result.top-result.expectedTop)<1 && Math.abs(result.height-result.expectedHeight)<1, 'Line should follow the correct row and card height');
-  assert.equal(result.color, 'rgb(255, 220, 85)');
+  assert.equal(result.color, 'rgb(255, 22, 141)');
 }
 async function rightClick(selector, shift = false) {
   await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'nearest',inline:'nearest'})`);
@@ -272,7 +272,7 @@ try {
   await click('.zone[data-zone="main"] .zone-tools button:last-child');
   await waitFor(`document.querySelector('#count-main').textContent==='0'`, 'clear reorder fixture');
   await rightClick('.library-card img');
-  evidence.checks.push('yellow insertion preview matches between-card, trailing and wrapped-row drops; forward/backward order, cancellation, library insertion and grouped stacks');
+  evidence.checks.push('magenta insertion preview matches between-card, trailing and wrapped-row drops; forward/backward order, cancellation, library insertion and grouped stacks');
   await setValue('#search', 'Number 39: Utopia');
   await waitFor(`document.querySelector('.library-card button')?.getAttribute('aria-label').startsWith('Inspect Number 39: Utopia,')`, 'Extra Deck card search');
   await rightClick('.library-card img');
@@ -367,8 +367,10 @@ try {
     assert.equal(layout.oldNav, null, 'The retired Deck / Library / Card / Tools navigation should not remain');
     if (width < 768) {
       assert(layout.library && layout.deck && layout.actions && !layout.save, `${width}px should show the split workspace and compact action menu`);
-      assert(await evaluate(`['deck-menu-button','undo','mobile-actions-button'].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.width>=40&&r.left>=0&&r.right<=innerWidth;})`), 'Compact mobile header controls should stay reachable');
-      assert(await evaluate(`(()=>{const h=document.querySelector('.gog-site-header').getBoundingClientRect(),t=document.querySelector('.deck-toolbar').getBoundingClientRect(),b=document.querySelector('.mobile-deck-bar').getBoundingClientRect(),v=document.querySelector('#validation-banner').getBoundingClientRect();return t.top>=h.top-1&&t.bottom<=h.bottom+1&&v.top>=b.top&&v.bottom<=b.bottom})()`), `${width}px should merge deck controls into the site header and validation into the deck header`);
+      const headerControlState = await evaluate(`(()=>{const rect=e=>{const r=e.getBoundingClientRect();return {width:r.width,left:r.left,right:r.right}};const identity=document.querySelector('.deck-identity');return {controls:['deck-menu-button','undo','mobile-actions-button'].map(id=>({id,...rect(document.getElementById(id))})),toolbar:rect(document.querySelector('.deck-toolbar')),identity:rect(identity),identityStyle:{width:getComputedStyle(identity).width,flex:getComputedStyle(identity).flex}}})()`);
+      assert(headerControlState.controls.every(control=>control.width>=40&&control.left>=0&&control.right<=width), `${width}px compact mobile header controls should stay reachable: ${JSON.stringify(headerControlState)}`);
+      const mobileHeaderBounds = await evaluate(`(()=>{const rect=e=>{const r=e.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height}};return {header:rect(document.querySelector('.gog-site-header')),toolbar:rect(document.querySelector('.deck-toolbar')),deckBar:rect(document.querySelector('.mobile-deck-bar')),validation:rect(document.querySelector('#validation-banner'))}})()`);
+      assert(mobileHeaderBounds.toolbar.top>=mobileHeaderBounds.header.top-1&&mobileHeaderBounds.toolbar.bottom<=mobileHeaderBounds.header.bottom+1&&mobileHeaderBounds.validation.top>=mobileHeaderBounds.deckBar.top&&mobileHeaderBounds.validation.bottom<=mobileHeaderBounds.deckBar.bottom, `${width}px should merge deck controls into the site header and validation into the deck header: ${JSON.stringify(mobileHeaderBounds)}`);
       assert(await evaluate(`document.querySelector('#mobile-grouped-view').getAttribute('aria-checked')==='true' && document.querySelector('#mobile-copies-view').getAttribute('aria-checked')==='false'`), `${width}px should default the deck to grouped stacks`);
       assert(layout.libraryCardWidth > 0 && layout.libraryCardWidth <= 56, `${width}px catalogue cards should use the compact phone footprint`);
       assert.equal(layout.loadMoreOverlapsCard, false, 'Load more must not cover catalogue cards or their add controls');

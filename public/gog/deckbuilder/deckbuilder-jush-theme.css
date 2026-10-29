@@ -1,0 +1,643 @@
+/* JUSH visual theme for the existing deckbuilder. Layout and behaviour remain
+   owned by deckbuilder.css; this file only changes presentation. */
+:root {
+  color-scheme: dark;
+  --bg: #031023;
+  --header: #041426;
+  --surface: #071a2d;
+  --panel: #06172a;
+  --raised: #0d2842;
+  --line: #234866;
+  --text: #fff7e8;
+  --muted: #b9c9da;
+  --quiet: #8198ad;
+  --gold: #00e8f2;
+  --goldbg: #07364a;
+  --green: #31d7ab;
+  --red: #ff4f78;
+  --blue: #6c91ff;
+  --purple: #ff168d;
+  --r: 9px;
+  --font: Barlow, Arial, sans-serif;
+  --jush-display: "Barlow Condensed", Barlow, Arial, sans-serif;
+  --jush-cyan: #00e8f2;
+  --jush-magenta: #ff168d;
+  --jush-cream: #fff7e8;
+  --jush-deep: #020c1a;
+  --jush-panel: rgba(6, 23, 42, .96);
+  --jush-line: #234866;
+  --jush-glow: 0 0 0 1px rgba(0, 232, 242, .08), 0 18px 44px rgba(0, 5, 14, .28);
+}
+
+html { background: var(--jush-deep); }
+body.deckbuilder-page {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(circle at 16% -8%, rgba(0, 232, 242, .11), transparent 34rem),
+    radial-gradient(circle at 91% 13%, rgba(255, 22, 141, .09), transparent 29rem),
+    url('/gog/assets/jush/textures/navy-grain.svg');
+  color: var(--text);
+  font-family: var(--font);
+}
+body.deckbuilder-page::before,
+body.deckbuilder-page::after {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  top: 74px;
+  bottom: 0;
+  width: min(24vw, 360px);
+  pointer-events: none;
+  opacity: .1;
+  background-repeat: no-repeat;
+  background-size: 100% auto;
+}
+body.deckbuilder-page::before {
+  left: 0;
+  background-image: url('/gog/assets/jush/artwork/paint-frame-left-512.webp');
+  background-position: left 8%;
+}
+body.deckbuilder-page::after {
+  right: 0;
+  background-image: url('/gog/assets/jush/artwork/paint-frame-right-512.webp');
+  background-position: right 9%;
+}
+
+body.deckbuilder-page h1,
+body.deckbuilder-page h2,
+body.deckbuilder-page h3,
+body.deckbuilder-page h4,
+body.deckbuilder-page button,
+body.deckbuilder-page .gog-brand strong,
+body.deckbuilder-page .eyebrow,
+body.deckbuilder-page .menu-heading b {
+  font-family: var(--jush-display);
+}
+body.deckbuilder-page h1,
+body.deckbuilder-page .modal-header h2,
+body.deckbuilder-page .template-modal-header h2 {
+  letter-spacing: .01em;
+}
+body.deckbuilder-page button:focus-visible,
+body.deckbuilder-page a:focus-visible,
+body.deckbuilder-page input:focus-visible,
+body.deckbuilder-page select:focus-visible,
+body.deckbuilder-page textarea:focus-visible,
+body.deckbuilder-page summary:focus-visible {
+  outline: 2px solid var(--jush-cyan);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px rgba(0, 232, 242, .13);
+}
+
+/* Identity header and persistent deck controls. */
+body.deckbuilder-page .gog-site-header {
+  background:
+    linear-gradient(90deg, rgba(0, 232, 242, .045), transparent 36%, rgba(255, 22, 141, .045)),
+    rgba(2, 13, 28, .98);
+  border-bottom-color: rgba(0, 232, 242, .34);
+  box-shadow: 0 8px 30px rgba(0, 5, 15, .25);
+}
+body.deckbuilder-page .gog-brand strong { color: var(--jush-cream); }
+body.deckbuilder-page .gog-brand small { color: var(--jush-cyan); }
+body.deckbuilder-page .gog-back-link {
+  color: var(--jush-cream);
+  border-color: #2a506d;
+  background: rgba(8, 29, 49, .75);
+}
+body.deckbuilder-page .gog-back-link:hover {
+  color: var(--jush-cyan);
+  border-color: var(--jush-cyan);
+  background: rgba(0, 232, 242, .08);
+}
+body.deckbuilder-page .deck-toolbar {
+  background:
+    linear-gradient(90deg, rgba(0, 232, 242, .055), transparent 42%, rgba(255, 22, 141, .045)),
+    rgba(3, 17, 34, .97);
+  border-bottom-color: #1d3d58;
+  box-shadow: 0 10px 28px rgba(0, 7, 19, .2);
+}
+body.deckbuilder-page .deck-toolbar::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--jush-cyan), transparent 42%, var(--jush-magenta));
+  opacity: .75;
+}
+body.deckbuilder-page .deck-title-button { color: var(--jush-cream); }
+body.deckbuilder-page .deck-title-button > span:last-child,
+body.deckbuilder-page .icon-button { color: #9eb4c7; }
+body.deckbuilder-page .save-line { color: #a8bccc; }
+body.deckbuilder-page #save-dot { background: var(--green); box-shadow: 0 0 8px rgba(49, 215, 171, .8); }
+body.deckbuilder-page .toolbar-divider { background: var(--line); }
+
+/* Controls retain their existing sizes and states. */
+body.deckbuilder-page .button,
+body.deckbuilder-page .selected-actions button,
+body.deckbuilder-page .zone-tools button,
+body.deckbuilder-page .view-toggle,
+body.deckbuilder-page .icon-button {
+  border-color: #28506d;
+}
+body.deckbuilder-page .button {
+  color: var(--jush-cream);
+  background: linear-gradient(180deg, #0d2943, #091e34);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .035);
+}
+body.deckbuilder-page .button:hover {
+  color: #fff;
+  border-color: #3d7897;
+  background: linear-gradient(180deg, #123752, #0c2944);
+}
+body.deckbuilder-page .button.primary {
+  color: #021320;
+  border-color: #66f7ff;
+  background: linear-gradient(135deg, #45f5fa, var(--jush-cyan));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .55), 0 7px 20px rgba(0, 232, 242, .16);
+}
+body.deckbuilder-page .button.primary:hover {
+  color: #020d18;
+  border-color: #a1fbff;
+  background: linear-gradient(135deg, #7af9fd, #19edf4);
+}
+body.deckbuilder-page .icon-button:hover {
+  color: var(--jush-cyan);
+  background: rgba(0, 232, 242, .08);
+}
+body.deckbuilder-page button:disabled { filter: saturate(.45); }
+
+/* Desktop workspace surfaces. */
+body.deckbuilder-page .workspace { position: relative; }
+body.deckbuilder-page .panel,
+body.deckbuilder-page .deck-canvas {
+  background: var(--jush-panel);
+  border-color: var(--jush-line);
+  box-shadow: var(--jush-glow);
+}
+body.deckbuilder-page .left-panel { border-top-color: rgba(255, 22, 141, .85); }
+body.deckbuilder-page .library-panel { border-top-color: rgba(0, 232, 242, .85); }
+body.deckbuilder-page .panel-heading {
+  border-bottom: 1px solid rgba(35, 72, 102, .75);
+  background: linear-gradient(90deg, rgba(0, 232, 242, .07), transparent 72%);
+}
+body.deckbuilder-page .panel-heading h2,
+body.deckbuilder-page .zone-header h2,
+body.deckbuilder-page .tool-section h2 { color: var(--jush-cream); }
+body.deckbuilder-page .panel-heading > span,
+body.deckbuilder-page .muted { color: var(--muted); }
+body.deckbuilder-page .inspector-image-wrap {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(0, 232, 242, .09), transparent 55%),
+    #020b17;
+  border: 1px solid #1e3b55;
+  box-shadow: inset 0 0 30px rgba(0, 232, 242, .025);
+}
+body.deckbuilder-page .inspector-image-wrap img,
+body.deckbuilder-page .library-card img,
+body.deckbuilder-page .card-tile img,
+body.deckbuilder-page .sample-hand img {
+  background: #020a15;
+  box-shadow: 0 7px 18px rgba(0, 4, 12, .5);
+}
+body.deckbuilder-page .zoom {
+  color: var(--jush-cyan);
+  border-color: #2b5975;
+  background: #071b30;
+}
+body.deckbuilder-page #effect { color: #d4dfeb; }
+body.deckbuilder-page .restriction.neutral {
+  color: #bdf8e1;
+  background: rgba(49, 215, 171, .12);
+  border: 1px solid rgba(49, 215, 171, .3);
+}
+
+body.deckbuilder-page .search-box,
+body.deckbuilder-page .hand-toggle,
+body.deckbuilder-page .template-search {
+  color: var(--text);
+  border-color: #2a5270;
+  background: rgba(2, 14, 29, .9);
+}
+body.deckbuilder-page .search-box:focus-within,
+body.deckbuilder-page .template-search:focus-within {
+  border-color: var(--jush-cyan);
+  box-shadow: 0 0 0 3px rgba(0, 232, 242, .12);
+}
+body.deckbuilder-page .search-box > span,
+body.deckbuilder-page .template-search > span { color: var(--jush-cyan); }
+body.deckbuilder-page kbd {
+  color: #9bb2c7;
+  border-color: #315774;
+  background: #0a2138;
+}
+body.deckbuilder-page .library-filters button {
+  color: #b9c8d8;
+  border-color: #284c68;
+  background: rgba(9, 29, 49, .72);
+}
+body.deckbuilder-page .library-filters button:hover {
+  color: var(--jush-cream);
+  border-color: #4483a3;
+}
+body.deckbuilder-page .library-filters button.active {
+  color: #021520;
+  border-color: #63f5fb;
+  background: var(--jush-cyan);
+  box-shadow: 0 0 14px rgba(0, 232, 242, .14);
+}
+body.deckbuilder-page .extra-filters,
+body.deckbuilder-page .extra-filters select,
+body.deckbuilder-page .tool-section select,
+body.deckbuilder-page .group-create input,
+body.deckbuilder-page .deck-name-field input,
+body.deckbuilder-page textarea {
+  color: var(--text);
+  border-color: #2b506c;
+  background: #081d32;
+}
+body.deckbuilder-page .library-grid { scrollbar-color: #2f7088 transparent; }
+body.deckbuilder-page .library-card > button:first-child:focus-visible img,
+body.deckbuilder-page .library-card:hover img {
+  outline: 2px solid var(--jush-cyan);
+  outline-offset: 2px;
+}
+
+body.deckbuilder-page .canvas-heading {
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(35, 72, 102, .75);
+}
+body.deckbuilder-page .eyebrow,
+body.deckbuilder-page .text-button { color: var(--jush-cyan); }
+body.deckbuilder-page h1 { color: var(--jush-cream); }
+body.deckbuilder-page .view-toggle {
+  background: #06182a;
+  border-color: #2a4d68;
+}
+body.deckbuilder-page .view-toggle button { color: #9fb2c4; }
+body.deckbuilder-page .view-toggle button.active {
+  color: #02141f;
+  background: var(--jush-cyan);
+}
+body.deckbuilder-page .zone-counter {
+  color: #dce8f1;
+  border-color: #2b4f6a;
+  background: #0b263f;
+}
+body.deckbuilder-page .deck-grid {
+  background-color: #061629;
+  background-image:
+    linear-gradient(rgba(0, 232, 242, .018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 232, 242, .018) 1px, transparent 1px);
+  background-size: 24px 24px;
+  border-color: #234965;
+  box-shadow: inset 0 0 24px rgba(0, 5, 15, .24);
+}
+body.deckbuilder-page .deck-grid.drag-over,
+body.deckbuilder-page .deck-grid.touch-drop-target {
+  background-color: #08293c;
+  box-shadow: inset 0 0 0 2px var(--jush-cyan), inset 0 0 30px rgba(0, 232, 242, .08);
+}
+body.deckbuilder-page .card-tile:hover,
+body.deckbuilder-page .card-tile.selected {
+  outline-color: var(--jush-cyan);
+  filter: drop-shadow(0 0 7px rgba(0, 232, 242, .28));
+}
+body.deckbuilder-page .card-tile .quantity {
+  color: var(--jush-cream);
+  border-color: #3c6a85;
+  background: rgba(2, 17, 34, .94);
+}
+body.deckbuilder-page .drop-insertion-line {
+  background: var(--jush-magenta);
+  box-shadow: 0 0 8px rgba(255, 22, 141, .75);
+}
+body.deckbuilder-page .card-tile.drop-merge { outline-color: var(--jush-magenta); }
+body.deckbuilder-page .selection-bar,
+body.deckbuilder-page .count-grid,
+body.deckbuilder-page .count-grid > div {
+  border-color: var(--line);
+  background: #0a2138;
+}
+body.deckbuilder-page .tool-tabs { border-color: var(--line); background: #05172a; }
+body.deckbuilder-page .tool-tabs button.active { color: var(--jush-cyan); }
+body.deckbuilder-page .tool-tabs button.active::after {
+  background: linear-gradient(90deg, var(--jush-cyan), var(--jush-magenta));
+}
+body.deckbuilder-page .composition-bar,
+body.deckbuilder-page .prob-bar { background: #122d43; }
+body.deckbuilder-page .composition-bar i:nth-child(1),
+body.deckbuilder-page .prob-bar i { background: var(--jush-cyan); }
+body.deckbuilder-page .composition-bar i:nth-child(3) { background: var(--jush-magenta); }
+body.deckbuilder-page .prob-result strong { color: var(--jush-cyan); }
+
+/* Validation and feedback retain semantic green/red while using JUSH surfaces. */
+body.deckbuilder-page .validation-banner {
+  color: #dce8f2;
+  border-color: #2b536f;
+  background: #0a2137;
+}
+body.deckbuilder-page .validation-banner.legal {
+  border-color: #2d7b63;
+  background: #092b26;
+}
+body.deckbuilder-page .validation-banner.invalid {
+  border-color: #8d3153;
+  background: #32152a;
+}
+body.deckbuilder-page .validation-banner.unverified,
+body.deckbuilder-page .validation-banner.checking {
+  border-color: #426a84;
+  background: #10283c;
+}
+body.deckbuilder-page .toast {
+  color: #dffff2;
+  border-color: #3f8b70;
+  background: #12372f;
+}
+body.deckbuilder-page .deck-notice,
+body.deckbuilder-page .issue-line {
+  color: #ffd8ea;
+  border-color: #85365d;
+  background: #2d1528;
+}
+
+/* Menus, dialogs and template catalogue. */
+body.deckbuilder-page .floating-menu,
+body.deckbuilder-page dialog {
+  color: var(--text);
+  border-color: #2c5874;
+  background: #06172a;
+  box-shadow: 0 24px 80px rgba(0, 3, 10, .78), 0 0 0 1px rgba(0, 232, 242, .08);
+}
+body.deckbuilder-page dialog::backdrop,
+body.deckbuilder-page .template-dialog::backdrop {
+  background: rgba(0, 6, 16, .82);
+  backdrop-filter: blur(4px);
+}
+body.deckbuilder-page .modal-header,
+body.deckbuilder-page .sheet-header,
+body.deckbuilder-page .template-modal-header {
+  border-color: #28506c;
+  background:
+    linear-gradient(100deg, rgba(0, 232, 242, .1), transparent 54%, rgba(255, 22, 141, .09)),
+    #071a2e;
+}
+body.deckbuilder-page .modal-actions,
+body.deckbuilder-page .template-copy-bar { border-color: #28506c; background: #051629; }
+body.deckbuilder-page .export-option:hover,
+body.deckbuilder-page .menu-row:hover,
+body.deckbuilder-page .deck-menu-list button:hover,
+body.deckbuilder-page .deck-menu-list button.current,
+body.deckbuilder-page .deck-menu > button:hover {
+  background: rgba(0, 232, 242, .075);
+}
+body.deckbuilder-page .file-type {
+  color: var(--jush-cyan);
+  border-color: #32708c;
+  background: rgba(0, 232, 242, .055);
+}
+body.deckbuilder-page .drop-zone,
+body.deckbuilder-page .import-preview {
+  border-color: #35637e;
+  background: #071d32;
+}
+
+body.deckbuilder-page .template-browser,
+body.deckbuilder-page .template-detail { background: #051527; }
+body.deckbuilder-page .template-browser { border-color: #244965; }
+body.deckbuilder-page .template-detail {
+  background:
+    radial-gradient(circle at 86% 0, rgba(255, 22, 141, .085), transparent 27rem),
+    #06172a;
+}
+body.deckbuilder-page .template-filter-grid label,
+body.deckbuilder-page .template-result-heading strong,
+body.deckbuilder-page .template-detail-placeholder,
+body.deckbuilder-page .template-family-label { color: #9fb3c5; }
+body.deckbuilder-page .template-filter-grid select,
+body.deckbuilder-page .template-tag-filter summary,
+body.deckbuilder-page .template-tag-options,
+body.deckbuilder-page .template-strategy-details,
+body.deckbuilder-page .template-cardlist-zone,
+body.deckbuilder-page .template-source-content section {
+  color: #dbe6ef;
+  border-color: #2a506c;
+  background: #0a2137;
+}
+body.deckbuilder-page .template-tag-filter summary b,
+body.deckbuilder-page .template-group-marker,
+body.deckbuilder-page .template-list-copy span,
+body.deckbuilder-page .template-detail-tabs button.active,
+body.deckbuilder-page .template-tab-panel > h4,
+body.deckbuilder-page .template-source-content h4,
+body.deckbuilder-page .template-cardlist-zone h4,
+body.deckbuilder-page .template-cardlist-zone li b,
+body.deckbuilder-page .template-source-content a,
+body.deckbuilder-page .template-back { color: var(--jush-cyan); }
+body.deckbuilder-page .template-tag-filter[open] summary,
+body.deckbuilder-page .template-list-item:hover,
+body.deckbuilder-page .template-cover { border-color: #39718d; }
+body.deckbuilder-page .template-tag-options label:hover,
+body.deckbuilder-page .template-group-item:hover { background: rgba(0, 232, 242, .06); }
+body.deckbuilder-page .template-tag-options input { accent-color: var(--jush-cyan); }
+body.deckbuilder-page .template-active-tags button,
+body.deckbuilder-page .template-engines span,
+body.deckbuilder-page .template-build-badge {
+  color: var(--jush-cyan);
+  border-color: #31718c;
+  background: rgba(0, 232, 242, .075);
+}
+body.deckbuilder-page .template-list-item,
+body.deckbuilder-page .template-group-item { color: #dce7ef; background: #081d32; }
+body.deckbuilder-page .template-list-item[aria-current="true"] {
+  border-color: var(--jush-cyan);
+  background: linear-gradient(110deg, rgba(0, 232, 242, .13), #081b30 70%);
+  box-shadow: inset 3px 0 var(--jush-cyan);
+}
+body.deckbuilder-page .template-detail-heading h3,
+body.deckbuilder-page .template-detail-placeholder strong { color: var(--jush-cream); }
+body.deckbuilder-page .template-detail-tabs { border-color: #2a506c; }
+body.deckbuilder-page .template-detail-tabs button.active::after {
+  background: linear-gradient(90deg, var(--jush-cyan), var(--jush-magenta));
+}
+body.deckbuilder-page .template-card-zone-tabs button {
+  color: #aec0cf;
+  border-color: #294d68;
+  background: #081d32;
+}
+body.deckbuilder-page .template-card-zone-tabs button.active {
+  color: #02141f;
+  border-color: var(--jush-cyan);
+  background: var(--jush-cyan);
+}
+
+body.deckbuilder-page .deck-footer {
+  color: #829aae;
+  border-top-color: rgba(0, 232, 242, .2);
+  background: rgba(2, 12, 25, .92);
+}
+
+@media (min-width: 768px) {
+  body.deckbuilder-page .deck-toolbar { position: relative; }
+}
+
+/* The phone editor keeps exactly the same compact workspace, with themed
+   surfaces and high-contrast touch/focus states. */
+@media (max-width: 767px) {
+  body.deckbuilder-page {
+    background-color: var(--jush-deep);
+    background-image: url('/gog/assets/jush/textures/navy-grain.svg');
+  }
+  body.deckbuilder-page::before,
+  body.deckbuilder-page::after { display: none; }
+  body.deckbuilder-page .gog-site-header {
+    background: #031326;
+    border-bottom-color: rgba(0, 232, 242, .35);
+  }
+  body.deckbuilder-page .deck-toolbar::before { display: none; }
+  body.deckbuilder-page .deck-toolbar {
+    width: calc(100% - clamp(140px, 40vw, 154px) - 8px);
+  }
+  body.deckbuilder-page .deck-identity {
+    width: 0;
+    flex: 1 1 0;
+  }
+  body.deckbuilder-page #deck-name { color: var(--jush-cream); }
+  body.deckbuilder-page #mobile-actions-button {
+    color: var(--jush-cyan);
+    border-color: #2e627d;
+    background: #09243b;
+  }
+  body.deckbuilder-page .workspace .library-panel,
+  body.deckbuilder-page .workspace .deck-canvas {
+    border-color: #24506b;
+    background: #06172a;
+    box-shadow: 0 8px 24px rgba(0, 5, 14, .32);
+  }
+  body.deckbuilder-page .extra-filters {
+    border-color: #346b87;
+    background: #08213a;
+  }
+  body.deckbuilder-page .library-card .restriction-dot {
+    border-color: #315a74;
+    background: rgba(2, 14, 29, .94);
+  }
+  body.deckbuilder-page .library-quantity {
+    color: #dffcff;
+    border-color: #39aab7;
+    background: rgba(3, 65, 77, .94);
+  }
+  body.deckbuilder-page .library-quick-add { color: #02141f; }
+  body.deckbuilder-page .library-quick-add span {
+    border-color: #7cf9fd;
+    background: linear-gradient(135deg, #67f7fb, var(--jush-cyan));
+    box-shadow: 0 3px 10px rgba(0, 232, 242, .28);
+  }
+  body.deckbuilder-page .mobile-deck-bar {
+    border-bottom-color: #24506b;
+    background: #05162a;
+  }
+  body.deckbuilder-page .mobile-zone-tabs button { color: #a9bdcd; }
+  body.deckbuilder-page .mobile-zone-tabs button span {
+    color: #d3e0e9;
+    border-color: #315a73;
+  }
+  body.deckbuilder-page .mobile-zone-tabs button.active {
+    color: var(--jush-cyan);
+    background: rgba(0, 232, 242, .075);
+    box-shadow: inset 0 -2px var(--jush-cyan);
+  }
+  body.deckbuilder-page .mobile-zone-tabs button.active span {
+    color: #02131f;
+    border-color: var(--jush-cyan);
+    background: var(--jush-cyan);
+  }
+  body.deckbuilder-page .mobile-zone-menu-button[aria-expanded="true"] {
+    color: var(--jush-cyan);
+    background: rgba(0, 232, 242, .08);
+  }
+  body.deckbuilder-page .validation-banner:has(button:focus-visible) {
+    outline-color: var(--jush-cyan);
+  }
+  body.deckbuilder-page .deck-grid {
+    border: 0;
+    background-color: #06172a;
+  }
+  body.deckbuilder-page .card-tile.selected { outline-color: var(--jush-cyan); }
+  body.deckbuilder-page .splitter-grip {
+    border-color: #6cf6fb;
+    background: var(--jush-cyan);
+    box-shadow: 0 1px rgba(255, 255, 255, .45), 0 3px 12px rgba(0, 232, 242, .3);
+  }
+  body.deckbuilder-page .mobile-workspace-splitter:hover .splitter-grip,
+  body.deckbuilder-page .mobile-workspace-splitter:active .splitter-grip,
+  body.deckbuilder-page.workspace-resizing .splitter-grip {
+    border-color: #ff7abd;
+    background: var(--jush-magenta);
+  }
+  body.deckbuilder-page .mobile-workspace-splitter:focus-visible .splitter-grip {
+    outline-color: var(--jush-cyan);
+  }
+  body.deckbuilder-page dialog.mobile-sheet,
+  body.deckbuilder-page #mobile-inspector-mount .inspector,
+  body.deckbuilder-page #mobile-tools-mount .tools-panel {
+    border-color: #2d5b76;
+    background: #06172a;
+  }
+  body.deckbuilder-page .sheet-header .close-button,
+  body.deckbuilder-page .quantity-step,
+  body.deckbuilder-page .mobile-command-grid button,
+  body.deckbuilder-page .mobile-site-links a {
+    color: #dce8f1;
+    border-color: #2d5873;
+    background: #0a2239;
+  }
+  body.deckbuilder-page .quantity-step.add {
+    color: #02141f;
+    border-color: #7af9fd;
+    background: var(--jush-cyan);
+  }
+  body.deckbuilder-page .mobile-command-grid button:active { background: #10324d; }
+  body.deckbuilder-page .mobile-site-links a { color: var(--jush-cyan); }
+  body.deckbuilder-page .touch-drag-ghost {
+    color: #dffcff;
+    border-color: var(--jush-cyan);
+    background: rgba(4, 33, 51, .94);
+  }
+  body.deckbuilder-page .template-modal-header .close-button {
+    border-color: #2e5a75;
+    background: #092138;
+  }
+  body.deckbuilder-page .template-back {
+    border-color: #28506c;
+    background: #06172a;
+  }
+}
+
+@media (max-width: 350px) {
+  body.deckbuilder-page .deck-toolbar {
+    width: calc(100% - 58px);
+  }
+}
+
+@media (max-width: 767px) and (max-height: 520px) {
+  body.deckbuilder-page .deck-toolbar {
+    width: 100%;
+    background: #031326;
+    border-bottom-color: #24506b;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.deckbuilder-page *,
+  body.deckbuilder-page *::before,
+  body.deckbuilder-page *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
