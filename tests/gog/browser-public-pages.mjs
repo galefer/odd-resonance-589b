@@ -16,8 +16,9 @@ await mkdir(artifacts, { recursive: true });
 const chrome = spawn(chromePath, [
   '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
   '--disable-background-networking', '--disable-breakpad', '--disable-crash-reporter',
+  '--hide-scrollbars', '--force-device-scale-factor=1',
   `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`,
-  '--window-size=1536,1000', 'about:blank'
+  '--window-size=1536,1024', 'about:blank'
 ], { stdio: ['ignore', 'ignore', 'pipe'] });
 let chromeError = '';
 chrome.stderr.on('data', (chunk) => { chromeError += chunk; });
@@ -87,19 +88,31 @@ try {
   await waitFor(`document.querySelectorAll('.card-row').length>0 && document.querySelector('#next-event-time').textContent!=='Checking schedule…'`, 'JUSH homepage');
 
   for (const width of [390,768,1440,1536,1920,2048]) {
-    await send('Emulation.setDeviceMetricsOverride', { width,height:1000,deviceScaleFactor:1,mobile:width<600 });
+    await send('Emulation.setDeviceMetricsOverride', { width,height:1024,deviceScaleFactor:1,mobile:width<600 });
     await evaluate('window.scrollTo(0,0)');
     await sleep(120);
     const geometry = await evaluate(`(() => {
       const hero=document.querySelector('.hero').getBoundingClientRect();
       const event=document.querySelector('.next-event-panel').getBoundingClientRect();
+      const shell=document.querySelector('.search-zone .shell').getBoundingClientRect();
+      const stage=document.querySelector('.hero-stage');
+      const status=document.querySelector('.status-filter input');
+      const statusRect=status.getBoundingClientRect();
+      const statusStyle=getComputedStyle(status);
+      const semi=document.querySelector('.status-filter .semi-limited span');
       const build=[...document.querySelectorAll('a,button')].filter(e=>e.textContent.trim().toLowerCase()==='build a deck');
       return {
+        viewport:innerWidth,
         overflow:document.documentElement.scrollWidth-innerWidth,
         clipped:[...document.querySelectorAll('main button,main input,main a,main h1,main h2,main h3')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&(r.left<0||r.right>innerWidth+1)}).map(e=>e.id||e.className),
+        rootFont:getComputedStyle(document.documentElement).fontSize,
         bodyFont:getComputedStyle(document.body).fontFamily,
         headingFont:getComputedStyle(document.querySelector('#search-heading')).fontFamily,
         hero:{height:hero.height,left:hero.left,right:hero.right}, event:{left:event.left,right:event.right,height:event.height},
+        content:{left:shell.left,right:shell.right,width:shell.width,ratio:shell.width/innerWidth},
+        stage:{background:getComputedStyle(stage).backgroundColor,overflow:getComputedStyle(stage).overflow},
+        statusFilter:{width:statusRect.width,height:statusRect.height,opacity:statusStyle.opacity,position:statusStyle.position,appearance:statusStyle.appearance,semiWhiteSpace:getComputedStyle(semi).whiteSpace},
+        defaultComparisonRows:document.querySelectorAll('.change-context').length,
         buildCount:build.length,
         oldNavigation:document.querySelectorAll('.gog-primary-nav,.gog-mobile-nav,.view-tabs,.feature-card,.hero-actions').length,
         filterDisplay:getComputedStyle(document.querySelector('#filters-panel')).display
@@ -107,10 +120,16 @@ try {
     })()`);
     assert(geometry.overflow<=1,`${width}px overflow`);
     assert.deepEqual(geometry.clipped,[],`${width}px clipped controls`);
+    assert.equal(geometry.rootFont,'16px');
     assert.match(geometry.bodyFont,/Barlow/i);
     assert.match(geometry.headingFont,/Barlow Condensed/i);
     assert.equal(geometry.buildCount,1,`${width}px single Build a deck action`);
     assert.equal(geometry.oldNavigation,0,`${width}px obsolete navigation/components`);
+    assert.equal(geometry.viewport,width,`${width}px controlled CSS viewport`);
+    assert.equal(geometry.stage.background,'rgba(0, 0, 0, 0)',`${width}px transparent hero stage`);
+    assert.equal(geometry.defaultComparisonRows,0,`${width}px concise default rows`);
+    if (width === 1536) assert(geometry.content.ratio>=.88&&geometry.content.ratio<=.90,`1536px working width should be 88–90%, got ${geometry.content.ratio}`);
+    if (width === 2048) assert(geometry.content.width>=1700&&geometry.content.width<=1800,`2048px working width should be 1700–1800px, got ${geometry.content.width}`);
     if (width <= 768) {
       assert.equal(geometry.filterDisplay,'none');
       await click('#filter-toggle');
@@ -118,6 +137,10 @@ try {
       await click('#filter-toggle');
     } else {
       assert.notEqual(geometry.filterDisplay,'none');
+      assert(geometry.statusFilter.width>=18&&geometry.statusFilter.height>=18,'Desktop status checkbox should be visibly sized');
+      assert.equal(geometry.statusFilter.opacity,'1');
+      assert.equal(geometry.statusFilter.position,'relative');
+      assert.equal(geometry.statusFilter.semiWhiteSpace,'nowrap');
       const positions=await evaluate(`(() => {const f=document.querySelector('#filters-panel').getBoundingClientRect(),r=document.querySelector('.results-column').getBoundingClientRect();return {filterRight:f.right,resultsLeft:r.left}})()`);
       assert(positions.filterRight<positions.resultsLeft,'Desktop filters should sit beside results');
     }
@@ -125,11 +148,25 @@ try {
     evidence.viewports.push({width,...geometry});
   }
 
+  await click('.status-filter .forbidden');
+  assert.equal(await evaluate(`document.querySelector('[data-filter="status"][value="forbidden"]').checked`),true,'Status label click should check the input');
+  assert(await evaluate(`[...document.querySelectorAll('.card-row')].every(e=>e.classList.contains('status-forbidden'))`),'Status label click should filter results');
+  const focusedStatus=await evaluate(`(() => {const e=document.querySelector('[data-filter="status"][value="forbidden"]');e.focus();const s=getComputedStyle(e);return {focused:document.activeElement===e,outline:s.outlineStyle,shadow:s.boxShadow};})()`);
+  assert.equal(focusedStatus.focused,true);
+  assert.notEqual(focusedStatus.outline,'none');
+  await send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
+  await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
+  assert.equal(await evaluate(`document.querySelector('[data-filter="status"][value="forbidden"]').checked`),false,'Space should toggle the focused status input');
+
+  await send('Emulation.setDeviceMetricsOverride', { width:1536,height:1024,deviceScaleFactor:1,mobile:false });
   await send('Page.navigate', { url: `${origin}/gog/house-format/?view=changes#list-workspace` });
   await waitFor(`location.pathname==='/gog/' && document.querySelectorAll('.card-row').length>0`, 'legacy route redirect');
   assert.equal(await evaluate(`location.search`),'?view=changes');
   assert.equal(await evaluate(`location.hash`),'#list-workspace');
   assert.equal(await evaluate(`document.querySelector('#changes-only').checked`),true);
+  assert(await evaluate(`document.querySelectorAll('.change-context').length>0`),'Comparison view should show baseline-to-current context');
+  assert.equal(await evaluate(`document.querySelector('#results-kicker').hidden`),false);
+  await screenshot('jush-home-changes-1536.png');
 
   await click('[data-filter="status"][value="forbidden"]');
   await click('[data-filter="status"][value="limited"]');
@@ -165,7 +202,8 @@ try {
 
   evidence.checks.push('single JUSH homepage route, preserved legacy query/hash redirect and direct deckbuilder route');
   evidence.checks.push('one deck CTA, live JUSH event panel, house-change checkbox, combined filters, eligible search and card details');
-  evidence.checks.push('390/768/1440/1536/1920/2048px layouts, local fonts, no overflow or clipped controls');
+  evidence.checks.push('390/768/1440/1536/1920/2048px layouts at 1× scale, local fonts, effective working width, no overflow or clipped controls');
+  evidence.checks.push('visible status checkboxes, full-label activation, keyboard Space toggle and concise default comparison rows');
   assert.deepEqual(failedResponses,[]);
   assert.deepEqual(errors,[]);
   await writeFile(resolve(artifacts,'public-pages.json'),JSON.stringify(evidence,null,2));

@@ -184,8 +184,9 @@ function renderList() {
   $('#changes-count').textContent = state.changes.length;
   $('#changes-only').checked = isChanges;
   $('#results-kicker').textContent = isChanges
-    ? 'Showing persistent differences from the fixed JUSH-era baseline.'
-    : 'Current restrictions for the eligible JUSH card pool.';
+    ? 'Compared with the fixed April 2025 JUSH baseline. Status changes remain marked until the restrictions match again.'
+    : '';
+  $('#results-kicker').hidden = !isChanges;
   $('#results-title').textContent = 'Forbidden & Limited List';
   $('#results-count').textContent = `${data.length} ${data.length === 1 ? 'card' : 'cards'} shown`;
   list.setAttribute('aria-busy', 'false');
@@ -224,9 +225,9 @@ function renderCardRow(card) {
   const status = STATUS[card.status] || STATUS.unlimited;
   const note = card.note ? `<span class="card-note-preview">${escapeHtml(card.note)}</span>` : '';
   const baselineStatus = card.baselineStatus || card.previousStatus;
-  const changeContext = card.isHouseChange && baselineStatus
+  const changeContext = state.view === 'changes' && card.isHouseChange && baselineStatus
     ? `<span class="change-context">Baseline ${STATUS[baselineStatus]?.label || 'Unlimited'} <span aria-hidden="true">→</span> current ${status.label}</span>`
-    : card.changeType === 'note_updated' ? '<span class="change-context">House-format note changed</span>' : '';
+    : state.view === 'changes' && card.changeType === 'note_updated' ? '<span class="change-context">House-format note changed</span>' : '';
   return `
     <article class="card-row status-${card.status}${card.isHouseChange ? ' is-house-change' : ''}" data-card-name="${escapeHtml(card.name)}">
       <div class="card-thumbnail ${card.category.toLowerCase()}">

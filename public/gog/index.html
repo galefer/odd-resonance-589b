@@ -103,12 +103,12 @@
             </div>
           </div>
 
-          <label class="search-field-label" for="card-search">Search card names or archetypes</label>
+          <label class="search-field-label visually-hidden" id="card-search-label" for="card-search">Search card names or archetypes</label>
           <div class="search-control">
             <span class="search-icon" aria-hidden="true">
               <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-search"></use></svg>
             </span>
-            <input id="card-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search card names or archetypes…" aria-controls="search-suggestions">
+            <input id="card-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search card names or archetypes…" aria-labelledby="search-heading card-search-label" aria-controls="search-suggestions">
             <button class="clear-search" id="clear-search" type="button" aria-label="Clear search" hidden>×</button>
             <span class="search-spinner" id="search-spinner" hidden aria-label="Searching"></span>
           </div>
@@ -193,8 +193,6 @@
                 <p class="results-count" id="results-count" aria-live="polite">Loading cards…</p>
               </div>
             </div>
-
-            <p class="changes-help">House changes compare the current list with the fixed JUSH-era baseline and remain marked until the restrictions match again.</p>
 
             <div class="active-filters" id="active-filters" hidden aria-label="Active filters"></div>
 
