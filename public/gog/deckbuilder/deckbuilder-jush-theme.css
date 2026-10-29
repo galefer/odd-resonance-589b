@@ -2,11 +2,11 @@
    owned by deckbuilder.css; this file only changes presentation. */
 :root {
   color-scheme: dark;
-  --bg: #031023;
-  --header: #041426;
-  --surface: #071a2d;
-  --panel: #06172a;
-  --raised: #0d2842;
+  --bg: #031427;
+  --header: #021225;
+  --surface: #071d31;
+  --panel: #061b31;
+  --raised: #0a243b;
   --line: #234866;
   --text: #fff7e8;
   --muted: #b9c9da;
@@ -23,8 +23,8 @@
   --jush-cyan: #00e8f2;
   --jush-magenta: #ff168d;
   --jush-cream: #fff7e8;
-  --jush-deep: #020c1a;
-  --jush-panel: rgba(6, 23, 42, .96);
+  --jush-deep: #021225;
+  --jush-panel: rgba(6, 27, 49, .97);
   --jush-line: #234866;
   --jush-glow: 0 0 0 1px rgba(0, 232, 242, .08), 0 18px 44px rgba(0, 5, 14, .28);
 }
@@ -35,8 +35,8 @@ body.deckbuilder-page {
   isolation: isolate;
   background-color: var(--bg);
   background-image:
-    radial-gradient(circle at 16% -8%, rgba(0, 232, 242, .11), transparent 34rem),
-    radial-gradient(circle at 91% 13%, rgba(255, 22, 141, .09), transparent 29rem),
+    radial-gradient(circle at 8% 4%, rgba(0, 232, 242, .13), transparent 32rem),
+    radial-gradient(circle at 94% 10%, rgba(255, 22, 141, .11), transparent 30rem),
     url('/gog/assets/jush/textures/navy-grain.svg');
   color: var(--text);
   font-family: var(--font);
@@ -46,9 +46,9 @@ body.deckbuilder-page::after {
   content: "";
   position: fixed;
   z-index: -1;
-  top: 74px;
+  top: 58px;
   bottom: 0;
-  width: min(24vw, 360px);
+  width: min(19vw, 320px);
   pointer-events: none;
   opacity: .1;
   background-repeat: no-repeat;
@@ -92,11 +92,24 @@ body.deckbuilder-page summary:focus-visible {
 
 /* Identity header and persistent deck controls. */
 body.deckbuilder-page .gog-site-header {
+  isolation: isolate;
+  overflow: hidden;
   background:
-    linear-gradient(90deg, rgba(0, 232, 242, .045), transparent 36%, rgba(255, 22, 141, .045)),
-    rgba(2, 13, 28, .98);
-  border-bottom-color: rgba(0, 232, 242, .34);
+    linear-gradient(90deg, rgba(0, 232, 242, .075), transparent 34%, rgba(255, 22, 141, .065)),
+    #021225 url('/gog/assets/jush/textures/navy-grain.svg');
+  border-bottom-color: transparent;
   box-shadow: 0 8px 30px rgba(0, 5, 15, .25);
+}
+body.deckbuilder-page .gog-site-header::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--jush-cyan), rgba(0,232,242,.34) 38%, rgba(255,22,141,.34) 68%, var(--jush-magenta));
 }
 body.deckbuilder-page .gog-brand strong { color: var(--jush-cream); }
 body.deckbuilder-page .gog-brand small { color: var(--jush-cyan); }
@@ -156,6 +169,11 @@ body.deckbuilder-page .button.primary {
   border-color: #66f7ff;
   background: linear-gradient(135deg, #45f5fa, var(--jush-cyan));
   box-shadow: inset 0 1px rgba(255, 255, 255, .55), 0 7px 20px rgba(0, 232, 242, .16);
+}
+body.deckbuilder-page #export-button,
+body.deckbuilder-page #copy-template {
+  border-radius: 0;
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
 }
 body.deckbuilder-page .button.primary:hover {
   color: #020d18;
@@ -217,7 +235,7 @@ body.deckbuilder-page .search-box,
 body.deckbuilder-page .hand-toggle,
 body.deckbuilder-page .template-search {
   color: var(--text);
-  border-color: #2a5270;
+  border-color: #286a82;
   background: rgba(2, 14, 29, .9);
 }
 body.deckbuilder-page .search-box:focus-within,
@@ -661,22 +679,30 @@ body.deckbuilder-page h4,
 body.deckbuilder-page .deck-heading p,
 body.deckbuilder-page .zone-counter { font-family: var(--jush-display); }
 body.deckbuilder-page::before,
-body.deckbuilder-page::after { opacity: .045; }
+body.deckbuilder-page::after { opacity: .14; }
 
 body.deckbuilder-page .gog-header-inner {
   width: 100%;
   max-width: none;
   height: 58px;
   padding-inline: var(--editor-gutter);
+  position: relative;
+  z-index: 1;
 }
 body.deckbuilder-page .gog-brand { min-width: 0; }
-body.deckbuilder-page .gog-brand img { width: 42px; height: 40px; }
-body.deckbuilder-page .gog-brand strong { font-size: 1rem; letter-spacing: .04em; }
+body.deckbuilder-page .gog-brand img { width: 48px; height: 46px; }
+body.deckbuilder-page .gog-brand strong {
+  font-size: 1.32rem;
+  font-weight: 800;
+  letter-spacing: .045em;
+  line-height: .95;
+}
 body.deckbuilder-page .gog-brand small {
-  margin-top: 1px;
+  margin-top: 4px;
   font-family: var(--font);
-  font-size: .68rem;
-  letter-spacing: .07em;
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .11em;
 }
 body.deckbuilder-page .gog-back-link { min-height: 36px; font-family: var(--font); font-size: .82rem; }
 
@@ -686,7 +712,7 @@ body.deckbuilder-page .deck-toolbar {
   padding: 10px var(--editor-gutter);
   gap: 18px;
 }
-body.deckbuilder-page .deck-toolbar::before { opacity: .38; }
+body.deckbuilder-page .deck-toolbar::before { opacity: .72; }
 body.deckbuilder-page .deck-identity { min-width: 0; }
 body.deckbuilder-page .deck-title-row { gap: 14px; }
 body.deckbuilder-page .deck-heading { min-width: 0; }
@@ -758,14 +784,24 @@ body.deckbuilder-page .deck-canvas {
   min-width: 0;
   padding: 16px;
   position: relative;
-  background: rgba(5, 21, 39, .94);
+  background: rgba(5, 24, 44, .96);
+}
+body.deckbuilder-page .deck-canvas::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: 12px;
+  left: 12px;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--jush-cyan), rgba(0,232,242,.12) 58%, var(--jush-magenta));
 }
 body.deckbuilder-page .panel-heading {
   height: 43px;
   padding-inline: 15px;
   background: transparent;
 }
-body.deckbuilder-page .panel-heading h2 { font-size: 1rem; font-weight: 700; }
+body.deckbuilder-page .panel-heading h2 { font-size: 1.08rem; font-weight: 700; letter-spacing: .01em; }
 body.deckbuilder-page .panel-heading > span { font-family: var(--font); font-size: .65rem; }
 
 body.deckbuilder-page .canvas-heading {
@@ -887,7 +923,7 @@ body.deckbuilder-page .card-tile.selected { filter: none; }
 body.deckbuilder-page .card-tile.selected { outline: 2px solid var(--jush-cyan); outline-offset: 2px; }
 body.deckbuilder-page .zone { margin-bottom: 16px; }
 body.deckbuilder-page .zone-header { margin-bottom: 7px; }
-body.deckbuilder-page .zone-header h2 { font-size: 1.05rem; }
+body.deckbuilder-page .zone-header h2 { font-size: 1.1rem; letter-spacing: .01em; }
 body.deckbuilder-page .zone-tools button { font-family: var(--font); font-size: .72rem; }
 body.deckbuilder-page .tools-panel { border-top-color: #1d405d; }
 body.deckbuilder-page .tool-tabs button,
