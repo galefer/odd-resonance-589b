@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/gog/assets/jush/fonts/fonts.css">
   <link rel="stylesheet" href="/gog/styles.css">
   <link rel="stylesheet" href="/gog/site-header.css">
-  <link rel="stylesheet" href="/gog/house-format/house-format.css">
+  <link rel="stylesheet" href="/gog/house-format/house-format.css?v=2026-10-29-mobile-compact">
 </head>
 <body class="house-format-page jush-theme jush-homepage">
   <a class="skip-link" href="#main-content">Skip to card list</a>
@@ -25,6 +25,7 @@
       </a>
       <div class="gog-header-actions">
         <p class="gog-context">Rotherham <span aria-hidden="true">·</span> Community duels</p>
+        <span class="gog-mobile-context" aria-hidden="true">House format</span>
         <button class="gog-admin-link" id="admin-button" type="button" aria-label="Administrator login">Admin Login</button>
       </div>
     </div>
@@ -70,6 +71,10 @@
           </div>
           <a class="jush-button event-deck-link" href="/gog/deckbuilder/">Build a deck <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-chevron-right"></use></svg></a>
         </article>
+        <nav class="hero-mobile-actions" aria-label="House format shortcuts">
+          <a class="jush-button hero-build-link" href="/gog/deckbuilder/">Build a deck <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-chevron-right"></use></svg></a>
+          <a class="jush-button hero-check-link" id="hero-check-card" href="#card-search">Check a card <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-search"></use></svg></a>
+        </nav>
         </div>
       </div>
     </section>
@@ -89,6 +94,13 @@
           <span><strong>Community</strong><span>Player-run format</span></span>
         </div>
       </div>
+      <details class="shell mobile-format-summary">
+        <summary>
+          <span><strong>Justice Hunters · Cutoff <time datetime="2025-08-01">1 Aug 2025</time></strong><small><span id="mobile-version-label">House List</span> · Format details</small></span>
+          <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-chevron-right"></use></svg>
+        </summary>
+        <p>Player-run format. Eligible cards not on the restricted list are Unlimited. Cards outside the Justice Hunters pool are not legal.</p>
+      </details>
     </section>
 
     <section class="search-zone" aria-labelledby="search-heading">
@@ -97,7 +109,7 @@
           <div class="search-heading-row">
             <div>
               <p class="search-kicker">Know your limits</p>
-              <h2 id="search-heading">Check a card. Build with confidence.</h2>
+              <h2 id="search-heading"><span class="desktop-search-title">Check a card. Build with confidence.</span><span class="mobile-search-title">Check a card</span></h2>
               <p>Eligible cards not on the restricted list are Unlimited. Cards outside the Justice Hunters pool are not legal.</p>
             </div>
             <div class="api-state" id="api-state" hidden>
@@ -107,13 +119,20 @@
           </div>
 
           <label class="search-field-label visually-hidden" id="card-search-label" for="card-search">Search card names or archetypes</label>
-          <div class="search-control">
-            <span class="search-icon" aria-hidden="true">
-              <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-search"></use></svg>
-            </span>
-            <input id="card-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search card names or archetypes…" aria-labelledby="search-heading card-search-label" aria-controls="search-suggestions">
-            <button class="clear-search" id="clear-search" type="button" aria-label="Clear search" hidden>×</button>
-            <span class="search-spinner" id="search-spinner" hidden aria-label="Searching"></span>
+          <div class="search-tools-row">
+            <div class="search-control">
+              <span class="search-icon" aria-hidden="true">
+                <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-search"></use></svg>
+              </span>
+              <input id="card-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search card names or archetypes…" aria-labelledby="search-heading card-search-label" aria-controls="search-suggestions">
+              <button class="clear-search" id="clear-search" type="button" aria-label="Clear search" hidden>×</button>
+              <span class="search-spinner" id="search-spinner" hidden aria-label="Searching"></span>
+            </div>
+            <button class="button filter-toggle" id="filter-toggle" type="button" aria-expanded="false" aria-controls="filters-panel">
+              <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-filter"></use></svg>
+              Filters
+              <span class="filter-count" id="filter-count" hidden>0</span>
+            </button>
           </div>
 
           <div class="search-suggestions" id="search-suggestions" role="listbox" aria-label="Card search results" hidden></div>
@@ -123,14 +142,6 @@
 
     <section class="list-section" id="list-workspace">
       <div class="shell">
-        <div class="list-toolbar">
-          <button class="button filter-toggle" id="filter-toggle" type="button" aria-expanded="false" aria-controls="filters-panel">
-            <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-filter"></use></svg>
-            Filters
-            <span class="filter-count" id="filter-count" hidden>0</span>
-          </button>
-        </div>
-
         <div class="list-workspace-grid">
           <aside class="filters-panel" id="filters-panel" aria-label="Card filters">
             <div class="filters-heading">
@@ -189,7 +200,7 @@
               <div class="results-controls">
                 <div class="list-view-toggles" role="group" aria-label="Choose card list view">
                   <button type="button" data-list-view="current" aria-pressed="true">All</button>
-                  <button type="button" data-list-view="changes" aria-pressed="false">House</button>
+                  <button type="button" data-list-view="changes" aria-pressed="false">House changes</button>
                   <button type="button" data-list-view="recent" aria-pressed="false">Recent</button>
                 </div>
                 <p class="results-count" id="results-count" aria-live="polite">Loading cards…</p>
@@ -475,7 +486,7 @@
   <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
   <div class="home-toast" id="home-toast" role="status" hidden></div>
 
-  <script type="module" src="/gog/app.js"></script>
+  <script type="module" src="/gog/app.js?v=2026-10-29-mobile-compact"></script>
   <script src="/gog/home.js" defer></script>
 </body>
 </html>

@@ -87,7 +87,7 @@ try {
   await send('Page.navigate', { url: `${origin}/gog/` });
   await waitFor(`document.querySelectorAll('.card-row').length>0 && document.querySelector('#next-event-time').textContent!=='Checking schedule…'`, 'JUSH homepage');
 
-  for (const width of [390,768,1440,1536,1920,2048]) {
+  for (const width of [320,390,768,1440,1536,1920,2048]) {
     await send('Emulation.setDeviceMetricsOverride', { width,height:1024,deviceScaleFactor:1,mobile:width<600 });
     await evaluate('window.scrollTo(0,0)');
     await sleep(120);
@@ -119,10 +119,12 @@ try {
           after:{content:after.content,backgroundImage:after.backgroundImage}
         };
       };
-      const build=[...document.querySelectorAll('a,button')].filter(e=>e.textContent.trim().toLowerCase()==='build a deck');
+      const build=[...document.querySelectorAll('a,button')].filter(e=>e.textContent.trim().toLowerCase()==='build a deck'&&e.getClientRects().length);
       const adminButton=document.querySelector('#admin-button');
       const adminRect=adminButton.getBoundingClientRect();
       const viewToggles=[...document.querySelectorAll('[data-list-view]')].map(button=>{const r=button.getBoundingClientRect();return {label:button.textContent.trim(),pressed:button.getAttribute('aria-pressed'),height:r.height,radius:getComputedStyle(button).borderRadius}});
+      const search=document.querySelector('#card-search').getBoundingClientRect(),filter=document.querySelector('#filter-toggle').getBoundingClientRect();
+      const firstCard=document.querySelector('.card-row'),firstCardRect=firstCard?.getBoundingClientRect();
       return {
         viewport:innerWidth,
         overflow:document.documentElement.scrollWidth-innerWidth,
@@ -141,8 +143,9 @@ try {
         statusFilter:{width:statusRect.width,height:statusRect.height,opacity:statusStyle.opacity,position:statusStyle.position,appearance:statusStyle.appearance,semiWhiteSpace:getComputedStyle(semi).whiteSpace},
         defaultComparisonRows:document.querySelectorAll('.change-context').length,
         buildCount:build.length,
-        adminButton:{text:adminButton.textContent.trim(),inHeader:Boolean(adminButton.closest('.gog-site-header')),right:adminRect.right,width:adminRect.width},
+        adminButton:{text:adminButton.textContent.trim(),inHeader:Boolean(adminButton.closest('.gog-site-header')),right:adminRect.right,width:adminRect.width,display:getComputedStyle(adminButton).display},
         viewToggles,
+        mobileLayout:{summary:getComputedStyle(document.querySelector('.mobile-format-summary')).display,facts:getComputedStyle(document.querySelector('.facts-grid')).display,heading:document.querySelector('#search-heading').innerText.trim(),placeholder:document.querySelector('#card-search').placeholder,search:{top:search.top,height:search.height,right:search.right},filter:{top:filter.top,height:filter.height,left:filter.left},restriction:getComputedStyle(document.querySelector('.restriction-key')).display,firstCardHeight:firstCardRect?.height||0,nameWhiteSpace:firstCard?getComputedStyle(firstCard.querySelector('.card-name')).whiteSpace:''},
         oldNavigation:document.querySelectorAll('.gog-primary-nav,.gog-mobile-nav,.view-tabs,.feature-card,.hero-actions').length,
         filterDisplay:getComputedStyle(document.querySelector('#filters-panel')).display
       };
@@ -154,9 +157,7 @@ try {
     assert.match(geometry.headingFont,/Barlow Condensed/i);
     assert.equal(geometry.buildCount,1,`${width}px single Build a deck action`);
     assert.equal(geometry.adminButton.text,'Admin Login',`${width}px signed-out admin label`);
-    assert.equal(geometry.adminButton.inHeader,true,`${width}px admin control should be in the header`);
-    assert(geometry.adminButton.width>=90,`${width}px admin control should remain readable`);
-    assert(geometry.adminButton.right<=width+1,`${width}px admin control should remain within the viewport`);
+    assert.equal(geometry.adminButton.inHeader,true,`${width}px admin control remains available to the existing administration flow`);
     assert.equal(geometry.oldNavigation,0,`${width}px obsolete navigation/components`);
     assert.equal(geometry.viewport,width,`${width}px controlled CSS viewport`);
     assert.equal(geometry.stage.background,'rgba(0, 0, 0, 0)',`${width}px transparent hero stage`);
@@ -171,7 +172,7 @@ try {
     assert.match(geometry.characterTreatment.right.currentSrc,/cosmic-mecha-dragon-guardian-(384|768|1254)\.webp/,`${width}px complete dragon asset`);
     assert.equal(geometry.characterTreatment.right.before.content,'none',`${width}px no obsolete upper crop patch`);
     assert.equal(geometry.characterTreatment.right.after.content,'none',`${width}px no obsolete lower crop patch`);
-    assert.deepEqual(geometry.viewToggles.map(button=>button.label),['All','House','Recent']);
+    assert.deepEqual(geometry.viewToggles.map(button=>button.label),['All','House changes','Recent']);
     assert.equal(geometry.viewToggles.filter(button=>button.pressed==='true').length,1,`${width}px one active list view`);
     assert(geometry.viewToggles.every(button=>button.height>=(width<=600?44:40)),`${width}px readable list-view controls`);
     assert(geometry.viewToggles.every(button=>Number.parseFloat(button.radius)>=20),`${width}px ovular list-view controls`);
@@ -192,9 +193,43 @@ try {
       const positions=await evaluate(`(() => {const f=document.querySelector('#filters-panel').getBoundingClientRect(),r=document.querySelector('.results-column').getBoundingClientRect();return {filterRight:f.right,resultsLeft:r.left}})()`);
       assert(positions.filterRight<positions.resultsLeft,'Desktop filters should sit beside results');
     }
+    if (width <= 600) {
+      assert.equal(geometry.adminButton.display,'none',`${width}px moves administration out of the public header`);
+      assert(geometry.hero.height<=350,`${width}px compact mobile hero`);
+      assert(geometry.event.height<=90,`${width}px compact mobile event summary`);
+      assert.notEqual(geometry.mobileLayout.summary,'none',`${width}px compact format summary visible`);
+      assert.equal(geometry.mobileLayout.facts,'none',`${width}px tall fact rows hidden`);
+      assert.equal(geometry.mobileLayout.heading,'Check a card');
+      assert.equal(geometry.mobileLayout.placeholder,'Search cards…');
+      assert(Math.abs(geometry.mobileLayout.search.top-geometry.mobileLayout.filter.top)<=1&&Math.abs(geometry.mobileLayout.search.height-geometry.mobileLayout.filter.height)<=1,`${width}px search and Filters share one row`);
+      assert(geometry.mobileLayout.search.right<geometry.mobileLayout.filter.left,`${width}px search and Filters do not overlap`);
+      assert.equal(geometry.mobileLayout.restriction,'none',`${width}px status legend moves out of the permanent result path`);
+      assert(geometry.mobileLayout.firstCardHeight<=105,`${width}px ordinary result rows remain compact`);
+      assert.notEqual(geometry.mobileLayout.nameWhiteSpace,'nowrap',`${width}px card names can wrap`);
+    } else {
+      assert.notEqual(geometry.adminButton.display,'none',`${width}px desktop administration remains unchanged`);
+      assert(geometry.adminButton.width>=90,`${width}px admin control should remain readable`);
+      assert(geometry.adminButton.right<=width+1,`${width}px admin control should remain within the viewport`);
+    }
     await screenshot(`jush-home-${width}.png`);
     evidence.viewports.push({width,...geometry});
   }
+
+  await send('Emulation.setDeviceMetricsOverride', { width:320,height:800,deviceScaleFactor:1,mobile:true });
+  const enlargedText = await evaluate(`(() => {const root=document.documentElement,name=document.querySelector('.card-name'),row=name.closest('.card-row');window.__mobileReflowName=name.textContent;root.style.fontSize='20px';name.textContent='The Longest Possible Justice Hunters Card Name for Mobile Reflow';return{overflow:root.scrollWidth-innerWidth,rowHeight:row.getBoundingClientRect().height,nameClient:name.clientHeight,nameScroll:name.scrollHeight,filterHeight:document.querySelector('#filter-toggle').getBoundingClientRect().height,summaryHeight:document.querySelector('.mobile-format-summary summary').getBoundingClientRect().height};})()`);
+  assert(enlargedText.overflow<=1,`320px enlarged text overflow: ${JSON.stringify(enlargedText)}`);
+  assert(enlargedText.nameScroll<=enlargedText.nameClient+1,'Long card names remain fully visible with enlarged text');
+  assert(enlargedText.rowHeight>80,'Long card names increase row height instead of clipping');
+  assert(enlargedText.filterHeight>=44&&enlargedText.summaryHeight>=44,'Mobile controls retain accessible touch targets');
+  await screenshot('jush-home-320-enlarged.png');
+  await evaluate(`(()=>{document.querySelector('.card-name').textContent=window.__mobileReflowName;document.documentElement.style.removeProperty('font-size');delete window.__mobileReflowName;})()`);
+  await click('.mobile-format-summary summary');
+  assert(await evaluate(`document.querySelector('.mobile-format-summary').open && document.querySelector('.mobile-format-summary > p').getBoundingClientRect().height>0`),'Compact format summary expands to its full explanation');
+  await click('.mobile-format-summary summary');
+  await click('#hero-check-card');
+  await waitFor(`document.activeElement===document.querySelector('#card-search')`,'Check a card shortcut focuses search');
+  await send('Emulation.setDeviceMetricsOverride', { width:1536,height:1024,deviceScaleFactor:1,mobile:false });
+  await sleep(80);
 
   await evaluate(`window.dispatchEvent(new CustomEvent('gog:admin-session',{detail:{authenticated:true,email:'admin@example.com',csrfToken:'test-token'}}))`);
   assert.equal(await evaluate(`document.querySelector('#admin-button').textContent.trim()`),'Admin Panel','Authenticated session should relabel the header control');
@@ -260,8 +295,8 @@ try {
   assert.equal(await evaluate(`document.querySelector('.gog-back-link').getAttribute('href')`),'/gog/');
 
   evidence.checks.push('single JUSH homepage route, preserved legacy query/hash redirect and direct deckbuilder route');
-  evidence.checks.push('one deck CTA, live JUSH event panel, exclusive All/House/Recent list views, combined filters, eligible search and card details');
-  evidence.checks.push('390/768/1440/1536/1920/2048px layouts at 1× scale, local fonts, effective working width, no overflow or clipped controls');
+  evidence.checks.push('one visible deck CTA, compact mobile event and format summary, exclusive All/House changes/Recent views, combined filters, eligible search and card details');
+  evidence.checks.push('320/390/768/1440/1536/1920/2048px layouts at 1× scale plus 320px enlarged-text reflow, local fonts, effective working width, no overflow or clipped controls');
   evidence.checks.push('visible status checkboxes, full-label activation, keyboard Space toggle and concise default comparison rows');
   assert.deepEqual(failedResponses,[]);
   assert.deepEqual(errors,[]);

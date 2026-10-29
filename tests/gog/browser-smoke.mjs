@@ -553,7 +553,7 @@ try {
     eventDate:document.querySelector('#next-event-date').textContent.trim(),
     eventTime:document.querySelector('#next-event-time').textContent.trim(),
     eventLocation:document.querySelector('#next-event-location').textContent.trim(),
-    buildActions:document.querySelectorAll('a.event-deck-link').length,
+    buildActions:[...document.querySelectorAll('a.event-deck-link,a.hero-build-link')].filter(e=>e.getClientRects().length).length,
     navigation:document.querySelectorAll('.gog-primary-nav,.gog-mobile-nav').length,
     artLoaded:[...document.querySelectorAll('.hero-character img,.hero-wordmark')].every(img=>img.complete && img.naturalWidth>0),
     logoLoaded:document.querySelector('.gog-brand img').naturalWidth>0,
@@ -596,7 +596,7 @@ try {
     overflow:document.documentElement.scrollWidth-innerWidth,
     filterToggle:getComputedStyle(document.querySelector('#filter-toggle')).display,
     filtersDisplay:getComputedStyle(document.querySelector('#filters-panel')).display,
-    buildActions:document.querySelectorAll('a.event-deck-link').length,
+    buildActions:[...document.querySelectorAll('a.event-deck-link,a.hero-build-link')].filter(e=>e.getClientRects().length).length,
     eventVisible:document.querySelector('.next-event-panel').getBoundingClientRect().height>0,
     logoLoaded:document.querySelector('.gog-brand img').naturalWidth>0,
     header:(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()

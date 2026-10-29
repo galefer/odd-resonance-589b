@@ -16,6 +16,7 @@ async function passwordProof(password, salt) {
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+const mobileHouseLayout = window.matchMedia('(max-width: 600px)');
 
 const STATUS = {
   forbidden: { label: 'Forbidden', copies: 0 },
@@ -149,6 +150,7 @@ function applyConfig() {
   $('#accent-label').textContent = settings.accent_label || 'Guild of Games';
   $('#footer-format-name').textContent = settings.format_name || 'Yu-Gi-Oh! JUSH House Format';
   $('#version-label').textContent = version?.label || 'Foundation';
+  $('#mobile-version-label').textContent = version?.label || 'Foundation';
   $('#effective-date').textContent = formatDate(version?.effectiveDate);
   $('#effective-date').dateTime = version?.effectiveDate || '';
   const cutoff = state.config?.cardPool?.cutoffDate || CARD_POOL_CUTOFF;
@@ -241,8 +243,9 @@ function renderCardRow(card) {
         <img src="${cardImageUrl(card.cardId || card.id || 0)}" alt="" width="42" height="61" loading="lazy" decoding="async">
         <span aria-hidden="true">${typeInitial(card.category)}</span>
       </div>
-      <div>
+      <div class="card-copy">
         <h3 class="card-name">${escapeHtml(smartTitle(card.name))}${houseChangeBadge(card)}</h3>
+        <div class="card-status-mobile">${statusBadge(card.status)}</div>
         <div class="card-metadata"><span>${escapeHtml(card.category)} · ${escapeHtml(card.subtype)}</span>${changeContext}</div>
         ${note}
       </div>
@@ -675,6 +678,10 @@ function wireEvents() {
   });
 
   const cardSearch = $('#card-search');
+  const syncSearchPlaceholder = () => { cardSearch.placeholder = mobileHouseLayout.matches ? 'Search cards…' : 'Search card names or archetypes…'; };
+  syncSearchPlaceholder();
+  mobileHouseLayout.addEventListener?.('change', syncSearchPlaceholder);
+  $('#hero-check-card').addEventListener('click', () => requestAnimationFrame(() => cardSearch.focus()));
   cardSearch.addEventListener('input', () => {
     clearTimeout(publicSearchTimer);
     publicSearchTimer = setTimeout(() => runPublicSearch(cardSearch.value), 260);
