@@ -106,15 +106,42 @@
   width: clamp(440px, 35.5vw, 560px);
   left: clamp(-46px, -2.5vw, -24px);
   top: -3%;
-  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 86%, transparent 100%);
-  mask-image: linear-gradient(90deg, #000 0, #000 86%, transparent 100%);
 }
 .house-format-page .hero-character-right {
   width: clamp(500px, 39vw, 620px);
   right: clamp(-68px, -3.5vw, -36px);
   top: -8%;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14%, #000 100%);
-  mask-image: linear-gradient(90deg, transparent 0, #000 14%, #000 100%);
+}
+.house-format-page .hero-character-right img { position: relative; z-index: 1; }
+
+@media (min-width: 821px) {
+  .house-format-page .hero-character-right::before,
+  .house-format-page .hero-character-right::after {
+    content: '';
+    position: absolute;
+    z-index: 2;
+    left: -70px;
+    background-image: url('/gog/assets/jush/artwork/paint-frame-right-512.webp');
+    background-repeat: no-repeat;
+    opacity: .82;
+    -webkit-mask-image: radial-gradient(ellipse at center, #000 0, #000 48%, transparent 78%);
+    mask-image: radial-gradient(ellipse at center, #000 0, #000 48%, transparent 78%);
+    pointer-events: none;
+  }
+  .house-format-page .hero-character-right::before {
+    top: 104px;
+    width: 120px;
+    height: 84px;
+    background-size: 180px 360px;
+    background-position: 120% 8%;
+  }
+  .house-format-page .hero-character-right::after {
+    top: 240px;
+    width: 126px;
+    height: 200px;
+    background-size: 190px 380px;
+    background-position: 120% 56%;
+  }
 }
 .house-format-page .hero-copy {
   position: relative;

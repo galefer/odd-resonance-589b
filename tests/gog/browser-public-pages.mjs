@@ -100,6 +100,24 @@ try {
       const statusRect=status.getBoundingClientRect();
       const statusStyle=getComputedStyle(status);
       const semi=document.querySelector('.status-filter .semi-limited span');
+      const characterTreatment=(selector)=>{
+        const wrapper=document.querySelector(selector);
+        const image=wrapper.querySelector('img');
+        const style=getComputedStyle(wrapper);
+        const imageStyle=getComputedStyle(image);
+        const before=getComputedStyle(wrapper,'::before');
+        const after=getComputedStyle(wrapper,'::after');
+        return {
+          maskImage:style.maskImage,
+          webkitMaskImage:style.webkitMaskImage,
+          opacity:style.opacity,
+          filter:style.filter,
+          imageOpacity:imageStyle.opacity,
+          imageFilter:imageStyle.filter,
+          before:{content:before.content,backgroundImage:before.backgroundImage},
+          after:{content:after.content,backgroundImage:after.backgroundImage}
+        };
+      };
       const build=[...document.querySelectorAll('a,button')].filter(e=>e.textContent.trim().toLowerCase()==='build a deck');
       return {
         viewport:innerWidth,
@@ -111,6 +129,11 @@ try {
         hero:{height:hero.height,left:hero.left,right:hero.right}, event:{left:event.left,right:event.right,height:event.height},
         content:{left:shell.left,right:shell.right,width:shell.width,ratio:shell.width/innerWidth},
         stage:{background:getComputedStyle(stage).backgroundColor,overflow:getComputedStyle(stage).overflow},
+        characterTreatment:{
+          left:characterTreatment('.hero-character-left'),
+          right:characterTreatment('.hero-character-right'),
+          heroAfter:{backgroundImage:getComputedStyle(document.querySelector('.hero'),'::after').backgroundImage}
+        },
         statusFilter:{width:statusRect.width,height:statusRect.height,opacity:statusStyle.opacity,position:statusStyle.position,appearance:statusStyle.appearance,semiWhiteSpace:getComputedStyle(semi).whiteSpace},
         defaultComparisonRows:document.querySelectorAll('.change-context').length,
         buildCount:build.length,
@@ -127,6 +150,21 @@ try {
     assert.equal(geometry.oldNavigation,0,`${width}px obsolete navigation/components`);
     assert.equal(geometry.viewport,width,`${width}px controlled CSS viewport`);
     assert.equal(geometry.stage.background,'rgba(0, 0, 0, 0)',`${width}px transparent hero stage`);
+    assert.equal(geometry.characterTreatment.left.maskImage,'none',`${width}px left character should preserve source alpha without an inward mask`);
+    assert.equal(geometry.characterTreatment.right.maskImage,'none',`${width}px right character should preserve source alpha without an inward mask`);
+    assert.equal(geometry.characterTreatment.left.webkitMaskImage,'none');
+    assert.equal(geometry.characterTreatment.right.webkitMaskImage,'none');
+    assert.equal(geometry.characterTreatment.left.imageOpacity,'1');
+    assert.equal(geometry.characterTreatment.right.imageOpacity,'1');
+    assert.equal(geometry.characterTreatment.left.imageFilter,'none');
+    assert.equal(geometry.characterTreatment.right.imageFilter,'none');
+    if (width > 820) {
+      assert.match(geometry.characterTreatment.right.before.backgroundImage,/paint-frame-right-512\.webp/,`${width}px upper crop overlap`);
+      assert.match(geometry.characterTreatment.right.after.backgroundImage,/paint-frame-right-512\.webp/,`${width}px lower crop overlap`);
+    } else {
+      assert.equal(geometry.characterTreatment.right.before.content,'none',`${width}px no crop overlap needed`);
+      assert.equal(geometry.characterTreatment.right.after.content,'none',`${width}px no crop overlap needed`);
+    }
     assert.equal(geometry.defaultComparisonRows,0,`${width}px concise default rows`);
     if (width === 1536) assert(geometry.content.ratio>=.88&&geometry.content.ratio<=.90,`1536px working width should be 88–90%, got ${geometry.content.ratio}`);
     if (width === 2048) assert(geometry.content.width>=1700&&geometry.content.width<=1800,`2048px working width should be 1700–1800px, got ${geometry.content.width}`);
