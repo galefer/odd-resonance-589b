@@ -939,8 +939,14 @@ async function handle(context) {
   if (method === 'GET' && path === '/list') {
     const version = await currentVersion(db);
     if (!version) throw fail(503, 'The JUSH foundation has not been seeded. See SETUP.md.');
-    const house = await houseViewFor(db, version);
-    return json({ version: versionView(version), baseline: house.baseline, entries: house.entries, changes: house.changes });
+    const [house, revisionChanges] = await Promise.all([houseViewFor(db, version), changesFor(db, version)]);
+    const houseChangesByName = new Map(house.changes.map((entry) => [normalise(entry.name), entry]));
+    const recentChanges = revisionChanges.map((entry) => {
+      const houseChange = houseChangesByName.get(normalise(entry.name));
+      return houseChange ? { ...entry, baselineStatus: houseChange.baselineStatus, isHouseChange: true } : entry;
+    });
+    return json({ version: versionView(version), baseline: house.baseline, entries: house.entries,
+      changes: house.changes, recentChanges });
   }
   if (method === 'GET' && path === '/events') {
     return json({ timezone: 'Europe/London', generatedFor: londonToday(), events: await eventSchedule(db) });

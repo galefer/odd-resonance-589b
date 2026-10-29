@@ -46,8 +46,8 @@
           <img src="/gog/assets/jush/artwork/hero-left-characters-1254.webp" alt="" width="1254" height="1254" fetchpriority="high">
         </picture>
         <picture class="hero-character hero-character-right" aria-hidden="true">
-          <source srcset="/gog/assets/jush/artwork/hero-right-dragon-384.webp 384w, /gog/assets/jush/artwork/hero-right-dragon-768.webp 768w, /gog/assets/jush/artwork/hero-right-dragon-1254.webp 1254w" sizes="(max-width: 700px) 260px, 48vw">
-          <img src="/gog/assets/jush/artwork/hero-right-dragon-1254.webp" alt="" width="1254" height="1254" fetchpriority="high">
+          <source srcset="/gog/assets/jush/artwork/cosmic-mecha-dragon-guardian-384.webp 384w, /gog/assets/jush/artwork/cosmic-mecha-dragon-guardian-768.webp 768w, /gog/assets/jush/artwork/cosmic-mecha-dragon-guardian-1254.webp 1254w" sizes="(max-width: 700px) 330px, 54vw">
+          <img src="/gog/assets/jush/artwork/cosmic-mecha-dragon-guardian-1254.webp" alt="" width="1254" height="1254" fetchpriority="high">
         </picture>
 
         <div class="hero-copy">
@@ -188,11 +188,11 @@
                 <p class="results-kicker" id="results-kicker">Current restrictions for the eligible JUSH card pool.</p>
               </div>
               <div class="results-controls">
-                <label class="changes-control" for="changes-only">
-                  <input id="changes-only" type="checkbox">
-                  <span>Show house changes only</span>
-                  <b id="changes-count">0</b>
-                </label>
+                <div class="list-view-toggles" role="group" aria-label="Choose card list view">
+                  <button type="button" data-list-view="current" aria-pressed="true">All</button>
+                  <button type="button" data-list-view="changes" aria-pressed="false">House</button>
+                  <button type="button" data-list-view="recent" aria-pressed="false">Recent</button>
+                </div>
                 <p class="results-count" id="results-count" aria-live="polite">Loading cards…</p>
               </div>
             </div>

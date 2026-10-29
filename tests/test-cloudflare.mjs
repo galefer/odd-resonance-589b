@@ -172,6 +172,7 @@ assert.equal(config.adminConfigured, false);
 const starting = await get('/list');
 assert.equal(starting.baseline.source, 'tcg-apr-2025');
 assert.equal(starting.changes.length, 0);
+assert.deepEqual(starting.recentChanges, []);
 assert.equal(starting.entries.length, 207);
 assert.equal(starting.entries.filter(e=>e.status==='forbidden').length,109);
 assert.equal(starting.entries.filter(e=>e.status==='limited').length,82);
@@ -398,6 +399,8 @@ assert.equal(current.version.label,'JUSH Local v1');
 assert.equal(current.entries.find(e=>e.name==='ABYSS DWELLER').status,'limited');
 assert.equal(current.entries.find(e=>e.name==='Dracotail Lukias').status,'semi_limited');
 assert.equal(current.changes.length,2);
+assert.equal(current.recentChanges.length,2);
+assert.deepEqual(current.recentChanges.map(e=>e.name), ['ABYSS DWELLER','Dracotail Lukias']);
 assert(current.changes.every(e=>e.isHouseChange));
 assert.equal(current.changes.find(e=>e.name==='ABYSS DWELLER').baselineStatus,'forbidden');
 assert.equal(current.changes.find(e=>e.name==='Dracotail Lukias').baselineStatus,'unlimited');
@@ -415,6 +418,9 @@ assert.equal(secondPublish.status,200);
 const secondCurrent = await get('/list');
 assert.equal(secondCurrent.changes.length,3);
 assert.deepEqual(secondCurrent.changes.map(e=>e.name), ['ABYSS DWELLER','Dracotail Lukias','Droll & Lock Bird']);
+assert.deepEqual(secondCurrent.recentChanges.map(e=>e.name), ['Droll & Lock Bird']);
+assert.equal(secondCurrent.recentChanges[0].previousStatus,'unlimited');
+assert.equal(secondCurrent.recentChanges[0].status,'limited');
 const versions = await get('/admin/versions');
 assert.equal(versions.versions.filter(e=>e.status==='published').length,3);
 const restore = await req('/admin/versions/1/restore','POST',{});
@@ -426,7 +432,9 @@ assert.equal((await get('/list')).version.label,'JUSH Local v2');
 // Publish the restored older snapshot, then make a note-only draft.
 const restoredPublish = await req('/admin/publish','POST',{versionLabel:'Restored foundation',effectiveDate:'2025-08-01',summary:'Restored the foundation.'});
 assert.equal(restoredPublish.status,200);
-assert.equal((await get('/list')).changes.length,0);
+const restoredCurrent = await get('/list');
+assert.equal(restoredCurrent.changes.length,0);
+assert.equal(restoredCurrent.recentChanges.length,3);
 await get('/admin/draft');
 // Publishing a note change without a restriction status change must be possible too.
 const noteOnly = await req('/admin/draft/entry-by-name','PATCH',{name:'DIMENSION SHIFTER',status:'limited',note:'Store note only.'});
@@ -437,6 +445,9 @@ assert.equal(notePublish.status,200);
 const noteOnlyCurrent = await get('/list');
 assert.equal(noteOnlyCurrent.version.label,'Note update');
 assert.equal(noteOnlyCurrent.changes.length,0);
+assert.equal(noteOnlyCurrent.recentChanges.length,1);
+assert.equal(noteOnlyCurrent.recentChanges[0].name,'DIMENSION SHIFTER');
+assert.equal(noteOnlyCurrent.recentChanges[0].changeType,'note_updated');
 
 // Deckbuilder catalogue: complete local metadata, artwork aliases, explicit pool
 // evidence and published restrictions. The draft below must remain invisible.

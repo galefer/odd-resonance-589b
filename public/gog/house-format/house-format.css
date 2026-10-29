@@ -78,10 +78,10 @@
   margin-left: 0;
   padding: 0 14px;
   color: #f5fbff;
-  background: rgba(0,232,242,.06);
-  border: 1px solid var(--jush-cyan);
+  background: rgba(255,22,141,.06);
+  border: 1px solid var(--jush-magenta);
   border-radius: 3px;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03), 0 0 18px rgba(0,232,242,.08);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03), 0 0 18px rgba(255,22,141,.1);
   cursor: pointer;
   font-family: 'Barlow Condensed', Barlow, sans-serif;
   font-size: .92rem;
@@ -90,17 +90,9 @@
   text-transform: uppercase;
 }
 .house-format-page .gog-admin-link:hover {
-  color: #031526;
-  background: var(--jush-cyan);
-  border-color: var(--jush-cyan);
-}
-.house-format-page .gog-admin-link[data-authenticated="true"] {
-  border-color: var(--jush-magenta);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03), 0 0 18px rgba(255,22,141,.1);
-}
-.house-format-page .gog-admin-link[data-authenticated="true"]:hover {
   color: #fff;
   background: var(--jush-magenta);
+  border-color: var(--jush-magenta);
 }
 
 .house-format-page .hero {
@@ -139,40 +131,9 @@
   top: -3%;
 }
 .house-format-page .hero-character-right {
-  width: clamp(500px, 39vw, 620px);
-  right: clamp(-68px, -3.5vw, -36px);
-  top: -8%;
-}
-.house-format-page .hero-character-right img { position: relative; z-index: 1; }
-
-@media (min-width: 821px) {
-  .house-format-page .hero-character-right::before,
-  .house-format-page .hero-character-right::after {
-    content: '';
-    position: absolute;
-    z-index: 2;
-    left: -70px;
-    background-image: url('/gog/assets/jush/artwork/paint-frame-right-512.webp');
-    background-repeat: no-repeat;
-    opacity: .82;
-    -webkit-mask-image: radial-gradient(ellipse at center, #000 0, #000 48%, transparent 78%);
-    mask-image: radial-gradient(ellipse at center, #000 0, #000 48%, transparent 78%);
-    pointer-events: none;
-  }
-  .house-format-page .hero-character-right::before {
-    top: 104px;
-    width: 120px;
-    height: 84px;
-    background-size: 180px 360px;
-    background-position: 120% 8%;
-  }
-  .house-format-page .hero-character-right::after {
-    top: 240px;
-    width: 126px;
-    height: 200px;
-    background-size: 190px 380px;
-    background-position: 120% 56%;
-  }
+  width: clamp(600px, 45vw, 740px);
+  right: clamp(-122px, -6vw, -62px);
+  top: -6%;
 }
 .house-format-page .hero-copy {
   position: relative;
@@ -481,18 +442,29 @@
 .house-format-page .results-header { margin: 0 0 8px; display: flex; align-items: end; justify-content: space-between; gap: 24px; }
 .house-format-page .results-header h2 { font-size: clamp(1.8rem, 2.1vw, 2rem); }
 .house-format-page .results-kicker { max-width: 680px; margin-top: 5px; color: var(--jush-muted); font-family: Barlow, sans-serif; font-size: .88rem; font-weight: 400; letter-spacing: 0; text-transform: none; }
-.house-format-page .results-controls { display: flex; align-items: center; justify-content: flex-end; gap: 20px; }
-.house-format-page .changes-control {
-  min-height: 42px;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  color: #fff;
+.house-format-page .results-controls { display: flex; align-items: center; justify-content: flex-end; gap: 16px; }
+.house-format-page .list-view-toggles { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 7px; }
+.house-format-page .list-view-toggles button {
+  min-width: 72px;
+  min-height: 40px;
+  padding: 7px 16px;
+  color: #dce9f4;
+  background: #071b30;
+  border: 1px solid #3a5c77;
+  border-radius: 999px;
   cursor: pointer;
-  white-space: nowrap;
+  font-family: 'Barlow Condensed', Barlow, sans-serif;
+  font-size: .95rem;
+  font-weight: 800;
+  letter-spacing: .035em;
 }
-.house-format-page .changes-control input { width: 18px; height: 18px; margin: 0; accent-color: var(--jush-cyan); }
-.house-format-page .changes-control b { min-width: 32px; padding: 3px 8px; color: #fff; background: #173451; border-radius: 999px; text-align: center; font-size: .82rem; }
+.house-format-page .list-view-toggles button:hover { color: #fff; border-color: var(--jush-cyan); }
+.house-format-page .list-view-toggles button[aria-pressed='true'] {
+  color: #031526;
+  background: var(--jush-cyan);
+  border-color: var(--jush-cyan);
+  box-shadow: 0 0 18px rgba(0,232,242,.16);
+}
 .house-format-page .results-count { margin: 0; color: #fff; font-size: .98rem; white-space: nowrap; }
 .house-format-page .active-filters { margin: 8px 0; }
 .house-format-page .active-filter-chip { color: #fff; background: #0a243b; border-color: #335a77; }
@@ -640,7 +612,7 @@
 @media (max-width: 1100px) {
   .house-format-page .hero { height: 410px; }
   .house-format-page .hero-character-left { width: 51vw; left: -12%; top: 3%; }
-  .house-format-page .hero-character-right { width: 54vw; right: -14%; top: -1%; }
+  .house-format-page .hero-character-right { width: 68vw; right: -24%; top: -3%; }
   .house-format-page .hero-copy { width: min(650px, 60vw); }
   .house-format-page .next-event-panel { grid-template-columns: 52px minmax(0,1fr) auto; gap: 13px; padding-inline: 16px; }
   .house-format-page .event-panel-icon { width: 46px; height: 46px; }
@@ -657,7 +629,7 @@
   .house-format-page .hero { height: 415px; }
   .house-format-page .hero-copy { width: min(690px, calc(100% - 32px)); padding-top: 15px; }
   .house-format-page .hero-character-left { width: 66vw; left: -32%; top: 17%; opacity: .48; }
-  .house-format-page .hero-character-right { width: 69vw; right: -34%; top: 12%; opacity: .48; }
+  .house-format-page .hero-character-right { width: 84vw; right: -38%; top: 10%; opacity: .48; }
   .house-format-page .hero-paint { width: 62vw; opacity: .7; }
   .house-format-page .hero-paint-left { left: -25%; }
   .house-format-page .hero-paint-right { right: -25%; }
@@ -697,7 +669,7 @@
   .house-format-page .hero-wordmark { width: min(390px, 98%); margin-top: 0; }
   .house-format-page .hero-ribbon { width: min(340px, 90%); margin-top: -7px; }
   .house-format-page .hero-character-left { width: 104vw; left: -69%; top: 26%; opacity: .38; }
-  .house-format-page .hero-character-right { width: 108vw; right: -73%; top: 22%; opacity: .38; }
+  .house-format-page .hero-character-right { width: 134vw; right: -70%; top: 20%; opacity: .38; }
   .house-format-page .hero-paint { width: 92vw; top: -23%; opacity: .55; }
   .house-format-page .hero-paint-left { left: -55%; }
   .house-format-page .hero-paint-right { right: -55%; }
@@ -729,7 +701,8 @@
   .house-format-page .filters-panel { padding: 17px; }
   .house-format-page .results-header { display: grid; gap: 8px; }
   .house-format-page .results-controls { width: 100%; align-items: center; flex-direction: row; justify-content: space-between; }
-  .house-format-page .changes-control { white-space: normal; }
+  .house-format-page .list-view-toggles { justify-content: flex-start; }
+  .house-format-page .list-view-toggles button { min-width: 68px; min-height: 44px; padding-inline: 13px; }
   .house-format-page .restriction-key { grid-template-columns: 1fr 1fr; }
   .house-format-page .restriction-key button:nth-child(2) { border-right: 0; }
   .house-format-page .restriction-key button:nth-child(-n+2) { border-bottom: 1px solid #294b66; }

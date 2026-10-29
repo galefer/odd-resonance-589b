@@ -524,7 +524,7 @@ try {
 
   await send('Page.navigate', { url: `${origin}/gog/house-format/?view=changes#list-workspace` });
   await waitFor(`location.pathname==='/gog/' && location.search.includes('view=changes') && location.hash==='#list-workspace' && document.querySelectorAll('#card-list .card-row').length>0`, 'legacy house-format redirect');
-  assert(await evaluate(`document.querySelector('#changes-only').checked`), 'Legacy query restores house-change view');
+  assert.equal(await evaluate(`document.querySelector('[data-list-view="changes"]').getAttribute('aria-pressed')`), 'true', 'Legacy query restores house-change view');
   await click('#admin-button');
   await waitFor(`document.querySelector('#admin-modal').open`, 'administrator dialog');
   assert(await evaluate(`document.querySelector('#admin-modal .brand-logo').naturalWidth>0`), 'Guild of Games logo should load in administrator login');

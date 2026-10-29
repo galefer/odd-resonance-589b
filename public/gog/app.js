@@ -29,6 +29,7 @@ const state = {
   baseline: null,
   entries: [],
   changes: [],
+  recentChanges: [],
   view: 'current',
   filters: { status: new Set(), category: new Set(), subtype: new Set() },
   sort: 'status-name',
@@ -132,9 +133,9 @@ async function loadPublicData() {
   state.baseline = listPayload.baseline || null;
   state.entries = listPayload.entries || [];
   state.changes = listPayload.changes || [];
+  state.recentChanges = listPayload.recentChanges || [];
   state.config.version = listPayload.version || configPayload.version;
   applyConfig();
-  $('#changes-count').textContent = state.changes.length;
   renderList();
 }
 
@@ -158,7 +159,9 @@ function applyConfig() {
 }
 
 function currentDataset() {
-  return state.view === 'changes' ? state.changes : state.entries;
+  if (state.view === 'changes') return state.changes;
+  if (state.view === 'recent') return state.recentChanges;
+  return state.entries;
 }
 
 function filteredDataset() {
@@ -180,13 +183,15 @@ function filteredDataset() {
 function renderList() {
   const list = $('#card-list');
   const data = filteredDataset();
-  const isChanges = state.view === 'changes';
-  $('#changes-count').textContent = state.changes.length;
-  $('#changes-only').checked = isChanges;
-  $('#results-kicker').textContent = isChanges
+  const isHouse = state.view === 'changes';
+  const isRecent = state.view === 'recent';
+  $$('[data-list-view]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.listView === state.view)));
+  $('#results-kicker').textContent = isHouse
     ? 'Compared with the fixed April 2025 JUSH baseline. Status changes remain marked until the restrictions match again.'
-    : '';
-  $('#results-kicker').hidden = !isChanges;
+    : isRecent
+      ? `Changes introduced in ${state.config?.version?.label || 'the latest revision'} compared with the previous published revision.`
+      : '';
+  $('#results-kicker').hidden = !(isHouse || isRecent);
   $('#results-title').textContent = 'Forbidden & Limited List';
   $('#results-count').textContent = `${data.length} ${data.length === 1 ? 'card' : 'cards'} shown`;
   list.setAttribute('aria-busy', 'false');
@@ -194,9 +199,13 @@ function renderList() {
   if (!data.length) {
     list.innerHTML = '';
     $('#empty-state').hidden = false;
-    if (isChanges && state.changes.length === 0 && !activeFilterCount()) {
+    if (isHouse && state.changes.length === 0 && !activeFilterCount()) {
       $('#empty-state h3').textContent = 'This list matches the official baseline';
       $('#empty-state p').textContent = 'House tweaks will appear here whenever a published status differs from the official JUSH banlist.';
+      $('#empty-clear').hidden = true;
+    } else if (isRecent && state.recentChanges.length === 0 && !activeFilterCount()) {
+      $('#empty-state h3').textContent = 'No card changes in this revision';
+      $('#empty-state p').textContent = 'The latest published revision did not change a card restriction or house-format note.';
       $('#empty-clear').hidden = true;
     } else {
       $('#empty-state h3').textContent = 'No cards match those filters';
@@ -227,7 +236,11 @@ function renderCardRow(card) {
   const baselineStatus = card.baselineStatus || card.previousStatus;
   const changeContext = state.view === 'changes' && card.isHouseChange && baselineStatus
     ? `<span class="change-context">Baseline ${STATUS[baselineStatus]?.label || 'Unlimited'} <span aria-hidden="true">→</span> current ${status.label}</span>`
-    : state.view === 'changes' && card.changeType === 'note_updated' ? '<span class="change-context">House-format note changed</span>' : '';
+    : state.view === 'recent' && card.changeType === 'note_updated'
+      ? '<span class="change-context">House-format note changed in this revision</span>'
+      : state.view === 'recent' && card.previousStatus
+        ? `<span class="change-context">Previous ${STATUS[card.previousStatus]?.label || 'Unlimited'} <span aria-hidden="true">→</span> current ${status.label}</span>`
+        : '';
   return `
     <article class="card-row status-${card.status}${card.isHouseChange ? ' is-house-change' : ''}" data-card-name="${escapeHtml(card.name)}">
       <div class="card-thumbnail ${card.category.toLowerCase()}">
@@ -282,7 +295,7 @@ function updateUrl() {
 
 function restoreUrlState() {
   const params = new URLSearchParams(location.search);
-  if (params.get('view') === 'changes') state.view = 'changes';
+  if (['changes', 'recent'].includes(params.get('view'))) state.view = params.get('view');
   for (const group of ['status', 'category', 'subtype']) {
     const values = params.get(group)?.split(',').filter(Boolean) || [];
     values.forEach((value) => state.filters[group].add(value));
@@ -297,7 +310,7 @@ function restoreUrlState() {
 
 function switchView(view, update = true) {
   state.view = view;
-  $('#changes-only').checked = view === 'changes';
+  $$('[data-list-view]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.listView === view)));
   if (update) {
     updateUrl();
     renderList();
@@ -639,7 +652,7 @@ function wireEvents() {
     if (event.target === dialog) dialog.close();
   }));
 
-  $('#changes-only').addEventListener('change', (event) => switchView(event.target.checked ? 'changes' : 'current'));
+  $$('[data-list-view]').forEach((button) => button.addEventListener('click', () => switchView(button.dataset.listView)));
   $('#filter-toggle').addEventListener('click', () => {
     const panel = $('#filters-panel');
     panel.classList.toggle('open');

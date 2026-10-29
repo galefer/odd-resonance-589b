@@ -112,6 +112,7 @@ try {
           webkitMaskImage:style.webkitMaskImage,
           opacity:style.opacity,
           filter:style.filter,
+          currentSrc:image.currentSrc,
           imageOpacity:imageStyle.opacity,
           imageFilter:imageStyle.filter,
           before:{content:before.content,backgroundImage:before.backgroundImage},
@@ -121,6 +122,7 @@ try {
       const build=[...document.querySelectorAll('a,button')].filter(e=>e.textContent.trim().toLowerCase()==='build a deck');
       const adminButton=document.querySelector('#admin-button');
       const adminRect=adminButton.getBoundingClientRect();
+      const viewToggles=[...document.querySelectorAll('[data-list-view]')].map(button=>{const r=button.getBoundingClientRect();return {label:button.textContent.trim(),pressed:button.getAttribute('aria-pressed'),height:r.height,radius:getComputedStyle(button).borderRadius}});
       return {
         viewport:innerWidth,
         overflow:document.documentElement.scrollWidth-innerWidth,
@@ -140,6 +142,7 @@ try {
         defaultComparisonRows:document.querySelectorAll('.change-context').length,
         buildCount:build.length,
         adminButton:{text:adminButton.textContent.trim(),inHeader:Boolean(adminButton.closest('.gog-site-header')),right:adminRect.right,width:adminRect.width},
+        viewToggles,
         oldNavigation:document.querySelectorAll('.gog-primary-nav,.gog-mobile-nav,.view-tabs,.feature-card,.hero-actions').length,
         filterDisplay:getComputedStyle(document.querySelector('#filters-panel')).display
       };
@@ -165,13 +168,13 @@ try {
     assert.equal(geometry.characterTreatment.right.imageOpacity,'1');
     assert.equal(geometry.characterTreatment.left.imageFilter,'none');
     assert.equal(geometry.characterTreatment.right.imageFilter,'none');
-    if (width > 820) {
-      assert.match(geometry.characterTreatment.right.before.backgroundImage,/paint-frame-right-512\.webp/,`${width}px upper crop overlap`);
-      assert.match(geometry.characterTreatment.right.after.backgroundImage,/paint-frame-right-512\.webp/,`${width}px lower crop overlap`);
-    } else {
-      assert.equal(geometry.characterTreatment.right.before.content,'none',`${width}px no crop overlap needed`);
-      assert.equal(geometry.characterTreatment.right.after.content,'none',`${width}px no crop overlap needed`);
-    }
+    assert.match(geometry.characterTreatment.right.currentSrc,/cosmic-mecha-dragon-guardian-(384|768|1254)\.webp/,`${width}px complete dragon asset`);
+    assert.equal(geometry.characterTreatment.right.before.content,'none',`${width}px no obsolete upper crop patch`);
+    assert.equal(geometry.characterTreatment.right.after.content,'none',`${width}px no obsolete lower crop patch`);
+    assert.deepEqual(geometry.viewToggles.map(button=>button.label),['All','House','Recent']);
+    assert.equal(geometry.viewToggles.filter(button=>button.pressed==='true').length,1,`${width}px one active list view`);
+    assert(geometry.viewToggles.every(button=>button.height>=(width<=600?44:40)),`${width}px readable list-view controls`);
+    assert(geometry.viewToggles.every(button=>Number.parseFloat(button.radius)>=20),`${width}px ovular list-view controls`);
     assert.equal(geometry.defaultComparisonRows,0,`${width}px concise default rows`);
     if (width === 1536) assert(geometry.content.ratio>=.88&&geometry.content.ratio<=.90,`1536px working width should be 88–90%, got ${geometry.content.ratio}`);
     if (width === 2048) assert(geometry.content.width>=1700&&geometry.content.width<=1800,`2048px working width should be 1700–1800px, got ${geometry.content.width}`);
@@ -214,7 +217,7 @@ try {
   await waitFor(`location.pathname==='/gog/' && document.querySelectorAll('.card-row').length>0`, 'legacy route redirect');
   assert.equal(await evaluate(`location.search`),'?view=changes');
   assert.equal(await evaluate(`location.hash`),'#list-workspace');
-  assert.equal(await evaluate(`document.querySelector('#changes-only').checked`),true);
+  assert.equal(await evaluate(`document.querySelector('[data-list-view="changes"]').getAttribute('aria-pressed')`),'true');
   assert(await evaluate(`document.querySelectorAll('.change-context').length>0`),'Comparison view should show baseline-to-current context');
   assert.equal(await evaluate(`document.querySelector('#results-kicker').hidden`),false);
   await screenshot('jush-home-changes-1536.png');
@@ -226,9 +229,12 @@ try {
   assert(filtered.length>0);
   assert(filtered.every(e=>/status-forbidden|status-limited/.test(e.status)&&e.meta.includes('Spell')));
   await click('#clear-filters');
-  await click('#changes-only');
-  assert.equal(await evaluate(`document.querySelector('#changes-only').checked`),false);
-  await click('#changes-only');
+  await click('[data-list-view="current"]');
+  assert.equal(await evaluate(`document.querySelector('[data-list-view="current"]').getAttribute('aria-pressed')`),'true');
+  await click('[data-list-view="recent"]');
+  assert.equal(await evaluate(`new URLSearchParams(location.search).get('view')`),'recent');
+  assert.equal(await evaluate(`document.querySelector('[data-list-view="recent"]').getAttribute('aria-pressed')`),'true');
+  await click('[data-list-view="changes"]');
   assert.equal(await evaluate(`new URLSearchParams(location.search).get('view')`),'changes');
   await click('[data-rule-filter="unlimited"]');
   assert(await evaluate(`document.querySelectorAll('.card-row.status-unlimited').length>0`),'Unlimited house changes must remain in the comparison set');
@@ -252,7 +258,7 @@ try {
   assert.equal(await evaluate(`document.querySelector('.gog-back-link').getAttribute('href')`),'/gog/');
 
   evidence.checks.push('single JUSH homepage route, preserved legacy query/hash redirect and direct deckbuilder route');
-  evidence.checks.push('one deck CTA, live JUSH event panel, house-change checkbox, combined filters, eligible search and card details');
+  evidence.checks.push('one deck CTA, live JUSH event panel, exclusive All/House/Recent list views, combined filters, eligible search and card details');
   evidence.checks.push('390/768/1440/1536/1920/2048px layouts at 1× scale, local fonts, effective working width, no overflow or clipped controls');
   evidence.checks.push('visible status checkboxes, full-label activation, keyboard Space toggle and concise default comparison rows');
   assert.deepEqual(failedResponses,[]);
