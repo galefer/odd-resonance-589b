@@ -196,8 +196,8 @@ try {
     }
     if (width <= 600) {
       assert.equal(geometry.adminButton.display,'none',`${width}px moves administration out of the public header`);
-      assert(geometry.hero.height<=290,`${width}px compact mobile hero`);
-      assert(geometry.hero.bottomGap>=0&&geometry.hero.bottomGap<=18,`${width}px hero should end just below its actions, got ${geometry.hero.bottomGap}px`);
+      assert(geometry.hero.height<=300,`${width}px compact mobile hero`);
+      assert(geometry.hero.bottomGap>=12&&geometry.hero.bottomGap<=24,`${width}px hero should retain a small cushion below its actions, got ${geometry.hero.bottomGap}px`);
       assert(geometry.event.height<=90,`${width}px compact mobile event summary`);
       assert.notEqual(geometry.mobileLayout.summary,'none',`${width}px compact format summary visible`);
       assert.equal(geometry.mobileLayout.facts,'none',`${width}px tall fact rows hidden`);

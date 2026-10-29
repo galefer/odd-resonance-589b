@@ -669,7 +669,7 @@
   .house-format-page .gog-context { display: none; }
   .house-format-page .gog-mobile-context { display: block; color: #d6e3ee; font-size: .7rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; white-space: nowrap; }
   .house-format-page .gog-admin-link { display: none; }
-  .house-format-page .hero { height: 270px; }
+  .house-format-page .hero { height: 286px; }
   .house-format-page .hero-copy { width: calc(100% - 24px); padding-top: 8px; }
   .house-format-page .hero-brand-line,
   .house-format-page .hero-community-line,
@@ -764,7 +764,7 @@
 
 @media (max-width: 380px) {
   .house-format-page .gog-context { display: none; }
-  .house-format-page .hero { height: 258px; }
+  .house-format-page .hero { height: 260px; }
   .house-format-page .hero-copy { padding-top: 6px; }
   .house-format-page .next-event-copy time { font-size: 1.28rem; }
   .house-format-page .hero-mobile-actions .jush-button { font-size: .91rem; }
