@@ -25,7 +25,9 @@ const statusLabel = (status) => ({ unlimited: 'Unlimited', semi_limited: 'Semi-L
 const statusBadge = (status) => ({ forbidden: '0', limited: '1', semi_limited: '2' }[status] || '');
 const clone = (value) => structuredClone(value);
 const MOBILE_WORKSPACE_QUERY = '(max-width:767px)';
+const COMPACT_WORKSPACE_QUERY = '(max-width:1279px)';
 const MOBILE_SPLIT_STORAGE_KEY = 'gog-deckbuilder-mobile-split';
+const DECK_VIEW_STORAGE_KEY = 'gog-deckbuilder-view-preferences';
 const DEFAULT_MOBILE_SPLIT_RATIO = 0.55;
 const delay = (fn, milliseconds) => {
   let timer = 0;
@@ -37,7 +39,12 @@ let history;
 let currentDeckId = null;
 let selectedCard = null;
 let selectedInstanceId = null;
-const deckViewPreferences = { desktop: false, mobile: true };
+const deckViewPreferences = (() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DECK_VIEW_STORAGE_KEY) || '{}');
+    return { desktop: saved.desktop === true, mobile: saved.mobile !== false };
+  } catch { return { desktop: false, mobile: true }; }
+})();
 let deckViewContext = isMobileWorkspace() ? 'mobile' : 'desktop';
 let grouped = deckViewPreferences[deckViewContext];
 let saveTimer = 0;
@@ -92,6 +99,7 @@ let mobileSplitFrame = 0;
 let mobileSplitClientY = null;
 
 function isMobileWorkspace() { return matchMedia(MOBILE_WORKSPACE_QUERY).matches; }
+function isCompactWorkspace() { return matchMedia(COMPACT_WORKSPACE_QUERY).matches; }
 
 function cardIdentity(card) {
   if (!card) return '';
@@ -242,6 +250,7 @@ function removeCardFromZone(card, zone) {
 function render() {
   if (!history) return;
   $('deck-name').textContent = history.deck.name;
+  $('deck-name').title = history.deck.name;
   $('undo').disabled = !history.past.length;
   $('redo').disabled = !history.future.length;
   $('inspector-undo').disabled = !history.past.length;
@@ -273,7 +282,13 @@ function renderInspector() {
   $('card-status').className = `restriction ${status}`;
   $('card-status').textContent = statusLabel(status);
   const copies = totalUsageFor(card);
-  $('usage').textContent = card ? `${copies} / ${Number(card.copies ?? card.allowedCopies ?? 0)} copies used` : '';
+  const allowed = Number(card?.copies ?? card?.allowedCopies ?? 0);
+  const atMaximum = !!card && allowed > 0 && copies === allowed;
+  const overMaximum = !!card && allowed >= 0 && copies > allowed;
+  $('usage').className = `muted${atMaximum ? ' at-maximum' : overMaximum ? ' over-limit' : ''}`;
+  $('usage').textContent = card ? (atMaximum
+    ? `${copies}/${allowed} copies · Maximum reached`
+    : overMaximum ? `${copies}/${allowed} copies · Over limit` : `${copies}/${allowed} copies used`) : '';
   $('effect').textContent = card?.description || 'Verified effect text and house-format status will appear here.';
   const stats = [];
   if (card?.level != null) stats.push(['Level / Rank', card.level]);
@@ -289,8 +304,9 @@ function renderInspector() {
   }));
   const automaticZone = card ? defaultZoneFor(card) : 'main';
   const reason = card ? localIssueFor(card, automaticZone) : 'Select an eligible card.';
-  $('add-reason').hidden = !card || !reason;
-  $('add-reason').textContent = reason || '';
+  const actionableReason = atMaximum ? '' : reason;
+  $('add-reason').hidden = !card || !actionableReason;
+  $('add-reason').textContent = actionableReason || '';
   $('add-auto').disabled = !card || !!reason;
   $('add-auto').textContent = card?.placement === 'extra' ? '＋ Extra Deck' : '＋ Main Deck';
   const sideReason = card ? localIssueFor(card, 'side') : 'Select an eligible card.';
@@ -819,14 +835,21 @@ async function validateCurrentDeck(key, sequence) {
 
 function renderValidation(state = 'checking') {
   const banner = $('validation-banner'); banner.className = `validation-banner ${state}`;
+  const compact = $('validation-compact');
+  compact.className = `validation-compact ${state}`;
   if (state === 'checking') {
     $('validation-icon').textContent = '…'; $('validation-title').textContent = 'Checking published house rules'; $('validation-summary').textContent = 'Validating every card and section.';
+    $('validation-compact-icon').textContent = '…'; $('validation-compact-label').textContent = 'Checking'; compact.setAttribute('aria-label', 'Checking published house rules');
   } else if (state === 'legal') {
     $('validation-icon').textContent = '✓'; $('validation-title').textContent = 'Legal for the published house format'; $('validation-summary').textContent = `${validationResult.version.label} · checked ${new Date(validationResult.checkedAt).toLocaleString()}`;
+    $('validation-compact-icon').textContent = '✓'; $('validation-compact-label').textContent = 'Legal'; compact.setAttribute('aria-label', 'Deck is legal. View validation details');
   } else if (state === 'invalid') {
     $('validation-icon').textContent = '!'; $('validation-title').textContent = 'Deck needs attention'; $('validation-summary').textContent = `${validationResult.issues.length} ${validationResult.issues.length === 1 ? 'issue' : 'issues'} under ${validationResult.version.label}.`;
+    const issues = validationResult.issues.length;
+    $('validation-compact-icon').textContent = '!'; $('validation-compact-label').textContent = `${issues} ${issues === 1 ? 'issue' : 'issues'}`; compact.setAttribute('aria-label', `Deck has ${issues} ${issues === 1 ? 'issue' : 'issues'}. View validation details`);
   } else {
     $('validation-icon').textContent = '?'; $('validation-title').textContent = 'Legality could not be verified'; $('validation-summary').textContent = validationResult?.issues?.[0]?.message || 'The current published list or catalogue could not be reached.';
+    $('validation-compact-icon').textContent = '?'; $('validation-compact-label').textContent = 'Unavailable'; compact.setAttribute('aria-label', 'Deck legality could not be verified. View details');
   }
 }
 
@@ -1573,7 +1596,7 @@ function moveToolsHome() {
 }
 
 function openMobileInspector(returnFocus) {
-  if (!isMobileWorkspace()) return;
+  if (!isCompactWorkspace()) return;
   cancelTouchDrag(); inspectorReturnFocus = returnFocus;
   const dialog = $('card-inspector-dialog');
   $('mobile-inspector-mount').append(document.querySelector('.inspector'));
@@ -1611,7 +1634,7 @@ function setToolsTab(tab) {
 }
 
 function openMobileTools(tab = 'overview') {
-  if (!isMobileWorkspace()) return;
+  if (!isCompactWorkspace()) return;
   cancelTouchDrag(); setToolsTab(tab);
   const dialog = $('mobile-tools-dialog');
   $('mobile-tools-mount').append(document.querySelector('.tools-panel'));
@@ -1660,12 +1683,14 @@ function closeMobileZoneMenu() {
 
 function syncGroupedViewControls() {
   $('copies-view').classList.toggle('active', !grouped); $('grouped-view').classList.toggle('active', grouped);
+  $('copies-view').setAttribute('aria-pressed', String(!grouped)); $('grouped-view').setAttribute('aria-pressed', String(grouped));
   $('mobile-copies-view').setAttribute('aria-checked', String(!grouped)); $('mobile-grouped-view').setAttribute('aria-checked', String(grouped));
 }
 
 function setGroupedView(value) {
   grouped = !!value;
   deckViewPreferences[deckViewContext] = grouped;
+  try { localStorage.setItem(DECK_VIEW_STORAGE_KEY, JSON.stringify(deckViewPreferences)); } catch { /* The view remains usable without preference storage. */ }
   syncGroupedViewControls();
   renderDeck(); closeMobileZoneMenu();
 }
@@ -1804,10 +1829,12 @@ function syncMobileViewport() {
 
 function handleWorkspaceResize() {
   cancelTouchDrag(); syncMobileViewport(); syncResponsiveDeckView();
-  if (!isMobileWorkspace()) {
+  if (!isCompactWorkspace()) {
     if ($('card-inspector-dialog').open) $('card-inspector-dialog').close(); else moveInspectorHome();
     if ($('mobile-tools-dialog').open) $('mobile-tools-dialog').close(); else moveToolsHome();
     if ($('mobile-actions-dialog').open) $('mobile-actions-dialog').close();
+  }
+  if (!isMobileWorkspace()) {
     document.body.classList.remove('search-keyboard-open');
   }
 }
@@ -1922,6 +1949,10 @@ function wireEvents() {
   $('redo').addEventListener('click', redoDeck);
   $('copies-view').addEventListener('click', () => setGroupedView(false));
   $('grouped-view').addEventListener('click', () => setGroupedView(true));
+  $('compact-inspector-button').addEventListener('click', (event) => {
+    openMobileInspector({ element: event.currentTarget, identity: cardIdentity(selectedSource()), source: selectedInstanceId ? 'deck' : 'library' });
+  });
+  $('compact-tools-button').addEventListener('click', () => openMobileTools('overview'));
   $('add-auto').addEventListener('click', () => { const card = selectedSource(); if (card) addCard(card); });
   $('add-side').addEventListener('click', () => { const card = selectedSource(); if (card) addCard(card, 'side'); });
   $('remove-selected').addEventListener('click', removeSelected);
@@ -1963,6 +1994,7 @@ function wireEvents() {
   $('clear-library-filters').addEventListener('click', () => { $('status-filter').value = ''; $('subtype-filter').value = ''; $('attribute-filter').value = ''; loadCatalogue(); });
   $('load-more').addEventListener('click', () => { cataloguePage += 1; loadCatalogue({ append: true }); });
   $('validation-info').addEventListener('click', validationDetails);
+  $('validation-compact').addEventListener('click', validationDetails);
   $('probability-target').addEventListener('change', renderProbability); $('hand-size').addEventListener('change', renderProbability); $('minimum-copies').addEventListener('change', renderProbability);
   $('probability-info').addEventListener('click', () => info('Opening probability', 'Exact hypergeometric probability using physical copies in the Main Deck. Extra and Side Deck cards are excluded. Groups may overlap, so each group is calculated on its own.'));
   $('groups-button').addEventListener('click', () => { renderGroupsDialog(); openDialog($('groups-dialog'), $('groups-button')); });

@@ -20,18 +20,24 @@
         <img src="/gog/assets/jush/artwork/guild-of-games-logo-128.webp" srcset="/gog/assets/jush/artwork/guild-of-games-logo-64.webp 64w, /gog/assets/jush/artwork/guild-of-games-logo-128.webp 128w, /gog/assets/jush/artwork/guild-of-games-logo-256.webp 256w" sizes="50px" alt="" width="128" height="121">
         <span><strong>Guild of Games</strong><small>JUSH Deckbuilder</small></span>
       </a>
-      <a class="gog-back-link" href="/gog/"><span aria-hidden="true">←</span> Back to format</a>
+      <a class="gog-back-link" href="/gog/"><span aria-hidden="true">←</span> House format</a>
     </div>
   </header>
 
   <section class="deck-toolbar" aria-label="Deck controls">
     <div class="deck-identity">
       <div class="deck-title-row">
-      <button id="deck-menu-button" class="deck-title-button" type="button" aria-haspopup="menu" aria-expanded="false">
-        <span id="deck-name">Untitled deck</span><span aria-hidden="true">⌄</span>
-      </button>
-      <button id="save-deck" class="button" type="button">Save deck</button>
-      <button id="saved-decks-button" class="button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="deck-menu">Saved decks</button>
+        <div class="deck-heading">
+          <p>JUSH Deckbuilder</p>
+          <div class="deck-name-line">
+            <h1 id="deck-name">Untitled deck</h1>
+            <button id="deck-menu-button" class="deck-title-button" type="button" aria-label="Open deck menu" aria-haspopup="menu" aria-expanded="false" aria-controls="deck-menu"><span aria-hidden="true">⌄</span></button>
+          </div>
+        </div>
+        <div class="deck-save-actions" aria-label="Local deck storage">
+          <button id="save-deck" class="button" type="button">Save deck</button>
+          <button id="saved-decks-button" class="button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="deck-menu">Saved decks</button>
+        </div>
       </div>
       <div class="save-line"><span id="save-dot"></span><span id="saved-label" role="status">Opening local decks…</span></div>
       <div id="deck-menu" class="floating-menu deck-menu" role="menu" hidden>
@@ -60,19 +66,24 @@
     <aside class="left-panel panel">
       <section class="inspector" data-workspace-panel="card">
         <div class="panel-heading"><h2>Card inspector</h2><span id="selection-label">NOTHING SELECTED</span></div>
-        <div class="inspector-image-wrap"><img id="large-card" src="/gog/deckbuilder/card-back.svg" alt="No card selected" width="421" height="614"><button id="zoom" type="button" aria-label="Open larger artwork" disabled>↗</button></div>
-        <div class="inspector-copy">
+        <div class="inspector-summary">
           <h2 id="card-name">Select a card</h2>
           <p id="card-meta" class="muted">Search the eligible catalogue or select a card in your deck.</p>
           <div class="status-row"><span id="card-status" class="restriction neutral">Unverified</span><span id="usage" class="muted"></span></div>
-          <p id="effect">Verified effect text and house-format status will appear here.</p>
+        </div>
+        <div class="inspector-image-wrap"><img id="large-card" src="/gog/deckbuilder/card-back.svg" alt="No card selected" width="421" height="614"><button id="zoom" type="button" aria-label="Open larger artwork" disabled>↗</button></div>
+        <div class="inspector-copy">
           <dl id="card-stats" class="card-stats"></dl>
+          <section class="effect-block" aria-labelledby="effect-heading">
+            <h3 id="effect-heading">Card text</h3>
+            <p id="effect">Verified effect text and house-format status will appear here.</p>
+          </section>
           <p id="add-reason" class="action-reason" hidden></p>
-          <div class="inspector-actions">
+          <div class="inspector-actions" aria-label="Add selected card">
             <button id="add-auto" class="button" type="button" disabled>＋ Main / Extra</button>
             <button id="add-side" class="button" type="button" disabled>＋ Side</button>
           </div>
-          <div id="selected-instance-actions" class="selected-actions" hidden>
+          <div id="selected-instance-actions" class="selected-actions" aria-label="Selected deck copy" hidden>
             <button id="remove-selected" type="button">Remove</button>
             <button id="copy-selected" type="button">Add copy</button>
             <button id="move-selected" type="button">Move section</button>
@@ -144,7 +155,15 @@
     </button>
 
     <section id="deck-workspace" class="deck-canvas" data-workspace-panel="deck">
-      <div class="canvas-heading"><div><p class="eyebrow">YU-GI-OH! JUSH HOUSE FORMAT</p><h1>Deckbuilder</h1><p id="mobile-count" class="mobile-count">Main 0 · Extra 0 · Side 0</p></div><div class="view-toggle" role="group" aria-label="Deck display"><button id="copies-view" class="active" type="button">▦ Copies</button><button id="grouped-view" type="button">▤ Grouped</button></div></div>
+      <div class="canvas-heading">
+        <div class="canvas-title"><p class="eyebrow">DECK WORKSPACE</p><p class="canvas-caption">Arrange Main, Extra and Side without leaving the current deck.</p><p id="mobile-count" class="mobile-count">Main 0 · Extra 0 · Side 0</p></div>
+        <div class="canvas-heading-actions">
+          <button id="compact-inspector-button" class="button compact-workspace-action" type="button">Card details</button>
+          <button id="compact-tools-button" class="button compact-workspace-action" type="button">Deck tools</button>
+          <button id="validation-compact" class="validation-compact checking" type="button" aria-label="Checking published house rules"><span id="validation-compact-icon" aria-hidden="true">…</span><strong id="validation-compact-label">Checking</strong></button>
+          <div class="view-toggle" role="group" aria-label="Deck display"><button id="copies-view" class="active" type="button">▦ Copies</button><button id="grouped-view" type="button">▤ Grouped</button></div>
+        </div>
+      </div>
       <div class="mobile-deck-bar">
         <div id="mobile-zone-tabs" class="mobile-zone-tabs" role="tablist" aria-label="Deck sections">
           <button id="zone-tab-main" class="active" data-zone-tab="main" type="button" role="tab" aria-selected="true" aria-controls="deck-zone-main">Main <span id="tab-count-main">0</span></button>
