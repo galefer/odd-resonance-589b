@@ -168,11 +168,12 @@ test('unresolved imports remain visible and portable when their numeric ID is re
 });
 
 test('JSON backup whitelists data, ignores forged legality and restores fresh identities', () => {
-  const deck = newDeck('<img src=x onerror=alert(1)>'); deck.isLegal = true; deck.main.push(instanceFromCard(card()));
-  const backup = makeBackup([deck]);
+  const deck = newDeck('<img src=x onerror=alert(1)>'); deck.isLegal = true; deck.folderId = 'folder-safe'; deck.main.push(instanceFromCard(card()));
+  const backup = makeBackup([deck], [{ id: 'folder-safe', name: 'Testing', order: 0, createdAt: deck.createdAt }]);
   assert.equal('isLegal' in backup.decks[0], false);
-  const [restored] = parseBackup(JSON.stringify(backup));
+  const restoredDecks = parseBackup(JSON.stringify(backup)); const [restored] = restoredDecks;
   assert.notEqual(restored.id, deck.id); assert.equal(restored.main.length, 1);
+  assert.equal(restored.folderId, 'folder-safe'); assert.deepEqual(restoredDecks.folders.map(folder => folder.name), ['Testing']);
   assert.equal('isLegal' in sanitiseDeck({ ...deck, isLegal: true }), false);
 });
 

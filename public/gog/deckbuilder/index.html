@@ -36,19 +36,15 @@
         </div>
         <div class="deck-save-actions" aria-label="Local deck storage">
           <button id="save-deck" class="button" type="button">Save deck</button>
-          <button id="saved-decks-button" class="button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="deck-menu">Saved decks</button>
+          <button id="saved-decks-button" class="button" type="button" aria-haspopup="dialog" aria-controls="deck-manager-dialog">My decks</button>
         </div>
       </div>
       <div class="save-line"><span id="save-dot"></span><span id="saved-label" role="status">Opening local decks…</span></div>
       <div id="deck-menu" class="floating-menu deck-menu" role="menu" hidden>
-        <div class="menu-heading"><b>Saved decks</b><span>This browser</span></div>
-        <p>Decks save automatically here. No account needed. Export a backup to keep them when moving devices or clearing browser data.</p>
+        <div class="menu-heading"><b>Recent decks</b><span>This browser</span></div>
         <div id="deck-menu-list" class="deck-menu-list"></div>
         <hr>
-        <button id="new-deck" type="button" role="menuitem">＋ New deck</button>
-        <button id="duplicate-deck" type="button" role="menuitem">⧉ Duplicate current</button>
-        <button id="rename-deck" type="button" role="menuitem">✎ Rename current</button>
-        <button id="delete-deck" class="danger" type="button" role="menuitem">Delete current</button>
+        <button id="view-all-decks" class="menu-row" type="button" role="menuitem">View all decks <span aria-hidden="true">→</span></button>
       </div>
     </div>
     <div class="toolbar-actions">
@@ -188,6 +184,65 @@
 
   <footer class="deck-footer"><span>Guild of Games · Unofficial Yu-Gi-Oh! community format · Card data powered by YGOPRODeck</span><span id="footer-version">Published list unavailable</span></footer>
 
+  <dialog id="deck-manager-dialog" class="deck-manager-dialog" aria-labelledby="deck-manager-title">
+    <section class="deck-manager-shell">
+      <header class="deck-manager-header">
+        <div class="deck-manager-heading"><p class="eyebrow">JUSH DECKBUILDER</p><h2 id="deck-manager-title">My decks</h2><p id="deck-manager-summary">Loading decks…</p></div>
+        <div class="deck-manager-header-actions">
+          <button id="deck-manager-new" class="button" type="button" data-browse-only>New deck</button>
+          <button id="deck-manager-select" class="button" type="button" data-browse-only>Select</button>
+          <button id="deck-manager-done" class="button" type="button" data-select-only hidden>Done</button>
+          <button id="deck-manager-close" class="close-button" type="button" aria-label="Close My decks">×</button>
+        </div>
+      </header>
+      <div class="deck-manager-controls">
+        <label class="deck-manager-search" for="deck-manager-search"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16.5 16.5 4 4"></path></svg><input id="deck-manager-search" type="search" autocomplete="off" placeholder="Search decks…"></label>
+        <label class="deck-manager-sort" for="deck-manager-sort"><span class="visually-hidden">Sort decks</span><select id="deck-manager-sort"><option value="recent">Recently edited</option><option value="name">Name A–Z</option></select></label>
+        <div class="deck-manager-scope">
+          <label id="deck-manager-select-all-wrap" class="deck-manager-check-label" data-select-only hidden><input id="deck-manager-select-all" class="deck-manager-check" type="checkbox"><span id="deck-manager-select-all-label">Select all results</span></label>
+          <button id="deck-manager-add-folder" class="button" type="button">+ Folder</button>
+        </div>
+      </div>
+      <p id="deck-manager-error" class="deck-manager-error" role="alert" hidden></p>
+      <div id="deck-manager-list" class="deck-manager-list" aria-live="polite"></div>
+      <div id="deck-manager-undo" class="deck-manager-undo" role="status" hidden><span id="deck-manager-undo-message">Deck deleted.</span><button id="deck-manager-undo-button" type="button">Undo</button></div>
+      <footer class="deck-manager-footer deck-manager-footer-browse" data-browse-only>
+        <p><strong>Saved automatically in this browser.</strong><span>Back up before clearing browser data or changing devices.</span></p>
+        <button id="deck-manager-backup" class="button" type="button">Back up all decks</button>
+      </footer>
+      <footer class="deck-manager-footer deck-manager-footer-select" data-select-only hidden>
+        <p><strong id="deck-manager-selected-count">0 selected</strong><span id="deck-manager-selected-outside"></span></p>
+        <div><button id="deck-manager-bulk-move" class="button" type="button" disabled>Move to…</button><button id="deck-manager-bulk-export" class="button" type="button" disabled>Export</button><button id="deck-manager-bulk-delete" class="button danger" type="button" disabled>Delete</button></div>
+      </footer>
+      <div id="deck-row-menu" class="deck-row-menu" role="menu" hidden>
+        <button type="button" role="menuitem" data-deck-action="rename">Rename</button>
+        <button type="button" role="menuitem" data-deck-action="duplicate">Duplicate</button>
+        <button type="button" role="menuitem" data-deck-action="move">Move to folder</button>
+        <button type="button" role="menuitem" data-deck-action="export">Export .ydk</button>
+        <hr><button class="danger" type="button" role="menuitem" data-deck-action="delete">Delete</button>
+      </div>
+    </section>
+  </dialog>
+
+  <dialog id="deck-name-dialog" class="app-dialog narrow" aria-labelledby="deck-name-dialog-title">
+    <form id="deck-name-dialog-form">
+      <div class="modal-header"><div><p class="eyebrow">MY DECKS</p><h2 id="deck-name-dialog-title">Deck name</h2></div><button class="close-button" type="button" id="deck-name-dialog-close" aria-label="Close">×</button></div>
+      <div class="modal-content"><label class="deck-name-field" for="deck-action-name"><span id="deck-action-name-label">Name</span><input id="deck-action-name" type="text" maxlength="100" autocomplete="off" required></label><p id="deck-name-dialog-error" class="dialog-error" role="alert" hidden></p></div>
+      <div class="modal-actions"><button id="deck-name-dialog-cancel" class="button" type="button">Cancel</button><button id="deck-name-dialog-submit" class="button primary" type="submit">Save</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="deck-move-dialog" class="app-dialog narrow" aria-labelledby="deck-move-title">
+    <div class="modal-header"><div><p class="eyebrow">ORGANISE</p><h2 id="deck-move-title">Move to…</h2></div><button id="deck-move-close" class="close-button" type="button" aria-label="Close folder chooser">×</button></div>
+    <div class="modal-content"><p id="deck-move-caption" class="muted">Choose a destination folder.</p><div id="deck-move-options" class="deck-move-options"></div></div>
+  </dialog>
+
+  <dialog id="deck-delete-dialog" class="app-dialog narrow" aria-labelledby="deck-delete-title">
+    <div class="modal-header"><div><p class="eyebrow">CONFIRM DELETE</p><h2 id="deck-delete-title">Delete deck?</h2></div><button id="deck-delete-close" class="close-button" type="button" aria-label="Close delete confirmation">×</button></div>
+    <div class="modal-content"><p id="deck-delete-message">This deck will be removed from this browser.</p><p class="muted small">You can undo immediately after deletion.</p></div>
+    <div class="modal-actions"><button id="deck-delete-cancel" class="button" type="button">Cancel</button><button id="deck-delete-confirm" class="button danger" type="button">Delete</button></div>
+  </dialog>
+
   <div id="export-menu" class="floating-menu export-menu" role="menu" hidden>
     <div class="menu-heading"><b>Export deck</b><span>Main / Extra / Side</span></div>
     <button id="download-ydk" class="export-option" type="button"><span class="file-type">YDK</span><span><strong>Download .ydk</strong><small>Simulator-friendly deck file</small></span><b>⇩</b></button>
@@ -295,11 +350,8 @@
     <div class="mobile-actions-content">
       <section><h3>Deck</h3><div class="mobile-command-grid">
         <button type="button" data-mobile-command="save"><span>Save deck</span><small>Name or save now</small></button>
-        <button type="button" data-mobile-command="saved"><span>Saved decks</span><small>Switch or manage</small></button>
+        <button type="button" data-mobile-command="saved"><span>My decks</span><small>Search and manage</small></button>
         <button type="button" data-mobile-command="new"><span>New deck</span><small>Start fresh</small></button>
-        <button type="button" data-mobile-command="rename"><span>Rename</span><small>Change this name</small></button>
-        <button type="button" data-mobile-command="duplicate"><span>Duplicate</span><small>Copy this deck</small></button>
-        <button class="danger" type="button" data-mobile-command="delete"><span>Delete</span><small>Remove from device</small></button>
       </div></section>
       <section><h3>Find &amp; share</h3><div class="mobile-command-grid two-column">
         <button type="button" data-mobile-command="templates"><span>Template decks</span><small>Browse 397 starting lists</small></button>
@@ -333,6 +385,6 @@
   <dialog id="art-dialog" class="art-dialog"><form method="dialog"><button class="close-button" value="cancel" aria-label="Close artwork">×</button><img id="art-dialog-image" src="/gog/deckbuilder/card-back.svg" alt=""></form></dialog>
   <div id="toast" class="toast" role="status" hidden></div>
 
-  <script type="module" src="/gog/deckbuilder/app.js"></script>
+  <script type="module" src="/gog/deckbuilder/app.js?v=gog-jush-v17-2026-10-29-deck-manager"></script>
 </body>
 </html>

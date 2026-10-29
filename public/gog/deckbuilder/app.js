@@ -10,11 +10,17 @@ import {
   applyTemplatePresentation, filterTemplates, groupTemplates, normaliseTemplateManifest,
   templateFacets, templateZoneCount, templateZoneIds
 } from './templates.js';
+import {
+  applyTemplateQuality, loadTemplateQuality, refreshTemplateQualityForHouse,
+  templateQualityPresentation, versionedTemplateUrl
+} from './template-quality.mjs';
 
 const API = '/gog/api';
 const CARD_BACK = '/gog/deckbuilder/card-back.svg';
 const TEMPLATE_CATALOGUE_URL = '/gog/deckbuilder/template-decks.json';
 const TEMPLATE_PRESENTATION_URL = '/gog/deckbuilder/template-presentation.json';
+const TEMPLATE_QUALITY_URL = '/gog/deckbuilder/template-quality.json';
+const TEMPLATE_DATA_RELEASE = "gog-jush-v16-2026-10-29-rebuild-2.1";
 const TEMPLATE_COLLAPSED_KEY = 'gog-template-collapsed-families';
 const TEMPLATE_ROW_HEIGHT = 76;
 const TEMPLATE_GROUP_HEIGHT = 46;
@@ -28,6 +34,7 @@ const MOBILE_WORKSPACE_QUERY = '(max-width:767px)';
 const COMPACT_WORKSPACE_QUERY = '(max-width:1279px)';
 const MOBILE_SPLIT_STORAGE_KEY = 'gog-deckbuilder-mobile-split';
 const DECK_VIEW_STORAGE_KEY = 'gog-deckbuilder-view-preferences';
+const DECK_MANAGER_COLLAPSED_KEY = 'gog-deck-manager-collapsed-folders';
 const DEFAULT_MOBILE_SPLIT_RATIO = 0.55;
 const delay = (fn, milliseconds) => {
   let timer = 0;
@@ -100,6 +107,17 @@ let mobileSplitClientY = null;
 let mobileSheetDrag = null;
 let mobileSheetTimer = 0;
 let mobileSheetSuppressClickUntil = 0;
+let deckManagerDecks = [];
+let deckManagerFolders = [];
+let deckManagerRecents = [];
+let deckManagerSelectionMode = false;
+let deckManagerAction = null;
+let deckManagerLastDeletion = null;
+const deckManagerSelected = new Set();
+const deckManagerCollapsed = new Set((() => {
+  try { const value = JSON.parse(localStorage.getItem(DECK_MANAGER_COLLAPSED_KEY) || '[]'); return Array.isArray(value) ? value : []; }
+  catch { return []; }
+})());
 
 function isMobileWorkspace() { return matchMedia(MOBILE_WORKSPACE_QUERY).matches; }
 function isCompactWorkspace() { return matchMedia(COMPACT_WORKSPACE_QUERY).matches; }
@@ -134,13 +152,22 @@ function setSaveState(state, message) {
   $('saved-label').textContent = message;
 }
 
-function showToast(message, kind = '') {
+function showToast(message, kind = '', action = null) {
   clearTimeout(toastTimer);
   const element = $('toast');
-  element.textContent = message;
+  element.replaceChildren();
+  const copy = document.createElement('span'); copy.textContent = message; element.append(copy);
+  if (action?.label && typeof action.onClick === 'function') {
+    const button = document.createElement('button'); button.type = 'button'; button.textContent = action.label;
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      try { await action.onClick(); } finally { element.hidden = true; }
+    });
+    element.append(button);
+  }
   element.className = `toast ${kind}`.trim();
   element.hidden = false;
-  toastTimer = setTimeout(() => { element.hidden = true; }, 4200);
+  toastTimer = setTimeout(() => { element.hidden = true; }, Number(action?.duration) || 4200);
 }
 
 async function api(path, options = {}) {
@@ -746,8 +773,10 @@ function applyValidation(result, snapshot) {
   if (publishedVersionId && result.version?.id < publishedVersionId) {
     scheduleValidation({ force: true }); return;
   }
+  const qualityVersionChanged = result.version?.id && result.version.id !== publishedVersionId;
   const changedVersion = publishedVersionId && result.version?.id > publishedVersionId;
   publishedVersionId = result.version?.id || publishedVersionId;
+  if (qualityVersionChanged) refreshTemplateAssessmentHouseVersion();
   validationResult = remapValidation(result, snapshot, history.deck);
   history.refreshCardMetadata(validationResult.cards || [], result.version?.id || null);
   // Catalogue selections are separate objects; keep their copy controls and
@@ -792,6 +821,18 @@ async function refreshSelectedCatalogueCard() {
   } catch { /* The validation banner reports service availability. */ }
 }
 
+function refreshTemplateAssessmentHouseVersion() {
+  if (!templateCatalogue) return;
+  const selectedId = selectedTemplate?.id;
+  templateCatalogue = refreshTemplateQualityForHouse(templateCatalogue, publishedVersionId);
+  selectedTemplate = selectedId ? templateCatalogue.decks.find((deck) => deck.id === selectedId) || null : null;
+  if ($('templates-dialog').open) {
+    const previousZone = templateCardZone;
+    renderTemplateCatalogue(); renderTemplateDetail();
+    templateCardZone = previousZone; renderTemplateCardlist();
+  }
+}
+
 async function checkPublishedRules() {
   if (!history || document.hidden || rulesCheck) return;
   if (!rulesMayHaveChanged && Date.now() - lastRulesCheck < 5000) return;
@@ -804,6 +845,7 @@ async function checkPublishedRules() {
     const { version } = await rulesCheck;
     if (version?.id && (!publishedVersionId || version.id > publishedVersionId)) {
       publishedVersionId = version.id;
+      refreshTemplateAssessmentHouseVersion();
       scheduleValidation({ force: true });
       loadCatalogue();
       refreshSelectedCatalogueCard();
@@ -877,6 +919,7 @@ async function loadCatalogue({ append = false } = {}) {
     if (data.version?.id > (publishedVersionId || 0)) {
       const changedVersion = publishedVersionId !== null;
       publishedVersionId = data.version.id;
+      refreshTemplateAssessmentHouseVersion();
       if (changedVersion) { scheduleValidation({ force: true }); refreshSelectedCatalogueCard(); }
       if (append && changedVersion) { loadCatalogue(); return; }
     }
@@ -976,21 +1019,327 @@ function updateLibraryControls() {
 
 async function renderDeckMenu() {
   if (!database) return;
-  const decks = await database.list();
-  $('deck-menu-list').replaceChildren(...decks.map((deck) => {
-    const button = document.createElement('button'); button.type = 'button'; button.role = 'menuitem';
-    button.dataset.deckId = deck.id;
+  const [decks, recents] = await Promise.all([database.list(), database.listRecentOpenings()]);
+  const byId = new Map(decks.map((deck) => [deck.id, deck]));
+  const recentDecks = recents.map((recent) => byId.get(recent.deckId)).filter(Boolean);
+  const current = byId.get(currentDeckId);
+  if (current && !recentDecks.some((deck) => deck.id === current.id)) recentDecks.unshift(current);
+  const visible = recentDecks.slice(0, 5);
+  const list = $('deck-menu-list'); list.replaceChildren();
+  if (!visible.length) {
+    const empty = document.createElement('p'); empty.className = 'deck-menu-empty'; empty.textContent = 'No recently opened decks yet.'; list.append(empty);
+  }
+  for (const deck of visible) {
+    const button = document.createElement('button'); button.type = 'button'; button.role = 'menuitem'; button.dataset.deckId = deck.id;
     if (deck.id === currentDeckId) button.classList.add('current');
-    const name = document.createElement('span'); name.textContent = deck.name;
-    const count = document.createElement('small'); count.textContent = `${deck.main.length + deck.extra.length + deck.side.length} cards`;
-    button.append(name, count); button.addEventListener('click', () => switchDeck(deck)); return button;
+    const copy = document.createElement('span'), name = document.createElement('strong'), detail = document.createElement('small');
+    name.textContent = deck.name; detail.textContent = deckCountsLabel(deck); copy.append(name, detail); button.append(copy);
+    if (deck.id === currentDeckId) { const badge = document.createElement('b'); badge.textContent = 'OPEN'; button.append(badge); }
+    button.addEventListener('click', () => switchDeck(deck)); list.append(button);
+  }
+}
+
+function deckZoneCount(deck, zone) {
+  return Array.isArray(deck?.[zone]) ? deck[zone].reduce((total, card) => total + Math.max(1, Number(card?.quantity || 1)), 0) : 0;
+}
+
+function deckCountsLabel(deck) {
+  return `Main ${deckZoneCount(deck, 'main')} · Extra ${deckZoneCount(deck, 'extra')} · Side ${deckZoneCount(deck, 'side')}`;
+}
+
+function deckEditedLabel(value) {
+  const timestamp = Date.parse(value || ''); if (!Number.isFinite(timestamp)) return '';
+  const elapsed = Date.now() - timestamp;
+  if (elapsed >= 0 && elapsed < 60_000) return 'Just now';
+  if (elapsed >= 0 && elapsed < 60 * 60_000) return `${Math.max(1, Math.floor(elapsed / 60_000))}m ago`;
+  if (elapsed >= 0 && elapsed < 24 * 60 * 60_000) return `${Math.floor(elapsed / (60 * 60_000))}h ago`;
+  if (elapsed >= 0 && elapsed < 48 * 60 * 60_000) return 'Yesterday';
+  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: timestamp < Date.now() - 330 * 24 * 60 * 60_000 ? 'numeric' : undefined }).format(timestamp);
+}
+
+function persistDeckManagerCollapsed() {
+  try { localStorage.setItem(DECK_MANAGER_COLLAPSED_KEY, JSON.stringify([...deckManagerCollapsed])); } catch { /* Collapsing remains available for this session. */ }
+}
+
+function deckManagerMatches() {
+  const query = $('deck-manager-search').value.trim().toLocaleLowerCase();
+  return deckManagerDecks.filter((deck) => !query || String(deck.name || '').toLocaleLowerCase().includes(query));
+}
+
+function sortedDecks(decks) {
+  const sort = $('deck-manager-sort').value;
+  return [...decks].sort((a, b) => sort === 'name'
+    ? String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }) || String(a.id).localeCompare(String(b.id))
+    : (Date.parse(b.updatedAt || '') || 0) - (Date.parse(a.updatedAt || '') || 0) || String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }) || String(a.id).localeCompare(String(b.id)));
+}
+
+function setDeckManagerSelectionMode(active) {
+  deckManagerSelectionMode = !!active; deckManagerSelected.clear(); closeDeckRowMenu();
+  const dialog = $('deck-manager-dialog'); dialog.classList.toggle('is-selecting', deckManagerSelectionMode);
+  dialog.querySelectorAll('[data-browse-only]').forEach((element) => { element.hidden = deckManagerSelectionMode; });
+  dialog.querySelectorAll('[data-select-only]').forEach((element) => { element.hidden = !deckManagerSelectionMode; });
+  renderDeckManager();
+}
+
+function updateDeckManagerSelection() {
+  const matching = deckManagerMatches(), matchingIds = new Set(matching.map((deck) => deck.id));
+  const selectedMatching = matching.filter((deck) => deckManagerSelected.has(deck.id)).length;
+  const selectAll = $('deck-manager-select-all');
+  selectAll.checked = matching.length > 0 && selectedMatching === matching.length;
+  selectAll.indeterminate = selectedMatching > 0 && selectedMatching < matching.length;
+  selectAll.disabled = matching.length === 0;
+  $('deck-manager-select-all-label').textContent = `Select all ${matching.length} ${matching.length === 1 ? 'result' : 'results'}`;
+  const outside = [...deckManagerSelected].filter((id) => !matchingIds.has(id)).length;
+  $('deck-manager-selected-count').textContent = `${deckManagerSelected.size} selected`;
+  $('deck-manager-selected-outside').textContent = outside ? `${outside} outside this search` : '';
+  for (const id of ['deck-manager-bulk-move', 'deck-manager-bulk-export', 'deck-manager-bulk-delete']) $(id).disabled = deckManagerSelected.size === 0;
+}
+
+function toggleDeckManagerSelection(id, selected = !deckManagerSelected.has(id)) {
+  if (selected) deckManagerSelected.add(id); else deckManagerSelected.delete(id);
+  renderDeckManager();
+}
+
+function deckManagerCheckbox(id, label, selected, onChange) {
+  const input = document.createElement('input'); input.type = 'checkbox'; input.className = 'deck-manager-check'; input.checked = selected;
+  input.setAttribute('aria-label', label); input.addEventListener('click', (event) => event.stopPropagation());
+  input.addEventListener('change', () => onChange(input.checked)); return input;
+}
+
+function renderDeckManager() {
+  const list = $('deck-manager-list'); if (!list) return;
+  const validIds = new Set(deckManagerDecks.map((deck) => deck.id));
+  for (const id of [...deckManagerSelected]) if (!validIds.has(id)) deckManagerSelected.delete(id);
+  $('deck-manager-summary').textContent = `${deckManagerDecks.length} ${deckManagerDecks.length === 1 ? 'deck' : 'decks'} · This browser`;
+  const matching = deckManagerMatches(), query = $('deck-manager-search').value.trim();
+  const folders = [{ id: null, name: 'Unsorted', order: -1 }, ...deckManagerFolders];
+  list.replaceChildren();
+  if (!matching.length) {
+    const empty = document.createElement('section'); empty.className = 'deck-manager-empty';
+    const title = document.createElement('h3'); title.textContent = query ? 'No matching decks' : 'No saved decks yet';
+    const note = document.createElement('p'); note.textContent = query ? 'Try another deck name or clear the search.' : 'Create a deck to start building your local collection.';
+    empty.append(title, note); list.append(empty); updateDeckManagerSelection(); return;
+  }
+  for (const folder of folders) {
+    const folderDecks = matching.filter((deck) => (deck.folderId || null) === folder.id);
+    if (!folderDecks.length && query) continue;
+    const allFolderDecks = deckManagerDecks.filter((deck) => (deck.folderId || null) === folder.id);
+    if (!folderDecks.length && !allFolderDecks.length && folder.id == null && deckManagerFolders.length) continue;
+    const key = folder.id || 'unsorted', collapsed = deckManagerCollapsed.has(key);
+    const section = document.createElement('section'); section.className = 'deck-folder'; section.dataset.folderId = folder.id || '';
+    const header = document.createElement('header'); header.className = 'deck-folder-header';
+    if (deckManagerSelectionMode) {
+      const selectedCount = folderDecks.filter((deck) => deckManagerSelected.has(deck.id)).length;
+      const checkbox = deckManagerCheckbox(key, `Select every matching deck in ${folder.name}`, folderDecks.length > 0 && selectedCount === folderDecks.length, (checked) => {
+        folderDecks.forEach((deck) => checked ? deckManagerSelected.add(deck.id) : deckManagerSelected.delete(deck.id)); renderDeckManager();
+      });
+      checkbox.indeterminate = selectedCount > 0 && selectedCount < folderDecks.length; checkbox.disabled = folderDecks.length === 0; header.append(checkbox);
+    }
+    const collapse = document.createElement('button'); collapse.type = 'button'; collapse.className = 'deck-folder-toggle'; collapse.setAttribute('aria-expanded', String(!collapsed));
+    collapse.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} ${folder.name}`);
+    collapse.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"></path></svg>';
+    collapse.addEventListener('click', () => { if (collapsed) deckManagerCollapsed.delete(key); else deckManagerCollapsed.add(key); persistDeckManagerCollapsed(); renderDeckManager(); });
+    const title = document.createElement('h3'); title.textContent = folder.name;
+    const count = document.createElement('span'); count.textContent = String(folderDecks.length);
+    header.append(collapse, title, count); section.append(header);
+    if (!collapsed) {
+      const rows = document.createElement('div'); rows.className = 'deck-folder-rows';
+      for (const deck of sortedDecks(folderDecks)) {
+        const row = document.createElement('article'); row.className = 'deck-manager-row'; row.dataset.deckId = deck.id;
+        row.classList.toggle('selected', deckManagerSelected.has(deck.id)); row.classList.toggle('current', deck.id === currentDeckId);
+        if (deckManagerSelectionMode) row.append(deckManagerCheckbox(deck.id, `Select ${deck.name}`, deckManagerSelected.has(deck.id), (checked) => toggleDeckManagerSelection(deck.id, checked)));
+        const open = document.createElement('button'); open.type = 'button'; open.className = 'deck-manager-row-main';
+        const copy = document.createElement('span'); copy.className = 'deck-manager-row-copy';
+        const heading = document.createElement('span'); heading.className = 'deck-manager-row-heading';
+        const name = document.createElement('strong'); name.textContent = deck.name; heading.append(name);
+        if (deck.id === currentDeckId) { const badge = document.createElement('b'); badge.className = 'deck-open-badge'; badge.textContent = 'OPEN'; heading.append(badge); }
+        const counts = document.createElement('small'); counts.textContent = deckCountsLabel(deck); copy.append(heading, counts); open.append(copy);
+        const edited = deckEditedLabel(deck.updatedAt); if (edited) { const time = document.createElement('time'); time.dateTime = deck.updatedAt; time.textContent = edited; open.append(time); }
+        open.addEventListener('click', async () => {
+          if (deckManagerSelectionMode) { toggleDeckManagerSelection(deck.id); return; }
+          open.disabled = true;
+          try { await switchDeck(deck); closeDialog($('deck-manager-dialog')); }
+          catch (error) { showDeckManagerError(error); open.disabled = false; }
+        });
+        row.append(open);
+        if (!deckManagerSelectionMode) {
+          const menu = document.createElement('button'); menu.type = 'button'; menu.className = 'deck-row-menu-button'; menu.textContent = '•••';
+          menu.setAttribute('aria-label', `Manage ${deck.name}`); menu.setAttribute('aria-haspopup', 'menu'); menu.setAttribute('aria-expanded', 'false');
+          menu.addEventListener('click', (event) => { event.stopPropagation(); openDeckRowMenu(menu, deck.id); }); row.append(menu);
+        }
+        rows.append(row);
+      }
+      section.append(rows);
+    }
+    list.append(section);
+  }
+  updateDeckManagerSelection();
+}
+
+function showDeckManagerError(error) {
+  const element = $('deck-manager-error'); element.textContent = error?.message || String(error || 'Deck storage failed.'); element.hidden = false;
+}
+
+async function refreshDeckManager() {
+  if (!database) return;
+  try {
+    [deckManagerDecks, deckManagerFolders, deckManagerRecents] = await Promise.all([database.list(), database.listFolders(), database.listRecentOpenings()]);
+    $('deck-manager-error').hidden = true; renderDeckManager(); await renderDeckMenu();
+  } catch (error) { showDeckManagerError(error); }
+}
+
+async function openDeckManager(trigger = $('saved-decks-button')) {
+  closeMenus();
+  if (!database) { showToast('Local deck storage is unavailable. Export your current deck before leaving.', 'error'); return; }
+  setSaveState('saving', 'Saving before opening My decks…');
+  if (!await saveNow()) return;
+  $('deck-manager-search').value = ''; $('deck-manager-sort').value = 'recent'; setDeckManagerSelectionMode(false);
+  openDialog($('deck-manager-dialog'), trigger); await refreshDeckManager();
+  requestAnimationFrame(() => $('deck-manager-search').focus({ preventScroll: true }));
+}
+
+function closeDeckRowMenu() {
+  const menu = $('deck-row-menu'); if (!menu) return;
+  menu.hidden = true; menu.removeAttribute('data-deck-id');
+  document.querySelectorAll('.deck-row-menu-button[aria-expanded="true"]').forEach((button) => button.setAttribute('aria-expanded', 'false'));
+}
+
+function openDeckRowMenu(trigger, deckId) {
+  const menu = $('deck-row-menu'), wasOpen = !menu.hidden && menu.dataset.deckId === deckId; closeDeckRowMenu(); if (wasOpen) return;
+  menu.dataset.deckId = deckId; menu.hidden = false; trigger.setAttribute('aria-expanded', 'true');
+  requestAnimationFrame(() => {
+    const triggerRect = trigger.getBoundingClientRect(), menuRect = menu.getBoundingClientRect();
+    menu.style.top = `${Math.max(8, Math.min(triggerRect.bottom + 6, innerHeight - menuRect.height - 8))}px`;
+    menu.style.left = `${Math.max(8, Math.min(triggerRect.right - menuRect.width, innerWidth - menuRect.width - 8))}px`;
+  });
+}
+
+function openDeckNameAction(type, deckId = null, trigger = document.activeElement) {
+  deckManagerAction = { type, deckId };
+  const deck = deckManagerDecks.find((item) => item.id === deckId);
+  const title = type === 'folder' ? 'New folder' : type === 'duplicate' ? 'Duplicate deck' : 'Rename deck';
+  const label = type === 'folder' ? 'Folder name' : 'Deck name';
+  $('deck-name-dialog-title').textContent = title; $('deck-action-name-label').textContent = label;
+  $('deck-name-dialog-submit').textContent = type === 'folder' ? 'Create folder' : type === 'duplicate' ? 'Duplicate' : 'Save name';
+  $('deck-action-name').maxLength = type === 'folder' ? 80 : 100;
+  $('deck-action-name').value = type === 'duplicate' ? `${deck?.name || 'Deck'} — Copy` : type === 'rename' ? deck?.name || '' : '';
+  $('deck-name-dialog-error').hidden = true; closeDeckRowMenu(); openDialog($('deck-name-dialog'), trigger);
+  requestAnimationFrame(() => { $('deck-action-name').focus(); $('deck-action-name').select(); });
+}
+
+async function submitDeckNameAction(event) {
+  event.preventDefault(); const input = $('deck-action-name'), name = input.value.trim(); if (!name) { input.focus(); return; }
+  const submit = $('deck-name-dialog-submit'); submit.disabled = true; $('deck-name-dialog-error').hidden = true;
+  try {
+    if (deckManagerAction?.type === 'folder') await database.createFolder(name);
+    if (deckManagerAction?.type === 'rename') {
+      const deck = await database.get(deckManagerAction.deckId); if (!deck) throw new Error('That deck no longer exists.');
+      if (deck.id === currentDeckId) { dispatch({ type: 'RENAME_DECK', name }); await saveNow(); }
+      else await database.save({ ...deck, name, revision: Number(deck.revision || 0) + 1, updatedAt: new Date().toISOString() });
+    }
+    if (deckManagerAction?.type === 'duplicate') {
+      const source = await database.get(deckManagerAction.deckId); if (!source) throw new Error('That deck no longer exists.');
+      const timestamp = new Date().toISOString();
+      const copy = sanitiseDeck({ ...source, name, revision: 0, createdAt: timestamp, updatedAt: timestamp }, { newIdentity: true });
+      await database.save(copy, { force: true });
+    }
+    closeDialog($('deck-name-dialog')); await refreshDeckManager(); showToast(deckManagerAction?.type === 'folder' ? 'Folder created.' : deckManagerAction?.type === 'duplicate' ? 'Deck duplicated.' : 'Deck renamed.');
+  } catch (error) { const message = $('deck-name-dialog-error'); message.textContent = error.message; message.hidden = false; }
+  finally { submit.disabled = false; }
+}
+
+function openDeckMove(ids, trigger = document.activeElement) {
+  const unique = [...new Set(ids)].filter((id) => deckManagerDecks.some((deck) => deck.id === id)); if (!unique.length) return;
+  deckManagerAction = { type: 'move', ids: unique }; closeDeckRowMenu();
+  $('deck-move-caption').textContent = `Move ${unique.length} ${unique.length === 1 ? 'deck' : 'decks'} to:`;
+  const destinations = [{ id: null, name: 'Unsorted' }, ...deckManagerFolders];
+  $('deck-move-options').replaceChildren(...destinations.map((folder) => {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'deck-move-option';
+    const name = document.createElement('strong'); name.textContent = folder.name;
+    const count = document.createElement('small'); count.textContent = `${deckManagerDecks.filter((deck) => (deck.folderId || null) === folder.id).length} decks`;
+    button.append(name, count); button.addEventListener('click', async () => {
+      button.disabled = true;
+      try {
+        await database.moveDecks(unique, folder.id);
+        if (unique.includes(currentDeckId)) for (const snapshot of [history.deck, ...history.past, ...history.future]) snapshot.folderId = folder.id;
+        closeDialog($('deck-move-dialog')); await refreshDeckManager(); showToast(`Moved to ${folder.name}.`);
+      } catch (error) { showDeckManagerError(error); button.disabled = false; }
+    }); return button;
   }));
+  openDialog($('deck-move-dialog'), trigger);
+}
+
+function requestDeckDeletion(ids, trigger = document.activeElement) {
+  const unique = [...new Set(ids)].filter((id) => deckManagerDecks.some((deck) => deck.id === id)); if (!unique.length) return;
+  deckManagerAction = { type: 'delete', ids: unique }; closeDeckRowMenu();
+  $('deck-delete-title').textContent = unique.length === 1 ? 'Delete deck?' : `Delete ${unique.length} decks?`;
+  $('deck-delete-message').textContent = unique.length === 1
+    ? `“${deckManagerDecks.find((deck) => deck.id === unique[0])?.name || 'This deck'}” will be removed from this browser.`
+    : `${unique.length} selected decks will be removed from this browser.`;
+  openDialog($('deck-delete-dialog'), trigger);
+}
+
+async function deleteDeckManagerDecks(ids) {
+  const unique = [...new Set(ids)]; clearTimeout(saveTimer); saveTimer = 0;
+  const deleted = await database.deleteMany(unique); if (!deleted.length) return;
+  const deletedCurrent = deleted.find((deck) => deck.id === currentDeckId) || null;
+  let replacementId = null;
+  if (deletedCurrent) {
+    const remaining = await database.list();
+    if (remaining.length) await switchDeck(remaining[0], false);
+    else {
+      const replacement = newDeck('Untitled deck'); await database.save(replacement, { force: true }); replacementId = replacement.id; await switchDeck(replacement, false);
+    }
+  }
+  deckManagerLastDeletion = { decks: deleted, deletedCurrentId: deletedCurrent?.id || null, replacementId };
+  unique.forEach((id) => deckManagerSelected.delete(id)); closeDialog($('deck-delete-dialog')); await refreshDeckManager();
+  $('deck-manager-undo-message').textContent = `${deleted.length} ${deleted.length === 1 ? 'deck' : 'decks'} deleted.`; $('deck-manager-undo').hidden = false;
+  showToast(`${deleted.length} ${deleted.length === 1 ? 'deck' : 'decks'} deleted.`, 'warning', { label: 'Undo', duration: 10_000, onClick: undoDeckManagerDeletion });
+}
+
+async function undoDeckManagerDeletion() {
+  const deletion = deckManagerLastDeletion; if (!deletion) return;
+  let removeReplacement = false;
+  if (deletion.replacementId) {
+    const replacement = await database.get(deletion.replacementId);
+    const untouched = replacement && replacement.id === currentDeckId && replacement.name === 'Untitled deck' &&
+      ZONES.every((zone) => !replacement[zone]?.length) && !replacement.notes && !replacement.groups?.length;
+    if (untouched) { removeReplacement = true; clearTimeout(saveTimer); saveTimer = 0; await database.delete(replacement.id); }
+  }
+  const restored = await database.restoreMany(deletion.decks); deckManagerLastDeletion = null; $('deck-manager-undo').hidden = true;
+  const previousCurrent = restored.find((deck) => deck.id === deletion.deletedCurrentId);
+  if (previousCurrent) await switchDeck(previousCurrent, false);
+  if (removeReplacement && await database.get(deletion.replacementId)) await database.delete(deletion.replacementId);
+  await refreshDeckManager(); showToast(`${restored.length} ${restored.length === 1 ? 'deck' : 'decks'} restored.`);
+}
+
+async function exportDeckManagerDeck(deckId) {
+  try {
+    const deck = await database.get(deckId); if (!deck) throw new Error('That deck no longer exists.');
+    download(encodeYdk(portableDeck(deck)), `${safeFilename(deck.name)}.ydk`, 'text/plain;charset=utf-8'); showToast('YDK downloaded.');
+  } catch (error) { showToast(error.message, 'error'); }
+}
+
+async function exportDeckManagerSelection(ids) {
+  const selected = deckManagerDecks.filter((deck) => ids.includes(deck.id)); if (!selected.length) return;
+  const folderIds = new Set(selected.map((deck) => deck.folderId).filter(Boolean));
+  const folders = deckManagerFolders.filter((folder) => folderIds.has(folder.id));
+  download(JSON.stringify(makeBackup(selected, folders), null, 2), `jush-selected-decks-${new Date().toISOString().slice(0, 10)}.json`, 'application/json');
+  showToast(`${selected.length} ${selected.length === 1 ? 'deck' : 'decks'} exported.`);
+}
+
+async function handleDeckRowAction(action, deckId) {
+  const trigger = document.querySelector(`.deck-row-menu-button[aria-expanded="true"]`) || $('deck-manager-dialog');
+  if (action === 'rename' || action === 'duplicate') { openDeckNameAction(action, deckId, trigger); return; }
+  if (action === 'move') { openDeckMove([deckId], trigger); return; }
+  if (action === 'export') { closeDeckRowMenu(); await exportDeckManagerDeck(deckId); return; }
+  if (action === 'delete') requestDeckDeletion([deckId], trigger);
 }
 
 async function switchDeck(deck, flush = true) {
   if (flush && history) await saveNow();
   const safe = sanitiseDeck(await database.get(deck.id) || deck);
-  currentDeckId = safe.id; await database.setCurrentId(safe.id);
+  currentDeckId = safe.id; await Promise.all([database.setCurrentId(safe.id), database.markOpened(safe.id)]);
   history = new DeckHistory(safe, 100); bindHistory();
   selectedCard = null; selectedInstanceId = null; validationResult = null; validationIssues = new Map(); resetHand();
   if ($('card-inspector-dialog').open) closeMobileInspector();
@@ -1018,7 +1367,7 @@ function toggleMenu(element, trigger) {
 
 function closeMenus() {
   $('deck-menu').hidden = true; $('export-menu').hidden = true; closeMobileZoneMenu();
-  $('deck-menu-button').setAttribute('aria-expanded', 'false'); $('saved-decks-button').setAttribute('aria-expanded', 'false'); $('export-button').setAttribute('aria-expanded', 'false');
+  $('deck-menu-button').setAttribute('aria-expanded', 'false'); $('export-button').setAttribute('aria-expanded', 'false');
   $('mobile-actions-button').setAttribute('aria-expanded', 'false');
 }
 
@@ -1113,14 +1462,25 @@ function info(title, content) {
 }
 
 async function loadTemplateCatalogue() {
-  if (templateCatalogue) return templateCatalogue;
+  if (templateCatalogue && !templateCatalogue.qualityLoadError) return templateCatalogue;
+  if (templateCatalogue?.qualityLoadError) {
+    const quality = await loadTemplateQuality(TEMPLATE_QUALITY_URL, { release: TEMPLATE_DATA_RELEASE }).catch(() => null);
+    if (quality) {
+      const retryManifest = { ...templateCatalogue };
+      delete retryManifest.qualityLoadError;
+      templateCatalogue = await applyTemplateQuality(retryManifest, quality, { publishedHouseVersion: publishedVersionId });
+    }
+    return templateCatalogue;
+  }
   if (!templateCatalogueRequest) templateCatalogueRequest = Promise.all([
-    fetch(TEMPLATE_CATALOGUE_URL, { headers: { Accept: 'application/json' } }),
-    fetch(TEMPLATE_PRESENTATION_URL, { headers: { Accept: 'application/json' } })
-  ]).then(async ([catalogueResponse, presentationResponse]) => {
+    fetch(versionedTemplateUrl(TEMPLATE_CATALOGUE_URL, TEMPLATE_DATA_RELEASE), { headers: { Accept: 'application/json' }, cache: 'no-cache' }),
+    fetch(versionedTemplateUrl(TEMPLATE_PRESENTATION_URL, TEMPLATE_DATA_RELEASE), { headers: { Accept: 'application/json' }, cache: 'no-cache' }),
+    loadTemplateQuality(TEMPLATE_QUALITY_URL, { release: TEMPLATE_DATA_RELEASE }).catch(() => null)
+  ]).then(async ([catalogueResponse, presentationResponse, quality]) => {
     if (!catalogueResponse.ok) throw new Error(`Template catalogue request failed (${catalogueResponse.status}).`);
     if (!presentationResponse.ok) throw new Error(`Template presentation request failed (${presentationResponse.status}).`);
-    return applyTemplatePresentation(normaliseTemplateManifest(await catalogueResponse.json()), await presentationResponse.json());
+    const manifest = applyTemplatePresentation(normaliseTemplateManifest(await catalogueResponse.json()), await presentationResponse.json());
+    return applyTemplateQuality(manifest, quality, { publishedHouseVersion: publishedVersionId });
   }).then((manifest) => {
       templateCatalogue = manifest;
       const facets = templateFacets(manifest.decks);
@@ -1214,13 +1574,15 @@ function templateListItem(deck) {
   const button = document.createElement('button');
   button.type = 'button'; button.className = 'template-list-item'; button.dataset.templateId = deck.id;
   button.dataset.templateRowKey = `deck:${deck.id}`; button.setAttribute('aria-current', String(selectedTemplate?.id === deck.id));
-  button.setAttribute('aria-label', `${deck.name}, ${deck.buildCategory}`);
+  const quality = templateQualityPresentation(deck);
+  button.setAttribute('aria-label', `${deck.name}, ${deck.buildCategory}, ${quality.label}`);
   const artwork = document.createElement('img'); artwork.alt = ''; artwork.width = 64; artwork.height = 64;
   artwork.loading = 'lazy'; artwork.decoding = 'async'; artwork.src = templateCoverUrl(deck);
   artwork.addEventListener('error', () => { if (!artwork.src.endsWith(CARD_BACK)) artwork.src = CARD_BACK; }, { once: true });
   const copy = document.createElement('span'); copy.className = 'template-list-copy';
   const name = document.createElement('strong'); name.textContent = deck.name; name.title = deck.name;
-  const meta = document.createElement('span'); meta.textContent = deck.buildCategory;
+  const meta = document.createElement('span');
+  meta.textContent = quality.status === 'needs_rebuild' ? `${deck.buildCategory} · ${quality.label}` : deck.buildCategory;
   copy.append(name, meta); button.append(artwork, copy);
   button.addEventListener('click', () => selectTemplate(deck, { showDetail: true }));
   button.addEventListener('keydown', templateRowKeydown);
@@ -1321,6 +1683,12 @@ function renderTemplateSource() {
     deck.buildCategory === 'Reconstructed' ? 'Reconstructed from published engine evidence where an exact current-format list was not available.' :
       'An experimental hybrid assembled from cited engine evidence; treat it as a testing starting point.';
   classification.append(heading, description); wrap.append(classification);
+  const review = document.createElement('section');
+  const reviewHeading = document.createElement('h4'); reviewHeading.textContent = 'Construction review';
+  const quality = templateQualityPresentation(deck);
+  const reviewText = document.createElement('p');
+  reviewText.textContent = `${quality.label}${quality.message ? ' · ' + quality.message : ''}`;
+  review.append(reviewHeading, reviewText); wrap.append(review);
   if (deck.source?.url) {
     const source = document.createElement('section'); const sourceHeading = document.createElement('h4'); sourceHeading.textContent = 'Primary source';
     const link = document.createElement('a'); link.href = deck.source.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
@@ -1361,6 +1729,14 @@ function renderTemplateDetail() {
   $('template-detail-family').textContent = deck.family;
   $('template-detail-name').textContent = deck.name;
   $('template-detail-description').textContent = deck.description;
+  let reviewNote = $('template-detail-quality');
+  if (!reviewNote) {
+    reviewNote = document.createElement('p'); reviewNote.id = 'template-detail-quality';
+    reviewNote.className = 'template-source-disclaimer';
+    $('template-detail-description').after(reviewNote);
+  }
+  const quality = templateQualityPresentation(deck);
+  reviewNote.textContent = `${quality.label}${quality.message ? ' · ' + quality.message : ''}`;
   $('template-detail-notes').textContent = deck.notes;
   const cover = $('template-detail-cover'); cover.src = templateCoverUrl(deck); cover.alt = `${deck.coverCardName} artwork for ${deck.name}`;
   cover.onerror = () => { cover.onerror = null; cover.src = CARD_BACK; };
@@ -1390,6 +1766,9 @@ async function openTemplateDecks(trigger = $('templates-button')) {
   openDialog(dialog, trigger); $('template-list').setAttribute('aria-busy', 'true');
   try {
     await loadTemplateCatalogue();
+    const selectedId = selectedTemplate?.id;
+    templateCatalogue = refreshTemplateQualityForHouse(templateCatalogue, publishedVersionId);
+    selectedTemplate = selectedId ? templateCatalogue.decks.find((deck) => deck.id === selectedId) || null : null;
     if (selectedTemplate) collapsedTemplateFamilies.delete(selectedTemplate.family);
     renderTemplateCatalogue(); renderTemplateDetail();
     $('template-list').scrollTop = templateListScrollTop; renderTemplateVirtualWindow();
@@ -1519,6 +1898,7 @@ async function restoreBackupFile(file) {
 async function confirmImport() {
   if (pendingBackups) {
     if (!database) { $('import-error').hidden = false; $('import-error').textContent = 'Local storage is unavailable, so a multi-deck backup cannot be restored in this session.'; return; }
+    if (pendingBackups.folders?.length) await database.importFolders(pendingBackups.folders);
     for (const deck of pendingBackups) await database.save(deck, { force: true });
     const first = pendingBackups[0]; closeDialog($('import-dialog'));
     if (first) await switchDeck(first);
@@ -1588,7 +1968,10 @@ function readableList() {
 
 async function exportBackup() {
   closeMenus(); await saveNow();
-  try { download(JSON.stringify(makeBackup(database ? await database.list() : [history.deck]), null, 2), `jush-decks-${new Date().toISOString().slice(0, 10)}.json`, 'application/json'); showToast('Complete local backup downloaded.'); }
+  try {
+    const [decks, folders] = database ? await Promise.all([database.list(), database.listFolders()]) : [[history.deck], []];
+    download(JSON.stringify(makeBackup(decks, folders), null, 2), `jush-decks-${new Date().toISOString().slice(0, 10)}.json`, 'application/json'); showToast('Complete local backup downloaded.');
+  }
   catch (error) { showToast(error.message, 'error'); }
 }
 
@@ -1914,14 +2297,8 @@ async function runMobileCommand(command) {
   if (actions.open) actions.close();
   const trigger = $('mobile-actions-button');
   if (command === 'save') { openSaveDeck(trigger); return; }
-  if (command === 'saved') {
-    await renderDeckMenu(); toggleMenu($('deck-menu'), trigger);
-    requestAnimationFrame(() => $('deck-menu').querySelector('button:not(:disabled)')?.focus()); return;
-  }
-  if (command === 'new') { $('new-deck').click(); return; }
-  if (command === 'rename') { $('rename-deck').click(); return; }
-  if (command === 'duplicate') { $('duplicate-deck').click(); return; }
-  if (command === 'delete') { $('delete-deck').click(); return; }
+  if (command === 'saved') { await openDeckManager(trigger); return; }
+  if (command === 'new') { await createDeck(); return; }
   if (command === 'redo') { redoDeck(); return; }
   if (command === 'templates') { openTemplateDecks(trigger); return; }
   if (command === 'import') { openImport(trigger); return; }
@@ -1935,7 +2312,8 @@ async function runMobileCommand(command) {
 function wireEvents() {
   document.querySelectorAll('dialog.mobile-sheet').forEach(attachMobileSheetDrag);
   $('deck-menu-button').addEventListener('click', () => toggleMenu($('deck-menu'), $('deck-menu-button')));
-  $('saved-decks-button').addEventListener('click', () => toggleMenu($('deck-menu'), $('saved-decks-button')));
+  $('saved-decks-button').addEventListener('click', (event) => openDeckManager(event.currentTarget));
+  $('view-all-decks').addEventListener('click', () => openDeckManager($('deck-menu-button')));
   $('save-deck').addEventListener('click', (event) => openSaveDeck(event.currentTarget));
   $('cancel-save-deck').addEventListener('click', () => closeDialog($('save-deck-dialog')));
   $('save-deck-form').addEventListener('submit', async (event) => {
@@ -1996,25 +2374,43 @@ function wireEvents() {
     requestAnimationFrame(() => document.querySelector(`.template-list-item[data-template-id="${selectedTemplate?.id || ''}"]`)?.focus({ preventScroll: true }));
   });
   $('copy-template').addEventListener('click', copySelectedTemplate);
+  $('deck-manager-close').addEventListener('click', () => closeDialog($('deck-manager-dialog')));
+  $('deck-manager-new').addEventListener('click', async () => { closeDialog($('deck-manager-dialog')); await createDeck(); openSaveDeck($('deck-menu-button')); });
+  $('deck-manager-select').addEventListener('click', () => { setDeckManagerSelectionMode(true); requestAnimationFrame(() => $('deck-manager-select-all').focus()); });
+  $('deck-manager-done').addEventListener('click', () => { setDeckManagerSelectionMode(false); requestAnimationFrame(() => $('deck-manager-select').focus()); });
+  $('deck-manager-search').addEventListener('input', renderDeckManager);
+  $('deck-manager-sort').addEventListener('change', renderDeckManager);
+  $('deck-manager-select-all').addEventListener('change', (event) => {
+    deckManagerMatches().forEach((deck) => event.currentTarget.checked ? deckManagerSelected.add(deck.id) : deckManagerSelected.delete(deck.id)); renderDeckManager();
+  });
+  $('deck-manager-add-folder').addEventListener('click', (event) => openDeckNameAction('folder', null, event.currentTarget));
+  $('deck-manager-backup').addEventListener('click', exportBackup);
+  $('deck-manager-bulk-move').addEventListener('click', (event) => openDeckMove([...deckManagerSelected], event.currentTarget));
+  $('deck-manager-bulk-export').addEventListener('click', () => exportDeckManagerSelection([...deckManagerSelected]));
+  $('deck-manager-bulk-delete').addEventListener('click', (event) => requestDeckDeletion([...deckManagerSelected], event.currentTarget));
+  $('deck-manager-undo-button').addEventListener('click', undoDeckManagerDeletion);
+  $('deck-row-menu').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-deck-action]'); if (!button) return;
+    handleDeckRowAction(button.dataset.deckAction, $('deck-row-menu').dataset.deckId);
+  });
+  $('deck-manager-list').addEventListener('scroll', closeDeckRowMenu, { passive: true });
+  $('deck-name-dialog-form').addEventListener('submit', submitDeckNameAction);
+  $('deck-name-dialog-close').addEventListener('click', () => closeDialog($('deck-name-dialog')));
+  $('deck-name-dialog-cancel').addEventListener('click', () => closeDialog($('deck-name-dialog')));
+  $('deck-move-close').addEventListener('click', () => closeDialog($('deck-move-dialog')));
+  $('deck-delete-close').addEventListener('click', () => closeDialog($('deck-delete-dialog')));
+  $('deck-delete-cancel').addEventListener('click', () => closeDialog($('deck-delete-dialog')));
+  $('deck-delete-confirm').addEventListener('click', async () => {
+    const button = $('deck-delete-confirm'); button.disabled = true;
+    try { await deleteDeckManagerDecks(deckManagerAction?.ids || []); }
+    catch (error) { showDeckManagerError(error); closeDialog($('deck-delete-dialog')); }
+    finally { button.disabled = false; }
+  });
   document.addEventListener('click', (event) => {
     if (!$('deck-menu').contains(event.target) && !$('deck-menu-button').contains(event.target) && !$('saved-decks-button').contains(event.target) &&
       !$('export-menu').contains(event.target) && !$('export-button').contains(event.target) && !$('mobile-actions-button').contains(event.target) &&
       !$('mobile-zone-menu').contains(event.target) && !$('mobile-zone-menu-button').contains(event.target)) closeMenus();
-  });
-  $('new-deck').addEventListener('click', () => createDeck());
-  $('duplicate-deck').addEventListener('click', async () => {
-    const copy = sanitiseDeck({ ...history.deck, name: `${history.deck.name} (copy)`, revision: 0 }, { newIdentity: true });
-    if (!database) { history = new DeckHistory(copy, 100); bindHistory(); render(); setSaveState('error', 'Not saved — export a backup'); }
-    else { await database.save(copy, { force: true }); await switchDeck(copy); }
-    showToast('Deck duplicated.');
-  });
-  $('rename-deck').addEventListener('click', () => { const name = prompt('Deck name', history.deck.name); if (name?.trim()) dispatch({ type: 'RENAME_DECK', name }); closeMenus(); });
-  $('delete-deck').addEventListener('click', async () => {
-    if (!database) { showToast('Local storage is unavailable. Start a new in-memory deck instead.', 'warning'); return; }
-    if (!confirm(`Delete “${history.deck.name}” from this device? Download a JSON backup first if you need it elsewhere.`)) return;
-    clearTimeout(saveTimer); saveTimer = 0;
-    const id = history.deck.id; await database.delete(id); const decks = await database.list();
-    if (decks.length) await switchDeck(decks[0], false); else await createDeck('Untitled deck', { flush: false }); showToast('Local deck deleted.');
+    if (!$('deck-row-menu').contains(event.target) && !event.target.closest('.deck-row-menu-button')) closeDeckRowMenu();
   });
   $('undo').addEventListener('click', undoDeck); $('inspector-undo').addEventListener('click', undoDeck);
   $('redo').addEventListener('click', redoDeck);
@@ -2108,6 +2504,7 @@ function wireEvents() {
         (Number(event.detail.revision) === Number(history.deck.revision) && event.detail.updatedAt !== history.deck.updatedAt))) {
       setSaveState('error', 'Newer revision saved in another tab'); showToast('This deck changed in another tab. Your next edit will be preserved as a conflict copy.', 'warning');
     }
+    if ($('deck-manager-dialog').open) refreshDeckManager(); else renderDeckMenu();
   });
   $('card-inspector-dialog').addEventListener('close', finishMobileInspectorClose);
   $('mobile-tools-dialog').addEventListener('close', () => { finishMobileToolsClose(); $('mobile-actions-button').focus({ preventScroll: true }); });
@@ -2116,6 +2513,7 @@ function wireEvents() {
       templateListScrollTop = $('template-list').scrollTop;
       document.documentElement.classList.remove('template-modal-open');
     }
+    if (dialog.id === 'deck-manager-dialog') { setDeckManagerSelectionMode(false); closeDeckRowMenu(); }
     const trigger = dialogTriggers.get(dialog); dialogTriggers.delete(dialog);
     if (trigger?.isConnected && !trigger.disabled) requestAnimationFrame(() => trigger.focus({ preventScroll: true }));
   }));
@@ -2141,6 +2539,7 @@ async function start() {
     const deck = decks.find((item) => item.id === currentId) || decks[0] || newDeck();
     if (!decks.length) await database.save(deck, { force: true });
     currentDeckId = deck.id; await database.setCurrentId(deck.id);
+    await database.markOpened(deck.id);
     history = new DeckHistory(sanitiseDeck(deck), 100); bindHistory(); wireEvents(); syncMobileViewport(); render();
     setSaveState('saved', 'Saved on this device'); renderDeckMenu(); scheduleValidation(); loadCatalogue();
   } catch (error) {

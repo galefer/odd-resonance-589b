@@ -1,9 +1,12 @@
 import { newDeck, ZONES } from './state.js';
 
 const DB_NAME = 'gog-jush-deckbuilder-v1';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = 'decks';
 const META = 'meta';
+const FOLDERS = 'folders';
+const RECENTS = 'recentDecks';
+const MIGRATION_BACKUPS = 'migrationBackups';
 const requestResult = (request) => new Promise((resolve, reject) => {
   request.onsuccess = () => resolve(request.result);
   request.onerror = () => reject(request.error || new Error('IndexedDB request failed.'));
@@ -28,13 +31,36 @@ export class DeckDatabase extends EventTarget {
   async open() {
     if (!('indexedDB' in globalThis)) throw new Error('This browser does not provide IndexedDB. Export a backup before leaving this page.');
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE)) {
         const store = db.createObjectStore(STORE, { keyPath: 'id' });
         store.createIndex('updatedAt', 'updatedAt');
       }
       if (!db.objectStoreNames.contains(META)) db.createObjectStore(META, { keyPath: 'key' });
+      if (!db.objectStoreNames.contains(FOLDERS)) db.createObjectStore(FOLDERS, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(RECENTS)) {
+        const recents = db.createObjectStore(RECENTS, { keyPath: 'deckId' });
+        recents.createIndex('openedAt', 'openedAt');
+      }
+      if (!db.objectStoreNames.contains(MIGRATION_BACKUPS)) db.createObjectStore(MIGRATION_BACKUPS, { keyPath: 'key' });
+      if (event.oldVersion > 0 && event.oldVersion < 2) {
+        const transaction = request.transaction;
+        const decks = transaction.objectStore(STORE);
+        const backups = transaction.objectStore(MIGRATION_BACKUPS);
+        const migratedAt = new Date().toISOString();
+        const cursorRequest = decks.openCursor();
+        cursorRequest.onerror = () => transaction.abort();
+        cursorRequest.onsuccess = () => {
+          const cursor = cursorRequest.result;
+          if (!cursor) return;
+          const original = cursor.value;
+          const stableId = boundedText(original?.id, 100) || uuid();
+          backups.put({ key: `pre-v2:${stableId}`, migratedAt, sourceVersion: event.oldVersion, deck: original });
+          cursor.update({ ...original, id: stableId, folderId: boundedText(original?.folderId, 100) || null });
+          cursor.continue();
+        };
+      }
     };
     this.db = await requestResult(request);
     this.db.onversionchange = () => this.db.close();
@@ -68,9 +94,76 @@ export class DeckDatabase extends EventTarget {
     return safe;
   }
   async delete(id) {
+    const [deleted] = await this.deleteMany([id]); return deleted || null;
+  }
+  async deleteMany(ids) {
+    const unique = [...new Set((ids || []).map((id) => boundedText(id, 100)).filter(Boolean))];
+    if (!unique.length) return [];
+    if (!this.db) throw new Error('Local deck storage is not open.');
+    const transaction = this.db.transaction([STORE, RECENTS], 'readwrite');
+    const store = transaction.objectStore(STORE), recents = transaction.objectStore(RECENTS);
+    const existing = await Promise.all(unique.map((id) => requestResult(store.get(id))));
+    unique.forEach((id) => { store.delete(id); recents.delete(id); });
+    await transactionDone(transaction);
+    unique.forEach((id) => this.channel?.postMessage({ type: 'deleted', id }));
+    return existing.filter(Boolean);
+  }
+  async restoreMany(decks) {
+    if (!this.db) throw new Error('Local deck storage is not open.');
+    const transaction = this.db.transaction(STORE, 'readwrite'), store = transaction.objectStore(STORE);
+    const restored = (decks || []).map((deck) => sanitiseDeck(deck));
+    restored.forEach((deck) => store.put(deck)); await transactionDone(transaction);
+    restored.forEach((deck) => this.channel?.postMessage({ type: 'saved', id: deck.id, revision: deck.revision, updatedAt: deck.updatedAt }));
+    return restored;
+  }
+  async listFolders() {
+    const { transaction, store } = this.#store(FOLDERS);
+    const folders = await requestResult(store.getAll()); await transactionDone(transaction);
+    return folders.sort((a, b) => Number(a.order || 0) - Number(b.order || 0) || String(a.name).localeCompare(String(b.name)) || String(a.id).localeCompare(String(b.id)));
+  }
+  async createFolder(name) {
+    const clean = boundedText(name, 80).trim();
+    if (!clean) throw new Error('Enter a folder name.');
+    const folders = await this.listFolders();
+    const folder = { id: uuid(), name: clean, createdAt: new Date().toISOString(), order: folders.length };
+    const { transaction, store } = this.#store(FOLDERS, 'readwrite');
+    store.put(folder); await transactionDone(transaction); return folder;
+  }
+  async importFolders(folders) {
+    const safe = (folders || []).slice(0, 100).map((folder, index) => ({
+      id: boundedText(folder?.id, 100) || uuid(), name: boundedText(folder?.name, 80).trim() || `Imported folder ${index + 1}`,
+      createdAt: /^\d{4}-/.test(folder?.createdAt || '') ? folder.createdAt : new Date().toISOString(),
+      order: Number.isFinite(Number(folder?.order)) ? Number(folder.order) : index
+    }));
+    if (!safe.length) return [];
+    const { transaction, store } = this.#store(FOLDERS, 'readwrite');
+    safe.forEach((folder) => store.put(folder)); await transactionDone(transaction); return safe;
+  }
+  async moveDecks(ids, folderId = null) {
+    const unique = [...new Set((ids || []).map((id) => boundedText(id, 100)).filter(Boolean))];
+    if (!unique.length) return [];
+    const destination = boundedText(folderId, 100) || null;
+    if (destination) {
+      const { transaction, store } = this.#store(FOLDERS);
+      const folder = await requestResult(store.get(destination)); await transactionDone(transaction);
+      if (!folder) throw new Error('That folder no longer exists.');
+    }
     const { transaction, store } = this.#store(STORE, 'readwrite');
-    store.delete(id); await transactionDone(transaction);
-    this.channel?.postMessage({ type: 'deleted', id });
+    const decks = await Promise.all(unique.map((id) => requestResult(store.get(id))));
+    const moved = decks.filter(Boolean).map((deck) => ({ ...deck, folderId: destination }));
+    moved.forEach((deck) => store.put(deck)); await transactionDone(transaction);
+    moved.forEach((deck) => this.channel?.postMessage({ type: 'organised', id: deck.id, folderId: destination }));
+    return moved;
+  }
+  async listRecentOpenings() {
+    const { transaction, store } = this.#store(RECENTS);
+    const records = await requestResult(store.getAll()); await transactionDone(transaction);
+    return records.sort((a, b) => String(b.openedAt).localeCompare(String(a.openedAt)) || String(a.deckId).localeCompare(String(b.deckId)));
+  }
+  async markOpened(deckId, openedAt = new Date().toISOString()) {
+    const id = boundedText(deckId, 100); if (!id) return;
+    const { transaction, store } = this.#store(RECENTS, 'readwrite');
+    store.put({ deckId: id, openedAt }); await transactionDone(transaction);
   }
   async getCurrentId() {
     const { transaction, store } = this.#store(META);
@@ -118,6 +211,7 @@ export function sanitiseDeck(value, { newIdentity = false } = {}) {
   base.revision = Math.max(0, Math.min(1_000_000_000, Number(value.revision || 0)));
   base.createdAt = /^\d{4}-/.test(value.createdAt || '') ? value.createdAt : base.createdAt;
   base.updatedAt = /^\d{4}-/.test(value.updatedAt || '') ? value.updatedAt : base.updatedAt;
+  base.folderId = boundedText(value.folderId, 100) || null;
   base.lastCheckedVersionId = Number.isInteger(Number(value.lastCheckedVersionId)) ? Number(value.lastCheckedVersionId) : null;
   for (const zone of ZONES) {
     if (!Array.isArray(value[zone]) || value[zone].length > 512) throw new Error(`Invalid ${zone} section in backup.`);
@@ -136,13 +230,28 @@ export function sanitiseDeck(value, { newIdentity = false } = {}) {
   return base;
 }
 
-export function makeBackup(decks) {
-  return { schemaVersion: 1, exportedAt: new Date().toISOString(), formatId: 'gog-jush', decks: decks.map((deck) => sanitiseDeck(deck)) };
+export function makeBackup(decks, folders = []) {
+  return {
+    schemaVersion: 1, exportedAt: new Date().toISOString(), formatId: 'gog-jush',
+    folders: (folders || []).slice(0, 100).map((folder, index) => ({
+      id: boundedText(folder?.id, 100) || uuid(), name: boundedText(folder?.name, 80).trim() || `Folder ${index + 1}`,
+      createdAt: /^\d{4}-/.test(folder?.createdAt || '') ? folder.createdAt : null,
+      order: Number.isFinite(Number(folder?.order)) ? Number(folder.order) : index
+    })),
+    decks: decks.map((deck) => sanitiseDeck(deck))
+  };
 }
 
 export function parseBackup(value) {
   const input = typeof value === 'string' ? JSON.parse(value) : value;
   if (!input || Number(input.schemaVersion) !== 1 || !Array.isArray(input.decks) || input.decks.length > 200)
     throw new Error('This is not a supported JUSH deckbuilder backup.');
-  return input.decks.map((deck) => sanitiseDeck(deck, { newIdentity: true }));
+  const folders = Array.isArray(input.folders) ? input.folders.slice(0, 100).map((folder, index) => ({
+    id: boundedText(folder?.id, 100) || uuid(), name: boundedText(folder?.name, 80).trim() || `Imported folder ${index + 1}`,
+    createdAt: /^\d{4}-/.test(folder?.createdAt || '') ? folder.createdAt : null,
+    order: Number.isFinite(Number(folder?.order)) ? Number(folder.order) : index
+  })) : [];
+  const decks = input.decks.map((deck) => sanitiseDeck(deck, { newIdentity: true }));
+  Object.defineProperty(decks, 'folders', { value: folders, enumerable: false });
+  return decks;
 }

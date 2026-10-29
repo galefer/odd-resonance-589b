@@ -14,9 +14,9 @@ assert.equal(Object.keys(presentation.decks).length, 397);
 
 const buildCounts = Object.groupBy(catalogue.decks, (deck) => deck.buildCategory);
 assert.deepEqual(Object.fromEntries(Object.entries(buildCounts).map(([key, decks]) => [key, decks.length])), {
-  'Source-adapted': 227,
-  Experimental: 32,
-  Reconstructed: 138
+  'Source-adapted': 145,
+  Experimental: 41,
+  Reconstructed: 211
 });
 
 const facets = templateFacets(catalogue.decks);
@@ -33,6 +33,12 @@ assert(!facets.tags.some(({ value }) => names.has(value.toLocaleLowerCase())), '
 for (const deck of catalogue.decks) {
   assert(deck.family && deck.engines.length && deck.buildCategory);
   assert(['main', 'extra'].some((zone) => deck[zone].some((card) => card.id === deck.coverCardId)), `${deck.id} cover belongs to the deck`);
+}
+
+for (const id of ['naturia', 'naturia-runick', 'naturia-vernusylph', 'naturia-ragnaraika']) {
+  const deck = catalogue.decks.find((candidate) => candidate.id === id);
+  assert.equal(deck.main.find((card) => card.id === 3734202)?.count, 3, `${id} uses three Naturia Sacred Tree`);
+  assert.equal(deck.main.reduce((total, card) => total + card.count, 0), 40, `${id} remains a 40-card Main Deck`);
 }
 
 assert.equal(presentation.decks.mitsurugi.coverCardId, presentation.decks['mitsurugi-fiendsmith'].coverCardId, 'Variants reuse a family cover when present');

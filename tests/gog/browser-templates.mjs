@@ -8,7 +8,7 @@ import { extname, join, normalize, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 
 const publicRoot = resolve(import.meta.dirname, '../../public');
-const mime = { '.css': 'text/css', '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml' };
+const mime = { '.css': 'text/css', '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml' };
 const server = createServer(async (request, response) => {
   try {
     let pathname = decodeURIComponent(new URL(request.url, 'http://local').pathname);
@@ -76,6 +76,9 @@ const setValue = (selector, value) => evaluate(`(() => {const e=document.querySe
 const apiMock = `(() => {
   const nativeFetch = window.fetch.bind(window);
   const json = value => Promise.resolve(new Response(JSON.stringify(value), {status:200,headers:{'Content-Type':'application/json'}}));
+  window.__houseVersion = 16;
+  window.__templateDataFetches = [];
+  window.__templateQualityAttempts = 0;
   let cardMapPromise;
   const cardMap = () => cardMapPromise ||= nativeFetch('/gog/deckbuilder/template-decks.json').then(r=>r.json()).then(manifest => {
     const map = new Map();
@@ -87,15 +90,22 @@ const apiMock = `(() => {
   });
   window.fetch = async (input, options={}) => {
     const url = new URL(typeof input === 'string' ? input : input.url, location.href);
-    if (!url.pathname.startsWith('/gog/api')) return nativeFetch(input, options);
+    if (!url.pathname.startsWith('/gog/api')) {
+      if (/\\/gog\\/deckbuilder\\/template-(?:decks|presentation|quality)\\.json$/.test(url.pathname)) window.__templateDataFetches.push(url.pathname);
+      if (url.pathname.endsWith('/template-quality.json')) {
+        window.__templateQualityAttempts += 1;
+        if (new URLSearchParams(location.search).has('quality-fail')) return new Response('Unavailable', {status:503});
+      }
+      return nativeFetch(input, options);
+    }
     if (/\\/cards\\/\\d+\\/image$/.test(url.pathname)) return new Response('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="14"/>',{status:200,headers:{'Content-Type':'image/svg+xml'}});
-    if (url.pathname.endsWith('/config')) return json({version:{id:13,label:'House List v1.0'},poolRevision:'fixture'});
-    if (url.pathname.endsWith('/catalogue')) return json({cards:[],hasMore:false,catalogue:{eligibleCards:13266},version:{id:13,label:'House List v1.0'}});
+    if (url.pathname.endsWith('/config')) return json({version:{id:window.__houseVersion,label:'House List v' + window.__houseVersion},poolRevision:'fixture'});
+    if (url.pathname.endsWith('/catalogue')) return json({cards:[],hasMore:false,catalogue:{eligibleCards:13266},version:{id:window.__houseVersion,label:'House List v' + window.__houseVersion}});
     if (url.pathname.endsWith('/cards/resolve')) {
       const map = await cardMap(); const ids = JSON.parse(options.body).ids;
       return json({results:ids.map(inputId=>{const source=map.get(Number(inputId));return source ? {inputId:Number(inputId),outcome:'resolved',artworkId:Number(inputId),card:{id:Number(inputId),canonicalId:Number(inputId),artworkId:Number(inputId),name:source.name,category:'Monster',subtype:source.placement==='extra'?'Fusion':'Effect',cardType:source.placement==='extra'?'Fusion Monster':'Effect Monster',placement:source.placement,copyLimitKey:String(inputId),status:'unlimited',copies:3,poolVerified:true,description:'Template browser fixture.'}}:{inputId:Number(inputId),outcome:'unknown_id'}})});
     }
-    if (url.pathname.endsWith('/decks/validate')) return json({verified:true,legal:true,issues:[],cards:[],version:{id:13,label:'House List v1.0'},poolRevision:'fixture',checkedAt:new Date().toISOString()});
+    if (url.pathname.endsWith('/decks/validate')) return json({verified:true,legal:true,issues:[],cards:[],version:{id:window.__houseVersion,label:'House List v' + window.__houseVersion},poolRevision:'fixture',checkedAt:new Date().toISOString()});
     return json({error:'Unexpected API mock path'});
   };
 })()`;
@@ -135,10 +145,43 @@ try {
   await click('.template-list-item');
   assert.match(await evaluate(`document.querySelector('#template-detail-name').textContent`), /Mitsurugi/i);
   assert(await evaluate(`document.querySelector('#template-detail-cover').src.includes('size=cover') && document.querySelector('#template-detail-build').textContent === 'Source-adapted'`));
+  assert.match(await evaluate(`document.querySelector('#template-detail-quality').textContent`), /Needs review/);
   await click('#template-tab-cards');
   assert(await evaluate(`document.querySelector('#template-cardlist-zone').textContent.includes('Ame no Habakiri')`));
   await click('#template-tab-sources');
-  assert(await evaluate(`document.querySelector('#template-source-content a[href^="https://"]') !== null && document.querySelector('#template-source-content').textContent.includes('House-format changes')`));
+  assert(await evaluate(`document.querySelector('#template-source-content a[href^="https://"]') !== null && document.querySelector('#template-source-content').textContent.includes('House-format changes') && document.querySelector('#template-source-content').textContent.includes('Construction review')`));
+  await setValue('#template-search', 'Mitsurugi Fiendsmith');
+  await waitFor(`[...document.querySelectorAll('.template-list-item strong')].some(node=>node.textContent==='Mitsurugi Fiendsmith')`, 'Mitsurugi Fiendsmith search');
+  await evaluate(`[...document.querySelectorAll('.template-list-item')].find(node=>node.querySelector('strong')?.textContent==='Mitsurugi Fiendsmith').click()`);
+  assert.equal(await evaluate(`document.querySelector('#template-detail-name').textContent`), 'Mitsurugi Fiendsmith');
+  assert.match(await evaluate(`document.querySelector('#template-detail-quality').textContent`), /Needs review/);
+  assert(await evaluate(`document.querySelector('#template-source-content').textContent.includes("Fiendsmith Engraver")`), 'Mitsurugi Fiendsmith source changes remain visible');
+  await setValue('#template-search', 'White Forest');
+  await waitFor(`[...document.querySelectorAll('.template-list-item strong')].some(node=>node.textContent==='White Forest')`, 'White Forest search');
+  await evaluate(`[...document.querySelectorAll('.template-list-item')].find(node=>node.querySelector('strong')?.textContent==='White Forest').click()`);
+  assert.match(await evaluate(`document.querySelector('#template-detail-quality').textContent`), /Experimental/);
+  assert(await evaluate(`document.querySelector('#template-source-content').textContent.includes("resources available to the engine")`), 'Curated White Forest repair remains visible');
+  await setValue('#template-search', 'Naturia');
+  await waitFor(`[...document.querySelectorAll('.template-list-item strong')].some(node=>node.textContent==='Naturia')`, 'Naturia search');
+  await evaluate(`[...document.querySelectorAll('.template-list-item')].find(node=>node.querySelector('strong')?.textContent==='Naturia').click()`);
+  assert(await evaluate(`document.querySelector('#template-detail-notes').textContent.includes('Sacred Tree is now played at three')`), 'Naturia correction note remains visible');
+  await click('#template-tab-cards');
+  assert(await evaluate(`[...document.querySelectorAll('#template-cardlist-zone li')].some(node=>node.textContent.includes('3×Naturia Sacred Tree'))`), 'Naturia displays three Sacred Tree copies');
+  await click('#template-tab-sources');
+  assert(await evaluate(`document.querySelector('#template-source-content').textContent.includes('Add the two Trees')`), 'Naturia source changes include the Sacred Tree correction');
+  await setValue('#template-search', 'Yummy Mitsurugi');
+  await waitFor(`[...document.querySelectorAll('.template-list-item strong')].some(node=>node.textContent==='Yummy Mitsurugi')`, 'Yummy Mitsurugi search');
+  await evaluate(`[...document.querySelectorAll('.template-list-item')].find(node=>node.querySelector('strong')?.textContent==='Yummy Mitsurugi').click()`);
+  assert.equal(await evaluate(`document.querySelector('#template-detail-name').textContent`), 'Yummy Mitsurugi');
+  assert.match(await evaluate(`document.querySelector('#template-detail-quality').textContent`), /Ready for review/);
+  assert(await evaluate(`document.querySelector('#template-source-content').textContent.includes("THE Star Ham")`), 'Yummy Mitsurugi source changes remain visible');
+  const selectedTemplateName = await evaluate(`document.querySelector('#template-detail-name').textContent`);
+  await click('#template-tab-cards');
+  await click('[data-template-card-zone="side"]');
+  await evaluate(`(() => { window.__houseVersion = 17; window.dispatchEvent(new Event('online')); return true; })()`);
+  await waitFor(`document.querySelector('#template-detail-quality')?.textContent.includes('Needs recheck')`, 'stale construction assessment');
+  assert.equal(await evaluate(`document.querySelector('#template-detail-name').textContent`), selectedTemplateName, 'House-version refresh preserves the selected template');
+  assert.equal(await evaluate(`document.querySelector('[data-template-card-zone="side"]').getAttribute('aria-selected')`), 'true', 'House-version refresh preserves the selected card zone');
   await click('#template-tab-overview');
   await click('#copy-template');
   await waitFor(`!document.querySelector('#templates-dialog').open && document.querySelector('#deck-name').textContent.includes('Mitsurugi')`, 'template copy');
@@ -152,6 +195,8 @@ try {
   assert.equal(await evaluate(`document.querySelector('[data-mobile-command="templates"] small').textContent`), 'Browse 397 starting lists');
   await click('[data-mobile-command="templates"]');
   await waitFor(`document.querySelector('#templates-dialog').open && document.querySelectorAll('.template-list-item').length > 0`, 'mobile template list');
+  const templateLoads = await evaluate(`(() => ({decks:window.__templateDataFetches.filter(path=>path.endsWith('/template-decks.json')).length,presentation:window.__templateDataFetches.filter(path=>path.endsWith('/template-presentation.json')).length,quality:window.__templateDataFetches.filter(path=>path.endsWith('/template-quality.json')).length}))()`);
+  assert.deepEqual(templateLoads, { decks: 1, presentation: 1, quality: 1 }, 'Reopening reuses the cached template data');
   await setValue('#template-search', 'Dark Magician Toy');
   await waitFor(`document.querySelectorAll('.template-list-item').length === 1`, 'mobile template search');
   await click('.template-list-item');
@@ -205,9 +250,26 @@ try {
   assert(deckCollapsed.deck <= deckCollapsed.header + 2 && deckCollapsed.zones <= 2, 'Deck should collapse fully to its zone-tab header');
   assert.equal(deckCollapsed.value, splitBefore.maximum, 'Deck collapse should reach the announced maximum');
 
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+  await send('Page.navigate', { url: `${origin}/gog/deckbuilder/?quality-fail=1` });
+  await waitFor(`document.querySelector('#saved-label')?.textContent.includes('Saved')`, 'quality-failure fixture');
+  await click('#templates-button');
+  await waitFor(`document.querySelector('#template-result-count')?.textContent.startsWith('397 of 397 decks')`, 'catalogue without quality response');
+  await setValue('#template-search', 'Dark Magician Toy');
+  await waitFor(`document.querySelectorAll('.template-list-item').length === 1`, 'quality-failure template search');
+  await click('.template-list-item');
+  assert.match(await evaluate(`document.querySelector('#template-detail-quality').textContent`), /Needs review/, 'Unavailable quality stays visibly unverified');
+  assert.equal(await evaluate(`document.querySelector('#template-detail-quality').textContent.includes('Recommended')`), false, 'Unavailable quality cannot create a recommendation');
+  await click('#templates-dialog .close-button');
+  await click('#templates-button');
+  await waitFor(`document.querySelector('#template-result-count')?.textContent.startsWith('1 of 397 decks')`, 'reopened catalogue after quality failure');
+  const qualityFailureLoads = await evaluate(`({attempts:window.__templateQualityAttempts,decks:window.__templateDataFetches.filter(path=>path.endsWith('/template-decks.json')).length,presentation:window.__templateDataFetches.filter(path=>path.endsWith('/template-presentation.json')).length,quality:window.__templateDataFetches.filter(path=>path.endsWith('/template-quality.json')).length})`);
+  assert.deepEqual(qualityFailureLoads, { attempts: 2, decks: 1, presentation: 1, quality: 2 }, 'A failed quality request retries without reloading the base catalogue');
+
   assert.deepEqual(consoleErrors, [], `No browser errors expected: ${consoleErrors.join(' | ')}`);
-  assert.deepEqual(failedResponses, [], `No failed responses expected: ${failedResponses.join(' | ')}`);
-  console.log(JSON.stringify({ chrome: version.Browser, templates: 397, desktop: desktopLayout, copied, mobileOverflow, narrowOverflow, splitBefore, splitAfterDrag, splitAfterKey, libraryCollapsed, deckCollapsed, checks: 'passed' }, null, 2));
+  const unexpectedFailures = failedResponses.filter(url => !url.includes('/template-quality.json'));
+  assert.deepEqual(unexpectedFailures, [], `No unexpected failed responses expected: ${unexpectedFailures.join(' | ')}`);
+  console.log(JSON.stringify({ chrome: version.Browser, templates: 397, templateLoads, qualityFailureLoads, desktop: desktopLayout, copied, mobileOverflow, narrowOverflow, splitBefore, splitAfterDrag, splitAfterKey, libraryCollapsed, deckCollapsed, checks: 'passed' }, null, 2));
 } finally {
   socket.close(); chrome.kill(); server.close();
   await Promise.race([new Promise(done => chrome.once('exit', done)), sleep(1500)]);

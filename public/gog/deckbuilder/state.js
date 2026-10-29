@@ -9,7 +9,7 @@ export function newDeck(name = 'Untitled deck') {
   const createdAt = now();
   return {
     schemaVersion: 1, id: uuid(), name: String(name).trim().slice(0, 100) || 'Untitled deck', revision: 0,
-    createdAt, updatedAt: createdAt, formatId: 'gog-jush', lastCheckedVersionId: null,
+    createdAt, updatedAt: createdAt, folderId: null, formatId: 'gog-jush', lastCheckedVersionId: null,
     main: [], extra: [], side: [], groups: [], notes: '', originalImport: null
   };
 }
