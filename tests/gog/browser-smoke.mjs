@@ -369,8 +369,10 @@ try {
     assert.equal(layout.oldNav, null, 'The retired Deck / Library / Card / Tools navigation should not remain');
     if (width < 768) {
       assert(layout.library && layout.deck && layout.actions && !layout.save, `${width}px should show the split workspace and compact action menu`);
-      const headerControlState = await evaluate(`(()=>{const rect=e=>{const r=e.getBoundingClientRect();return {width:r.width,left:r.left,right:r.right}};const identity=document.querySelector('.deck-identity');return {controls:['deck-menu-button','undo','mobile-actions-button'].map(id=>({id,...rect(document.getElementById(id))})),toolbar:rect(document.querySelector('.deck-toolbar')),identity:rect(identity),identityStyle:{width:getComputedStyle(identity).width,flex:getComputedStyle(identity).flex}}})()`);
+      const headerControlState = await evaluate(`(()=>{const rect=e=>{const r=e.getBoundingClientRect();return {width:r.width,left:r.left,right:r.right}};const identity=document.querySelector('.deck-identity');return {controls:['deck-menu-button','undo','mobile-actions-button'].map(id=>({id,...rect(document.getElementById(id))})),toolbar:rect(document.querySelector('.deck-toolbar')),identity:rect(identity),name:rect(document.querySelector('#deck-name')),identityStyle:{width:getComputedStyle(identity).width,flex:getComputedStyle(identity).flex}}})()`);
       assert(headerControlState.controls.every(control=>control.width>=40&&control.left>=0&&control.right<=width), `${width}px compact mobile header controls should stay reachable: ${JSON.stringify(headerControlState)}`);
+      assert(headerControlState.controls[0].width >= 44, `${width}px deck switcher should keep a full touch target: ${JSON.stringify(headerControlState)}`);
+      assert(headerControlState.name.width >= width - 205, `${width}px deck name should consume the available header width before truncating: ${JSON.stringify(headerControlState)}`);
       const mobileHeaderBounds = await evaluate(`(()=>{const rect=e=>{const r=e.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height}};return {header:rect(document.querySelector('.gog-site-header')),toolbar:rect(document.querySelector('.deck-toolbar')),deckBar:rect(document.querySelector('.mobile-deck-bar')),validation:rect(document.querySelector('#validation-banner'))}})()`);
       assert(mobileHeaderBounds.toolbar.top>=mobileHeaderBounds.header.top-1&&mobileHeaderBounds.toolbar.bottom<=mobileHeaderBounds.header.bottom+1&&mobileHeaderBounds.validation.top>=mobileHeaderBounds.deckBar.top&&mobileHeaderBounds.validation.bottom<=mobileHeaderBounds.deckBar.bottom, `${width}px should merge deck controls into the site header and validation into the deck header: ${JSON.stringify(mobileHeaderBounds)}`);
       assert(await evaluate(`document.querySelector('#mobile-grouped-view').getAttribute('aria-checked')==='true' && document.querySelector('#mobile-copies-view').getAttribute('aria-checked')==='false'`), `${width}px should default the deck to grouped stacks`);
@@ -447,6 +449,16 @@ try {
   await click('#card-inspector-dialog .close-button');
   await click('#mobile-actions-button');
   assert(await evaluate(`document.querySelector('#mobile-actions-dialog').open && document.querySelectorAll('[data-mobile-command]').length>=10`), 'Compact menu exposes deck actions and tools');
+  const sheetHandle = await point('#mobile-actions-dialog [data-sheet-drag-handle]');
+  assert(await evaluate(`document.querySelector('#mobile-actions-dialog [data-sheet-drag-handle]').getBoundingClientRect().height>=44`), 'Bottom-sheet drag handle has a touch-friendly target');
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...sheetHandle });
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...sheetHandle, button: 'left', buttons: 1, clickCount: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: sheetHandle.x, y: sheetHandle.y + 190, button: 'left', buttons: 1 });
+  assert(await evaluate(`document.querySelector('#mobile-actions-dialog').classList.contains('sheet-dragging') && new DOMMatrixReadOnly(getComputedStyle(document.querySelector('#mobile-actions-dialog')).transform).m42>=185`), 'Bottom sheet follows the drag handle');
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: sheetHandle.x, y: sheetHandle.y + 190, button: 'left', buttons: 0, clickCount: 1 });
+  await waitFor(`!document.querySelector('#mobile-actions-dialog').open`, 'dragged mobile actions close');
+  await waitFor(`document.activeElement===document.querySelector('#mobile-actions-button')`, 'focus restored after dragged mobile actions close');
+  await click('#mobile-actions-button');
   await click('[data-mobile-command="overview"]');
   await waitFor(`document.querySelector('#mobile-tools-dialog').open && document.querySelector('#overview').hidden===false`, 'mobile overview and probability tools');
   await click('#mobile-tools-dialog .close-button');
@@ -468,7 +480,7 @@ try {
   assert(await evaluate(`document.querySelector('.deck-canvas').getBoundingClientRect().height >= ${normalDeckHeight - 1} && document.body.dataset.deckZone==='main'`), 'Closing the keyboard state restores the split and active section');
   await waitFor(`document.querySelector('#saved-label').textContent==='Saved on this device'`, 'saved mobile screenshot state');
   await screenshot('deckbuilder-mobile.png');
-  evidence.checks.push('mobile library-first workspace, shared inspector, quantity controls, active-zone quick add, grouped decrement, Undo, tools and keyboard-compact state');
+  evidence.checks.push('mobile library-first workspace, wider deck title, draggable sheets, shared inspector, quantity controls, active-zone quick add, grouped decrement, Undo, tools and keyboard-compact state');
 
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: `${origin}/gog/` });

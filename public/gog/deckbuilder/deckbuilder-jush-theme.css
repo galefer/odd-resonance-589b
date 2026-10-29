@@ -1046,17 +1046,22 @@ body.deckbuilder-page .tool-section label { font-family: var(--font); }
   body.deckbuilder-page .gog-brand img { width: 34px; height: 34px; }
   body.deckbuilder-page .gog-brand span { display: none; }
   body.deckbuilder-page .gog-back-link { display: none; }
-  body.deckbuilder-page .deck-toolbar { left: 50px; width: auto; }
+  body.deckbuilder-page .deck-toolbar { left: 50px; width: auto; gap: 5px; }
   body.deckbuilder-page .deck-title-row { height: 44px; gap: 0; }
   body.deckbuilder-page .deck-heading { min-width: 0; flex: 1 1 auto; }
   body.deckbuilder-page .deck-heading > p { display: none; }
   body.deckbuilder-page .deck-name-line { height: 44px; }
-  body.deckbuilder-page #deck-name { max-width: none; font-size: 1rem; line-height: 1.1; }
-  body.deckbuilder-page .deck-title-button { width: 40px; height: 42px; flex-basis: 40px; }
+  body.deckbuilder-page #deck-name { max-width: none; flex: 1 1 auto; font-size: 1rem; line-height: 1.1; }
+  body.deckbuilder-page .deck-title-row .deck-title-button { width: 44px; height: 44px; min-width: 44px; max-width: 44px; flex: 0 0 44px; }
   body.deckbuilder-page .deck-save-actions { display: none; }
   body.deckbuilder-page .save-line { left: 0; bottom: 3px; font-size: .58rem; }
   body.deckbuilder-page .toolbar-actions { gap: 5px; }
   body.deckbuilder-page .toolbar-actions .icon-button { width: 42px; height: 42px; }
+  body.deckbuilder-page .sheet-drag-handle span { background: #4a7188; }
+  body.deckbuilder-page .sheet-drag-handle:hover span,
+  body.deckbuilder-page .sheet-drag-handle:focus-visible span,
+  body.deckbuilder-page dialog.mobile-sheet.sheet-dragging .sheet-drag-handle span { background: var(--jush-cyan); }
+  body.deckbuilder-page .sheet-drag-handle:focus-visible { outline-color: var(--jush-cyan); }
 
   body.deckbuilder-page .canvas-heading-actions,
   body.deckbuilder-page .validation-compact { display: none; }

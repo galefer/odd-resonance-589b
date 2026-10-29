@@ -219,7 +219,7 @@ textarea{background:#0f0f11;border-color:#60483c}
 }
 
 /* Purpose-built phone workspace. This final block is the mobile source of truth. */
-.mobile-only,.mobile-deck-bar,.inspector-quantity-panel,.library-quick-add,.library-quantity{display:none}
+.mobile-only,.mobile-deck-bar,.inspector-quantity-panel,.library-quick-add,.library-quantity,.sheet-drag-handle{display:none}
 @media(min-width:1180px){
  .left-panel{grid-column:1;grid-row:1}.deck-canvas{grid-column:2;grid-row:1}.library-panel{grid-column:3;grid-row:1}
 }
@@ -230,9 +230,9 @@ textarea{background:#0f0f11;border-color:#60483c}
  body.deckbuilder-page .deck-toolbar{position:absolute;z-index:85;top:0;right:8px;left:clamp(140px,40vw,154px);height:var(--mobile-site-header,48px)!important;min-height:var(--mobile-site-header,48px)!important;padding:2px 0!important;display:flex;flex-wrap:nowrap;align-content:normal;gap:8px;background:transparent;border:0}
  body.deckbuilder-page .deck-identity{width:auto;height:44px;min-width:0;flex:1 1 auto;position:relative}
  body.deckbuilder-page .deck-title-row{height:44px;min-width:0;display:flex;flex-wrap:nowrap;gap:0}
- body.deckbuilder-page .deck-title-row .deck-title-button{width:100%;height:44px;min-width:0;max-width:100%;flex:1 1 auto;margin:0;padding:3px 3px 15px;justify-content:flex-start;align-items:center;font-size:11px;line-height:1.1;gap:4px;touch-action:manipulation}
+ body.deckbuilder-page .deck-title-row .deck-title-button{width:44px;height:44px;min-width:44px;max-width:44px;flex:0 0 44px;margin:0;padding:3px 3px 15px;justify-content:center;align-items:center;font-size:11px;line-height:1.1;gap:4px;touch-action:manipulation}
  body.deckbuilder-page .deck-title-row .deck-title-button span{font-size:11px}
- body.deckbuilder-page #deck-name{min-width:0;max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f8eee8;font-weight:760}
+ body.deckbuilder-page #deck-name{min-width:0;max-width:none;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f8eee8;font-weight:760}
  body.deckbuilder-page .deck-title-row>.button{display:none}
  body.deckbuilder-page .save-line{position:absolute;z-index:2;left:4px;right:2px;bottom:5px;min-width:0;margin:0;overflow:hidden;font-size:8px;line-height:1;white-space:nowrap;pointer-events:none}
  body.deckbuilder-page #saved-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -327,11 +327,21 @@ textarea{background:#0f0f11;border-color:#60483c}
  body.deckbuilder-page .deck-menu-list button,body.deckbuilder-page .deck-menu>button,body.deckbuilder-page .export-option,body.deckbuilder-page .menu-row{min-height:44px}
  body.deckbuilder-page .toast{z-index:160;bottom:max(14px,env(safe-area-inset-bottom));min-width:0;width:max-content;max-width:calc(100% - 24px);padding:11px 14px;font-size:11px;text-align:center}
 
- body.deckbuilder-page dialog.mobile-sheet{position:fixed;inset:auto 0 0 0;width:100%;max-width:none;height:min(88dvh,760px);max-height:calc(var(--mobile-viewport-height,100dvh) - 8px);margin:0;padding:0;overflow:hidden;border:1px solid #66483a;border-bottom:0;border-radius:18px 18px 0 0;background:#151416;box-shadow:0 -22px 80px #000d}
+ body.deckbuilder-page dialog.mobile-sheet{--sheet-drag-y:0px;position:fixed;inset:auto 0 0 0;width:100%;max-width:none;height:min(88dvh,760px);max-height:calc(var(--mobile-viewport-height,100dvh) - 8px);margin:0;padding:0;overflow:hidden;border:1px solid #66483a;border-bottom:0;border-radius:18px 18px 0 0;background:#151416;box-shadow:0 -22px 80px #000d;transform:translateY(var(--sheet-drag-y));will-change:transform}
  body.deckbuilder-page dialog.mobile-sheet[open]{display:flex;flex-direction:column;animation:mobile-sheet-in .18s ease-out}
+ body.deckbuilder-page dialog.mobile-sheet.sheet-dragging{animation:none;transition:none}
+ body.deckbuilder-page dialog.mobile-sheet.sheet-resetting,
+ body.deckbuilder-page dialog.mobile-sheet.sheet-dismissing{animation:none;transition:transform .18s cubic-bezier(.2,.8,.2,1)}
  body.deckbuilder-page dialog.mobile-sheet::backdrop{background:#050505b8;backdrop-filter:blur(3px)}
- body.deckbuilder-page .sheet-header{min-height:66px;padding:12px 14px 10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex:0 0 auto;border-bottom:1px solid #3b302b;background:#111113}
- body.deckbuilder-page .sheet-header:before{content:"";position:absolute;top:7px;left:50%;width:42px;height:4px;transform:translateX(-50%);border-radius:4px;background:#66554c}
+ body.deckbuilder-page .sheet-drag-handle{position:absolute;z-index:4;top:0;left:50%;width:88px;height:44px;padding:0;display:grid;place-items:start center;transform:translateX(-50%);color:inherit;border:0;background:transparent;cursor:grab;touch-action:none}
+ body.deckbuilder-page .sheet-drag-handle span{width:48px;height:5px;margin-top:9px;border-radius:5px;background:#66554c;transition:width .16s ease,background-color .16s ease}
+ body.deckbuilder-page .sheet-drag-handle:hover span,
+ body.deckbuilder-page .sheet-drag-handle:focus-visible span,
+ body.deckbuilder-page dialog.mobile-sheet.sheet-dragging .sheet-drag-handle span{width:58px;background:#ff8b47}
+ body.deckbuilder-page .sheet-drag-handle:focus-visible{outline:2px solid #ff8b47;outline-offset:-4px;border-radius:12px}
+ body.deckbuilder-page dialog.mobile-sheet.sheet-dragging .sheet-drag-handle{cursor:grabbing}
+ body.deckbuilder-page .sheet-header{position:relative;min-height:66px;padding:12px 14px 10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex:0 0 auto;border-bottom:1px solid #3b302b;background:#111113}
+ body.deckbuilder-page .sheet-header:before{content:none}
  body.deckbuilder-page .sheet-header .eyebrow{margin:0 0 2px;font-size:8px}
  body.deckbuilder-page .sheet-header h2{max-width:calc(100vw - 86px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:17px}
  body.deckbuilder-page .sheet-header .close-button{width:44px;height:44px;flex:0 0 44px;border:1px solid #4d3a31;border-radius:9px;background:#211b19;font-size:24px}
@@ -412,6 +422,8 @@ textarea{background:#0f0f11;border-color:#60483c}
 
 @media(prefers-reduced-motion:reduce){
  body.deckbuilder-page dialog.mobile-sheet[open]{animation:none}
+ body.deckbuilder-page dialog.mobile-sheet.sheet-resetting,
+ body.deckbuilder-page dialog.mobile-sheet.sheet-dismissing{transition:none}
 }
 
 /* Template deck catalogue: virtualized family browser and selected-deck detail. */

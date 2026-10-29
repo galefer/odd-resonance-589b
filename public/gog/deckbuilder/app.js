@@ -97,6 +97,9 @@ let mobileSplitRatio;
 let mobileSplitPointerId = null;
 let mobileSplitFrame = 0;
 let mobileSplitClientY = null;
+let mobileSheetDrag = null;
+let mobileSheetTimer = 0;
+let mobileSheetSuppressClickUntil = 0;
 
 function isMobileWorkspace() { return matchMedia(MOBILE_WORKSPACE_QUERY).matches; }
 function isCompactWorkspace() { return matchMedia(COMPACT_WORKSPACE_QUERY).matches; }
@@ -1036,6 +1039,71 @@ function closeDialog(dialog) {
   if (dialog.open) dialog.close();
 }
 
+function resetMobileSheet(dialog) {
+  if (!dialog?.classList.contains('mobile-sheet')) return;
+  clearTimeout(mobileSheetTimer); mobileSheetTimer = 0;
+  if (mobileSheetDrag?.dialog === dialog) {
+    try { mobileSheetDrag.handle.releasePointerCapture?.(mobileSheetDrag.pointerId); } catch { /* Capture may already be released. */ }
+    mobileSheetDrag = null;
+  }
+  dialog.classList.remove('sheet-dragging', 'sheet-resetting', 'sheet-dismissing');
+  dialog.style.removeProperty('--sheet-drag-y');
+}
+
+function settleMobileSheetDrag(event, cancelled = false) {
+  if (!mobileSheetDrag || event.pointerId !== mobileSheetDrag.pointerId) return;
+  event.preventDefault();
+  const state = mobileSheetDrag;
+  const delta = Math.max(0, event.clientY - state.startY);
+  const elapsed = Math.max(1, performance.now() - state.startedAt);
+  const velocity = delta / elapsed;
+  if (state.moved) mobileSheetSuppressClickUntil = performance.now() + 500;
+  try { state.handle.releasePointerCapture?.(state.pointerId); } catch { /* Capture may already be released. */ }
+  mobileSheetDrag = null;
+  state.dialog.classList.remove('sheet-dragging');
+  const dismiss = !cancelled && (delta >= Math.min(140, state.dialog.getBoundingClientRect().height * .2) || (delta > 36 && velocity > .65));
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (dismiss) {
+    if (reducedMotion) { closeDialog(state.dialog); resetMobileSheet(state.dialog); return; }
+    state.dialog.classList.add('sheet-dismissing');
+    void state.dialog.offsetHeight;
+    state.dialog.style.setProperty('--sheet-drag-y', `${Math.ceil(state.dialog.getBoundingClientRect().height + 24)}px`);
+    mobileSheetTimer = setTimeout(() => { closeDialog(state.dialog); resetMobileSheet(state.dialog); }, 190);
+    return;
+  }
+  state.dialog.classList.add('sheet-resetting');
+  void state.dialog.offsetHeight;
+  state.dialog.style.setProperty('--sheet-drag-y', '0px');
+  mobileSheetTimer = setTimeout(() => resetMobileSheet(state.dialog), reducedMotion ? 0 : 190);
+}
+
+function attachMobileSheetDrag(dialog) {
+  const handle = dialog.querySelector('[data-sheet-drag-handle]');
+  if (!handle) return;
+  handle.addEventListener('pointerdown', (event) => {
+    if (!dialog.open || !isMobileWorkspace() || event.isPrimary === false || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    event.preventDefault(); resetMobileSheet(dialog);
+    mobileSheetDrag = { dialog, handle, pointerId: event.pointerId, startY: event.clientY, startedAt: performance.now(), moved: false };
+    dialog.style.setProperty('--sheet-drag-y', '0px');
+    dialog.classList.add('sheet-dragging');
+    handle.setPointerCapture?.(event.pointerId);
+  });
+  handle.addEventListener('pointermove', (event) => {
+    if (!mobileSheetDrag || event.pointerId !== mobileSheetDrag.pointerId) return;
+    event.preventDefault();
+    const delta = Math.max(0, event.clientY - mobileSheetDrag.startY);
+    if (delta > 5) mobileSheetDrag.moved = true;
+    mobileSheetDrag.dialog.style.setProperty('--sheet-drag-y', `${Math.round(delta)}px`);
+  });
+  handle.addEventListener('pointerup', (event) => settleMobileSheetDrag(event));
+  handle.addEventListener('pointercancel', (event) => settleMobileSheetDrag(event, true));
+  handle.addEventListener('click', (event) => {
+    if (performance.now() < mobileSheetSuppressClickUntil) { event.preventDefault(); event.stopPropagation(); return; }
+    closeDialog(dialog);
+  });
+  dialog.addEventListener('close', () => resetMobileSheet(dialog));
+}
+
 function info(title, content) {
   $('info-title').textContent = title;
   const body = $('info-body'); body.replaceChildren();
@@ -1828,7 +1896,9 @@ function syncMobileViewport() {
 }
 
 function handleWorkspaceResize() {
-  cancelTouchDrag(); syncMobileViewport(); syncResponsiveDeckView();
+  cancelTouchDrag();
+  if (mobileSheetDrag) resetMobileSheet(mobileSheetDrag.dialog);
+  syncMobileViewport(); syncResponsiveDeckView();
   if (!isCompactWorkspace()) {
     if ($('card-inspector-dialog').open) $('card-inspector-dialog').close(); else moveInspectorHome();
     if ($('mobile-tools-dialog').open) $('mobile-tools-dialog').close(); else moveToolsHome();
@@ -1863,6 +1933,7 @@ async function runMobileCommand(command) {
 }
 
 function wireEvents() {
+  document.querySelectorAll('dialog.mobile-sheet').forEach(attachMobileSheetDrag);
   $('deck-menu-button').addEventListener('click', () => toggleMenu($('deck-menu'), $('deck-menu-button')));
   $('saved-decks-button').addEventListener('click', () => toggleMenu($('deck-menu'), $('saved-decks-button')));
   $('save-deck').addEventListener('click', (event) => openSaveDeck(event.currentTarget));
