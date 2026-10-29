@@ -125,6 +125,7 @@ try {
       const viewToggles=[...document.querySelectorAll('[data-list-view]')].map(button=>{const r=button.getBoundingClientRect();return {label:button.textContent.trim(),pressed:button.getAttribute('aria-pressed'),height:r.height,radius:getComputedStyle(button).borderRadius}});
       const search=document.querySelector('#card-search').getBoundingClientRect(),filter=document.querySelector('#filter-toggle').getBoundingClientRect();
       const firstCard=document.querySelector('.card-row'),firstCardRect=firstCard?.getBoundingClientRect();
+      const mobileActions=document.querySelector('.hero-mobile-actions').getBoundingClientRect();
       return {
         viewport:innerWidth,
         overflow:document.documentElement.scrollWidth-innerWidth,
@@ -132,7 +133,7 @@ try {
         rootFont:getComputedStyle(document.documentElement).fontSize,
         bodyFont:getComputedStyle(document.body).fontFamily,
         headingFont:getComputedStyle(document.querySelector('#search-heading')).fontFamily,
-        hero:{height:hero.height,left:hero.left,right:hero.right}, event:{left:event.left,right:event.right,height:event.height},
+        hero:{height:hero.height,left:hero.left,right:hero.right,bottomGap:hero.bottom-mobileActions.bottom}, event:{left:event.left,right:event.right,height:event.height},
         content:{left:shell.left,right:shell.right,width:shell.width,ratio:shell.width/innerWidth},
         stage:{background:getComputedStyle(stage).backgroundColor,overflow:getComputedStyle(stage).overflow},
         characterTreatment:{
@@ -195,7 +196,8 @@ try {
     }
     if (width <= 600) {
       assert.equal(geometry.adminButton.display,'none',`${width}px moves administration out of the public header`);
-      assert(geometry.hero.height<=350,`${width}px compact mobile hero`);
+      assert(geometry.hero.height<=290,`${width}px compact mobile hero`);
+      assert(geometry.hero.bottomGap>=0&&geometry.hero.bottomGap<=18,`${width}px hero should end just below its actions, got ${geometry.hero.bottomGap}px`);
       assert(geometry.event.height<=90,`${width}px compact mobile event summary`);
       assert.notEqual(geometry.mobileLayout.summary,'none',`${width}px compact format summary visible`);
       assert.equal(geometry.mobileLayout.facts,'none',`${width}px tall fact rows hidden`);
