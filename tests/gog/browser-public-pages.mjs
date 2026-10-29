@@ -119,6 +119,8 @@ try {
         };
       };
       const build=[...document.querySelectorAll('a,button')].filter(e=>e.textContent.trim().toLowerCase()==='build a deck');
+      const adminButton=document.querySelector('#admin-button');
+      const adminRect=adminButton.getBoundingClientRect();
       return {
         viewport:innerWidth,
         overflow:document.documentElement.scrollWidth-innerWidth,
@@ -137,6 +139,7 @@ try {
         statusFilter:{width:statusRect.width,height:statusRect.height,opacity:statusStyle.opacity,position:statusStyle.position,appearance:statusStyle.appearance,semiWhiteSpace:getComputedStyle(semi).whiteSpace},
         defaultComparisonRows:document.querySelectorAll('.change-context').length,
         buildCount:build.length,
+        adminButton:{text:adminButton.textContent.trim(),inHeader:Boolean(adminButton.closest('.gog-site-header')),right:adminRect.right,width:adminRect.width},
         oldNavigation:document.querySelectorAll('.gog-primary-nav,.gog-mobile-nav,.view-tabs,.feature-card,.hero-actions').length,
         filterDisplay:getComputedStyle(document.querySelector('#filters-panel')).display
       };
@@ -147,6 +150,10 @@ try {
     assert.match(geometry.bodyFont,/Barlow/i);
     assert.match(geometry.headingFont,/Barlow Condensed/i);
     assert.equal(geometry.buildCount,1,`${width}px single Build a deck action`);
+    assert.equal(geometry.adminButton.text,'Admin Login',`${width}px signed-out admin label`);
+    assert.equal(geometry.adminButton.inHeader,true,`${width}px admin control should be in the header`);
+    assert(geometry.adminButton.width>=90,`${width}px admin control should remain readable`);
+    assert(geometry.adminButton.right<=width+1,`${width}px admin control should remain within the viewport`);
     assert.equal(geometry.oldNavigation,0,`${width}px obsolete navigation/components`);
     assert.equal(geometry.viewport,width,`${width}px controlled CSS viewport`);
     assert.equal(geometry.stage.background,'rgba(0, 0, 0, 0)',`${width}px transparent hero stage`);
@@ -185,6 +192,12 @@ try {
     await screenshot(`jush-home-${width}.png`);
     evidence.viewports.push({width,...geometry});
   }
+
+  await evaluate(`window.dispatchEvent(new CustomEvent('gog:admin-session',{detail:{authenticated:true,email:'admin@example.com',csrfToken:'test-token'}}))`);
+  assert.equal(await evaluate(`document.querySelector('#admin-button').textContent.trim()`),'Admin Panel','Authenticated session should relabel the header control');
+  assert.equal(await evaluate(`document.querySelector('#admin-button').dataset.authenticated`),'true');
+  await evaluate(`window.dispatchEvent(new CustomEvent('gog:admin-session',{detail:{authenticated:false}}))`);
+  assert.equal(await evaluate(`document.querySelector('#admin-button').textContent.trim()`),'Admin Login','Signed-out session should restore the login label');
 
   await click('.status-filter .forbidden');
   assert.equal(await evaluate(`document.querySelector('[data-filter="status"][value="forbidden"]').checked`),true,'Status label click should check the input');

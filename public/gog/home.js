@@ -274,6 +274,7 @@ $('#events-login-form').addEventListener('submit', async (event) => {
     const verifier = await passwordProof($('#events-login-password').value, challenge.salt);
     const result = await api('/auth/login', { method: 'POST', body: { email, passwordVerifier: verifier } });
     $('#events-login-password').value = '';
+    window.dispatchEvent(new CustomEvent('gog:admin-session', { detail: { authenticated: true, email: result.email, csrfToken: result.csrfToken } }));
     await showAdminApp(result);
   } catch (loginError) {
     error.textContent = loginError.message;
@@ -285,6 +286,7 @@ $('#events-logout').addEventListener('click', async () => {
   await api('/auth/logout', { method: 'POST', body: {} });
   state.csrf = null;
   state.email = null;
+  window.dispatchEvent(new CustomEvent('gog:admin-session', { detail: { authenticated: false } }));
   $('#events-admin-app').hidden = true;
   $('#events-admin-login').hidden = false;
 });

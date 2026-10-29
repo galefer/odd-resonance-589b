@@ -70,7 +70,38 @@
   letter-spacing: .035em;
 }
 .house-format-page .gog-brand small { display: none; }
+.house-format-page .gog-header-actions { margin-left: auto; display: flex; align-items: center; gap: 18px; }
 .house-format-page .gog-context { margin: 0; color: #e1e9f2; font-size: .92rem; letter-spacing: .02em; }
+.house-format-page .gog-admin-link {
+  min-width: 106px;
+  height: 34px;
+  margin-left: 0;
+  padding: 0 14px;
+  color: #f5fbff;
+  background: rgba(0,232,242,.06);
+  border: 1px solid var(--jush-cyan);
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03), 0 0 18px rgba(0,232,242,.08);
+  cursor: pointer;
+  font-family: 'Barlow Condensed', Barlow, sans-serif;
+  font-size: .92rem;
+  font-weight: 800;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+.house-format-page .gog-admin-link:hover {
+  color: #031526;
+  background: var(--jush-cyan);
+  border-color: var(--jush-cyan);
+}
+.house-format-page .gog-admin-link[data-authenticated="true"] {
+  border-color: var(--jush-magenta);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03), 0 0 18px rgba(255,22,141,.1);
+}
+.house-format-page .gog-admin-link[data-authenticated="true"]:hover {
+  color: #fff;
+  background: var(--jush-magenta);
+}
 
 .house-format-page .hero {
   position: relative;
@@ -654,7 +685,9 @@
   .house-format-page .gog-brand img { width: 43px; height: 41px; }
   .house-format-page .gog-brand strong { font-size: 1.05rem; }
   .house-format-page .gog-brand small { display: none; }
-  .house-format-page .gog-context { max-width: 118px; font-size: .75rem; text-align: right; }
+  .house-format-page .gog-header-actions { gap: 0; }
+  .house-format-page .gog-context { display: none; }
+  .house-format-page .gog-admin-link { min-width: 96px; height: 34px; padding-inline: 10px; font-size: .82rem; }
   .house-format-page .hero { height: 478px; }
   .house-format-page .hero-copy { width: calc(100% - 24px); padding-top: 25px; }
   .house-format-page .hero-brand-line { font-size: .72rem; }

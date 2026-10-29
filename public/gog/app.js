@@ -421,7 +421,17 @@ async function checkSession() {
   state.admin.authenticated = payload.authenticated;
   state.admin.email = payload.email;
   state.admin.csrf = payload.csrfToken;
+  updateAdminButton();
   return payload;
+}
+
+function updateAdminButton() {
+  const button = $('#admin-button');
+  if (!button) return;
+  const authenticated = Boolean(state.admin.authenticated);
+  button.textContent = authenticated ? 'Admin Panel' : 'Admin Login';
+  button.dataset.authenticated = String(authenticated);
+  button.setAttribute('aria-label', authenticated ? 'Open administrator panel' : 'Administrator login');
 }
 
 async function openAdmin() {
@@ -608,6 +618,13 @@ function showAdminSection(section) {
 
 function wireEvents() {
   $('#admin-button').addEventListener('click', () => openAdmin().catch((error) => toast(error.message, 'error')));
+  window.addEventListener('gog:admin-session', (event) => {
+    const session = event.detail || {};
+    state.admin.authenticated = Boolean(session.authenticated);
+    state.admin.email = session.email || null;
+    state.admin.csrf = session.csrfToken || null;
+    updateAdminButton();
+  });
   $$('[data-rule-filter]').forEach((button) => button.addEventListener('click', () => {
     const status = button.dataset.ruleFilter;
     state.filters.status.clear();
@@ -695,6 +712,7 @@ function wireEvents() {
       state.admin.email = payload.email;
       state.admin.csrf = payload.csrfToken;
       state.config.adminConfigured = true;
+      updateAdminButton();
       toast('Administrator account created.');
       await showAdminApp();
     } catch (err) { error.textContent = err.message; error.hidden = false; }
@@ -712,6 +730,7 @@ function wireEvents() {
       state.admin.authenticated = true;
       state.admin.email = payload.email;
       state.admin.csrf = payload.csrfToken;
+      updateAdminButton();
       $('#login-password').value = '';
       await showAdminApp();
     } catch (err) { error.textContent = err.message; error.hidden = false; }
@@ -720,6 +739,7 @@ function wireEvents() {
   $('#logout-button').addEventListener('click', async () => {
     try { await api('/api/auth/logout', { method: 'POST' }); } catch {}
     state.admin = { authenticated: false, email: null, csrf: null, draft: null, entries: [], changes: [], houseChanges: [], versions: [], section: 'editor', searchResults: [] };
+    updateAdminButton();
     showAdminAuth(false);
     toast('Signed out.');
   });
@@ -827,7 +847,9 @@ function wireEvents() {
 
 async function init() {
   wireEvents();
+  updateAdminButton();
   restoreUrlState();
+  const sessionCheck = checkSession().catch(() => updateAdminButton());
   try {
     await loadPublicData();
   }
@@ -835,6 +857,7 @@ async function init() {
     $('#card-list').innerHTML = `<div class="empty-state"><h3>Could not load the house-format list</h3><p>${escapeHtml(error.message)}</p></div>`;
     toast(error.message, 'error');
   }
+  await sessionCheck;
   if (new URLSearchParams(location.search).get('admin') === 'list') {
     openAdmin().catch((error) => toast(error.message, 'error'));
   }

@@ -94,6 +94,7 @@ try {
   await setValue('#events-login-password', password);
   await click('#events-login-form button[type="submit"]');
   await waitFor(`!document.querySelector('#events-admin-app').hidden && document.querySelectorAll('[data-event-form]').length>=2`, 'event admin login');
+  await waitFor(`document.querySelector('#admin-button').textContent.trim()==='Admin Panel'`, 'authenticated header label');
 
   const recurringSelector = `[data-event-form^="recurring-"]`;
   await setValue(`${recurringSelector} select[name="status"]`, 'cancelled');
@@ -116,10 +117,16 @@ try {
   await evaluate(`(() => { const card=[...document.querySelectorAll('#special-admin-list .admin-event-card')].find(e=>e.textContent.includes('Browser QA one-off event')); card.querySelector('[data-delete-event]').click(); return true; })()`);
   await waitFor(`![...document.querySelectorAll('#special-admin-list .admin-event-card')].some(e=>e.textContent.includes('Browser QA one-off event')) && ![...document.querySelectorAll('.event-card')].some(e=>e.textContent.includes('Browser QA one-off event'))`, 'one-off event deletion');
 
+  await click('#events-admin-close');
+  await click('#admin-button');
+  await waitFor(`document.querySelector('#admin-modal').open && !document.querySelector('#admin-app').hidden`, 'existing administrator panel');
+  assert.equal(await evaluate(`document.querySelector('#admin-button').closest('.gog-site-header')!==null`), true);
+  await click('[data-close-dialog="admin-modal"]');
+
   assert.deepEqual(failedResponses, []);
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ chrome: version.Browser, checks: [
-    'administrator login through homepage', 'recurring occurrence cancellation and reset', 'one-off event creation and deletion'
+    'administrator login through homepage', 'header label changes to Admin Panel and opens the existing panel', 'recurring occurrence cancellation and reset', 'one-off event creation and deletion'
   ], failedResponses, consoleErrors: errors }, null, 2));
 } finally {
   try { socket.close(); } catch {}
