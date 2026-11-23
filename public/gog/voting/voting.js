@@ -75,7 +75,7 @@ async function catalogue(){
   cards=result.cards; $('prev').disabled=!page; $('next').disabled=!result.hasMore;
   $('page').textContent='Page '+(page+1); renderCards();
 }
-function signIn(){ $('credentials').querySelector('[role=alert]').textContent=''; $('auth').showModal(); }
+function signIn(){ clearUsernameError(); $('credentials').querySelector('[role=alert]').textContent=''; $('auth').showModal(); }
 function usable(){if(!active())throw Error('Voting has closed.');if(!board.username){signIn();return false;}return true;}
 function previous(card,next){
   const mine=board.mine.find(v=>v.card===card);
@@ -142,10 +142,28 @@ const hex=buf=>Array.from(new Uint8Array(buf),b=>b.toString(16).padStart(2,'0'))
 async function proof(password,salt){const enc=new TextEncoder(),key=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveBits']);
   return hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:enc.encode(salt),iterations:310000},key,256));}
 const auth=$('credentials');
+const usernameField=auth.elements.username;
+function clearUsernameError(){
+  if(usernameField.hasAttribute('aria-invalid')){
+    usernameField.removeAttribute('aria-invalid');
+    auth.querySelector('[role=alert]').textContent='';
+  }
+}
+usernameField.addEventListener('input',clearUsernameError);
 auth.elements.mode.onchange=()=>{const login=auth.elements.mode.value==='login';$('code-field').hidden=login;auth.elements.code.required=!login;auth.elements.password.minLength=login?1:12;auth.elements.password.autocomplete=login?'current-password':'new-password';};
 auth.onsubmit=async event=>{
-  event.preventDefault();const b=auth.querySelector('.primary');b.disabled=true;
-  try{const mode=auth.elements.mode.value, username=auth.elements.username.value.trim();
+  event.preventDefault();
+  const username=usernameField.value.replace(/^[\s\u200B]+|[\s\u200B]+$/g,'');
+  usernameField.value=username;
+  clearUsernameError();
+  if(!/^[A-Za-z0-9_-]{3,32}$/.test(username)){
+    usernameField.setAttribute('aria-invalid','true');
+    auth.querySelector('[role=alert]').textContent='Choose a username of 3–32 characters using A–Z, a–z, 0–9, hyphens or underscores.';
+    usernameField.focus();
+    return;
+  }
+  const b=auth.querySelector('.primary');b.disabled=true;
+  try{const mode=auth.elements.mode.value;
     const salt=mode==='login'?(await api('community/salt?username='+encodeURIComponent(username))).salt:hex(crypto.getRandomValues(new Uint8Array(16)));
     await action(mode,{username,code:auth.elements.code.value.trim(),salt,proof:await proof(auth.elements.password.value,salt)});
     auth.reset();auth.elements.mode.onchange();$('auth').close();await refresh();notice('Signed in.');
