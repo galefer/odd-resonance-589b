@@ -96,7 +96,18 @@ input::placeholder { color: #a8c1ce; }
 .case strong,.thread b { color: #96ece8; }
 .votes { margin-block: 10px; }
 .votes button { min-height: 40px; }
-.votes [aria-pressed=true] { background: #11525c; border-color: var(--aqua); }
+.votes [data-vote="1"] {
+  --vote-fill: #194a35;
+  --vote-accent: #78e6a1;
+}
+.votes [data-vote="-1"] {
+  --vote-fill: #662d34;
+  --vote-accent: #ffa2a2;
+}
+.votes button[aria-pressed] { background: var(--vote-fill); border-color: var(--vote-accent); color: #fff; }
+.votes button[aria-pressed=true] { background: var(--vote-accent); color: #101e25; }
+.votes button[aria-pressed]:enabled:hover { box-shadow: inset 0 0 0 1px var(--vote-accent); filter: brightness(1.12); }
+.votes button[aria-pressed]:disabled { opacity: .78; }
 details { border-top: 1px solid var(--line); }
 summary { padding: 12px 0 4px; font-weight: 600; color: #c7dddd; }
 .thread p,.thread form { margin: 12px 0; overflow-wrap: anywhere; }
