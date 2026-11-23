@@ -573,7 +573,7 @@ try {
   assert(cardListBrand.artLoaded && cardListBrand.logoLoaded, 'Homepage artwork should load');
   assert(cardListBrand.rows > 0);
   assert(cardListBrand.overflow <= 1, `Homepage horizontal overflow: ${cardListBrand.overflow}`);
-  assert.equal(await evaluate(`document.querySelector('header a[href="/gog/voting/"]').textContent.trim()`),'Community Banlist');
+  assert.equal(await evaluate(`document.querySelector('.jush-ballot-entry a[href="/gog/voting/"] strong').textContent.trim()`),'Community Banlist');
   await screenshot('gog-home.png');
   evidence.home = cardListBrand;
 

@@ -13,12 +13,24 @@ async function api(path,body) {
   return result;
 }
 const action=(name,body)=>api('community/'+name,{window:board.period?.id,...body});
+const icon = name => `<svg class="icon" aria-hidden="true"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-${name}"></use></svg>`;
+const limitBadge = status => `<span class="limit ${escape(status)}">${escape(statuses[status] || status)}</span>`;
+function cardArt(id, url) {
+  return `<span class="card-art" aria-hidden="true">${icon('card-stack')}<img loading="lazy" decoding="async" alt="" src="${escape(url || '/gog/api/cards/'+id+'/image?size=thumb')}"></span>`;
+}
+document.addEventListener('error', event => {
+  if (event.target.matches?.('.card-art img')) event.target.hidden=true;
+}, true);
 function renderBoard(){
   const w=board.period, open=active();
   $('window').textContent=w ? (open?'Voting open until ':'Voting closed · ')+date(w.closed??w.deadline) : 'Voting is closed';
   $('period').innerHTML=board.history.map((p,i)=>`<option value="${i?p.id:''}">${i?'Period '+p.id:'Latest period'} · ${date(p.opened)}${p.reset_from?' · reset':''}</option>`).join('')||'<option>No periods yet</option>';
   $('period').value=selectedPeriod;
   $('period').parentElement.hidden=board.history.length<2;
+  $('sort').parentElement.hidden=board.candidates.length<2;
+  $('candidate-count').hidden=!board.candidates.length;
+  $('candidate-count').textContent=String(board.candidates.length);
+  $('window').parentElement.classList.toggle('open',open);
   $('account').textContent=board.username?'Sign out · '+board.username:'Player sign in';
   $('mine').hidden=!board.username;
   $('mine').querySelector('summary').textContent=`My votes · ${board.mine.length} of 3 used`;
@@ -33,11 +45,15 @@ function renderBoard(){
     const disabled=!open || Boolean(starter && c.committed);
     const btn=(direction,label,count)=>`<button data-vote="${direction}" aria-pressed="${mine?.direction===direction}" ${disabled||(starter&&direction<0)?'disabled':''}>${label} ${count}${mine?.direction===direction?' · Yours':''}</button>`;
     const others=board.candidates.filter(o=>o.card===c.card && o.id!==c.id);
-    return `<article class="candidate" id="candidate-${c.id}" data-id="${c.id}"><img loading="lazy" alt="" width="86" height="125" src="/gog/api/cards/${c.card}/image?size=thumb"><div><h3>${escape(c.name)}</h3><p class="limits"><span>Published · ${statuses[c.published]}</span><span class="target">Proposed · ${statuses[c.target]}</span></p><p><strong>${escape(c.starter)}</strong> ${escape(c.reason)}</p>${c.ruling?`<p><b>Ruling</b> ${escape(c.ruling)}</p>`:''}
-    <div class="votes">${btn(1,'Upvote',c.up)}${btn(-1,'Downvote',c.down)}${mine&&open&&!disabled?`<button data-vote="0">${starter?'Withdraw proposal':'Remove my vote'}</button>`:''}</div>
-    ${others.length?`<p>Other proposals · ${others.map(o=>`<a href="#candidate-${o.id}">${statuses[o.target]}</a>`).join(' · ')}</p>`:''}</div>
-    <details><summary>Comments (${c.comments})</summary><div class="thread"></div></details></article>`;
-  }).join('')||`<p class="empty">${open?'Voting is open. Choose a card below to start the first proposal.':'This period has no proposals.'}</p>`;
+    return `<article class="candidate" id="candidate-${c.id}" data-id="${c.id}">
+      <div class="proposal-head">${cardArt(c.card)}<div><h3>${escape(c.name)}</h3>
+      <div class="limits"><div><small>Published</small>${limitBadge(c.published)}</div>${icon('arrow-right')}<div><small>Proposed</small>${limitBadge(c.target)}</div></div></div></div>
+      <div class="case"><strong>${escape(c.starter)}</strong><p>${escape(c.reason)}</p></div>
+      ${c.ruling?`<p class="ruling"><b>Ruling</b> ${escape(c.ruling)}</p>`:''}
+      <div class="votes">${btn(1,'Upvote',c.up)}${btn(-1,'Downvote',c.down)}${mine&&open&&!disabled?`<button data-vote="0">${starter?'Withdraw proposal':'Remove my vote'}</button>`:''}</div>
+      ${others.length?`<p>Other proposals · ${others.map(o=>`<a href="#candidate-${o.id}">${statuses[o.target]}</a>`).join(' · ')}</p>`:''}
+      <details><summary>Comments (${c.comments})</summary><div class="thread"></div></details></article>`;
+  }).join('')||`<div class="empty">${icon('card-stack')}<div><h3>${open?'Start the first proposal':'No proposals this period'}</h3><p>${open?'Choose a card in the catalogue and propose its new limit.':'Browse the published card limits below.'}</p></div></div>`;
   renderCards();
 }
 async function refresh(){
@@ -47,7 +63,10 @@ async function refresh(){
   board=data; renderBoard();
 }
 function renderCards(){
-  $('cards').innerHTML=cards.map((c,i)=>`<article class="catalog-card"><strong>${escape(c.name)}</strong><small>${escape(c.category)} · ${statuses[c.status]}</small><button data-propose="${i}" ${active()?'':'disabled'}>Propose a change</button></article>`).join('')||'<p>No matching cards.</p>';
+  $('cards').innerHTML=cards.map((c,i)=>`<article class="catalog-card">
+    ${cardArt(c.id,c.imageUrl)}<div class="card-copy"><small>${escape(c.category)}</small><h3>${escape(c.name)}</h3>${limitBadge(c.status)}
+    ${active()?`<button data-propose="${i}" aria-label="Propose a change to ${escape(c.name)}">Propose a change ${icon('chevron-right')}</button>`:''}</div>
+    </article>`).join('')||`<p class="empty">No cards match this search.</p>`;
 }
 async function catalogue(){
   const id=++searchRequest;

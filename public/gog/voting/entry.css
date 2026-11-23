@@ -1,0 +1,23 @@
+.jush-homepage .jush-ballot-entry {
+  padding-block: clamp(12px, 2vw, 20px);
+}
+.jush-ballot-entry a {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 2vw, 22px);
+  padding: 12px clamp(14px, 3vw, 34px);
+  border: 1px solid #236279;
+  border-left: 4px solid #00e4eb;
+  border-radius: 4px;
+  background: linear-gradient(108deg, #073349, #092237 70%, #104458);
+  color: #fff5dd;
+  text-decoration: none;
+}
+.jush-ballot-entry a:hover, .jush-ballot-entry a:focus-visible { border-color: #00e4eb; background: #103e53; }
+.jush-ballot-entry strong { display: block; font: 800 clamp(21px, 2.5vw, 30px)/1.05 "Barlow Condensed", sans-serif; }
+.jush-ballot-entry small { display: block; margin-top: 3px; color: #c2dfdf; font: 500 14px/1.35 Barlow, sans-serif; }
+.jush-ballot-entry svg { flex: none; width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; color: #31ecf1; }
+.jush-ballot-entry .jush-ballot-icon { box-sizing: content-box; padding: 8px; border-radius: 5px; background: #12475b; }
+.jush-ballot-entry .jush-ballot-arrow { margin-left: auto; }
+body.deckbuilder-page .jush-ballot-link { margin-inline: auto 10px; border-color: #246675; color: #88f4ee; }
+body.deckbuilder-page .mobile-site-links .jush-ballot-mobile { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 12px; color: #88f4ee; }
