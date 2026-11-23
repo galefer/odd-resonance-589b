@@ -175,6 +175,19 @@ $('period').onchange=e=>{selectedPeriod=e.target.value;refresh().catch(e=>notice
 $('sort').onchange=renderBoard;
 $('search').oninput=()=>{clearTimeout(timer);++searchRequest;page=0;timer=setTimeout(()=>catalogue().catch(e=>notice(e.message)),180);};
 for(const [id,step] of [['prev',-1],['next',1]])$(id).onclick=()=>{page+=step;catalogue().catch(e=>notice(e.message));};
+function openScannedInvite(){
+  if(!location.hash.startsWith('#invite='))return;
+  const code=location.hash.slice('#invite='.length);
+  history.replaceState(history.state,'',location.pathname+location.search);
+  auth.elements.mode.value='join';
+  auth.elements.mode.onchange();
+  const valid=/^[a-f0-9]{32}$/.test(code);
+  auth.elements.code.value=valid?code:'';
+  signIn();
+  if(!valid)auth.querySelector('[role=alert]').textContent='This invitation link is incomplete. Scan it again or enter your one-use code.';
+}
+window.addEventListener('hashchange',openScannedInvite);
+openScannedInvite();
 Promise.all([refresh(),catalogue()]).then(()=>{if(location.hash==='#account'&&!board.username)signIn();}).catch(e=>notice(e.message));
 setInterval(()=>{if(document.hidden)return;
   if(board.period?.active&&!active() || (!document.querySelector('dialog[open],article details[open]')&&!selectedPeriod))refresh().catch(e=>notice(e.message));
