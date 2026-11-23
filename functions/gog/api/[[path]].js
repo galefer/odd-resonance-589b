@@ -3,6 +3,7 @@
 // Frontend paths all live under /gog/; this function only handles /gog/api/*.
 
 import { reviewedCardNameFor, reviewedTcgDateFor } from './release-evidence-overrides.js';
+import { community } from '../../../lib/jush-community.js';
 
 const BASE = '/gog/api';
 const CUTOFF = '2025-08-01';
@@ -925,6 +926,16 @@ async function handle(context) {
   const method = request.method;
   if (!url.pathname.startsWith(BASE + '/') || path.includes('..')) throw fail(404, 'Not found.');
   if (method !== 'GET' && !sameOrigin(request)) throw fail(403, 'Cross-origin request blocked.');
+  const office = typeof env.JUSH_OFFICE_KEY === 'string' && env.JUSH_OFFICE_KEY.length >= 32 &&
+    safeEquals(request.headers.get('X-JUSH-Office') || '', env.JUSH_OFFICE_KEY);
+  const adminPath = path.startsWith('/admin/') || path.startsWith('/auth/') || path === '/setup';
+  if (env.JUSH_OFFICE_KEY && adminPath && !office) throw fail(403, 'Use the JUSH Office workspace.');
+  if (path.startsWith('/community/') || path.startsWith('/admin/community/')) {
+    const director = path.startsWith('/admin/');
+    if (director && !office) throw fail(403, 'Use the JUSH Office workspace.');
+    return community(context, path.slice(director ? 17 : 11), {json, fail, inputJson, sha256, makeId,
+      passwordStorageHash, safeEquals, loginThrottled, normalise, parseCookie, statusesFor, cachedCardView}, director);
+  }
 
   if (method === 'GET' && path === '/config') {
     const [settingsRes, admin, version] = await Promise.all([
@@ -1026,7 +1037,11 @@ async function handle(context) {
   }
 
   if (path.startsWith('/admin/')) {
-    const session = await requireAdmin(db, request, method !== 'GET');
+    const session = office ? {admin_id: 1, token_hash: ''} : await requireAdmin(db, request, method !== 'GET');
+    if (office && method === 'GET' && path === '/admin/identity') {
+      const admin = await db.prepare('SELECT email,salt FROM admins WHERE id=1').first();
+      return json({admin});
+    }
     if (method === 'GET' && path === '/admin/events') {
       return json({ timezone: 'Europe/London', generatedFor: londonToday(), events: await eventSchedule(db) });
     }

@@ -573,22 +573,14 @@ try {
   assert(cardListBrand.artLoaded && cardListBrand.logoLoaded, 'Homepage artwork should load');
   assert(cardListBrand.rows > 0);
   assert(cardListBrand.overflow <= 1, `Homepage horizontal overflow: ${cardListBrand.overflow}`);
-  assert.equal(await evaluate(`document.querySelectorAll('#add-event-form input[name=endTime]').length`),1);
-  await click('#events-admin-link');
-  await waitFor(`document.querySelector('#events-admin-dialog').open`, 'event administrator dialog');
-  assert(await evaluate(`document.querySelector('#events-admin-login img').naturalWidth>0`));
-  await click('#events-admin-close');
+  assert.equal(await evaluate(`document.querySelector('header a[href="/gog/voting/"]').textContent.trim()`),'Community Banlist');
   await screenshot('gog-home.png');
   evidence.home = cardListBrand;
 
   await send('Page.navigate', { url: `${origin}/gog/house-format/?view=changes#list-workspace` });
   await waitFor(`location.pathname==='/gog/' && location.search.includes('view=changes') && location.hash==='#list-workspace' && document.querySelectorAll('#card-list .card-row').length>0`, 'legacy house-format redirect');
   assert.equal(await evaluate(`document.querySelector('[data-list-view="changes"]').getAttribute('aria-pressed')`), 'true', 'Legacy query restores house-change view');
-  await click('#admin-button');
-  await waitFor(`document.querySelector('#admin-modal').open`, 'administrator dialog');
-  assert(await evaluate(`document.querySelector('#admin-modal .brand-logo').naturalWidth>0`), 'Guild of Games logo should load in administrator login');
-  assert.match(await evaluate(`getComputedStyle(document.querySelector('#admin-modal')).backgroundColor`), /^rgb\((1[0-9]|2[0-9]),/);
-  await click('[data-close-dialog="admin-modal"]');
+  assert.equal(await evaluate(`document.querySelector('.gog-admin-link').getAttribute('href')`),'/gog/voting/#account');
   await screenshot('card-list-branded.png');
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   await sleep(180);

@@ -2,18 +2,6 @@ const GOG_BASE = '/gog';
 const CARD_POOL_CUTOFF = '2025-08-01';
 function cardImageUrl(id) { return `${GOG_BASE}/api/cards/${id || 0}/image`; }
 
-// Perform the costly password derivation in the browser, not Cloudflare's
-// 10 ms Free Worker CPU budget. The server verifies an HMAC of this proof.
-function newPasswordSalt() {
-  return [...crypto.getRandomValues(new Uint8Array(16))].map((n) => n.toString(16).padStart(2, '0')).join('');
-}
-async function passwordProof(password, salt) {
-  if (!/^[a-f0-9]{32}$/.test(salt)) throw new Error('Invalid login salt.');
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: new TextEncoder().encode(salt), iterations: 310_000, hash: 'SHA-256' }, key, 256);
-  return [...new Uint8Array(bits)].map((n) => n.toString(16).padStart(2, '0')).join('');
-}
-
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const mobileHouseLayout = window.matchMedia('(max-width: 600px)');
@@ -37,18 +25,7 @@ const state = {
   searchResults: [],
   searchIndex: -1,
   searchAbort: null,
-  admin: {
-    authenticated: false,
-    email: null,
-    csrf: null,
-    draft: null,
-    entries: [],
-    changes: [],
-    houseChanges: [],
-    versions: [],
-    section: 'editor',
-    searchResults: []
-  }
+
 };
 
 function normalise(value = '') {
@@ -106,9 +83,6 @@ async function api(path, options = {}) {
   if (config.body && typeof config.body !== 'string') {
     config.headers['Content-Type'] = 'application/json';
     config.body = JSON.stringify(config.body);
-  }
-  if (path.startsWith('/api/admin/') || path === '/api/auth/logout') {
-    if (state.admin.csrf && (config.method || 'GET') !== 'GET') config.headers['X-CSRF-Token'] = state.admin.csrf;
   }
   const routedPath = path.startsWith('/api/') ? `${GOG_BASE}${path}` : path;
   const response = await fetch(routedPath, config);
@@ -426,215 +400,7 @@ function populateCardDetail(card) {
   $('#card-detail').hidden = false;
 }
 
-async function checkSession() {
-  const payload = await api('/api/auth/session');
-  state.admin.authenticated = payload.authenticated;
-  state.admin.email = payload.email;
-  state.admin.csrf = payload.csrfToken;
-  updateAdminButton();
-  return payload;
-}
-
-function updateAdminButton() {
-  const button = $('#admin-button');
-  if (!button) return;
-  const authenticated = Boolean(state.admin.authenticated);
-  button.textContent = authenticated ? 'Admin Panel' : 'Admin Login';
-  button.dataset.authenticated = String(authenticated);
-  button.setAttribute('aria-label', authenticated ? 'Open administrator panel' : 'Administrator login');
-}
-
-async function openAdmin() {
-  const dialog = $('#admin-modal');
-  dialog.showModal();
-  const session = await checkSession();
-  if (session.authenticated) return showAdminApp();
-  showAdminAuth(!state.config?.adminConfigured);
-}
-
-function showAdminAuth(isSetup) {
-  $('#admin-auth').hidden = false;
-  $('#setup-token-label').hidden = !(isSetup && state.config?.setupTokenRequired);
-  $('#setup-token').required = Boolean(isSetup && state.config?.setupTokenRequired);
-  $('#admin-app').hidden = true;
-  $('#login-form').hidden = isSetup;
-  $('#setup-form').hidden = !isSetup;
-  $('#auth-title').textContent = isSetup ? 'Create administrator' : 'Administrator login';
-  $('#auth-description').textContent = isSetup
-    ? 'Complete the one-time setup. After this account is created, public registration is disabled.'
-    : 'Sign in to edit the draft list, review changes, and publish a new version.';
-}
-
-async function showAdminApp() {
-  $('#admin-auth').hidden = true;
-  $('#admin-app').hidden = false;
-  $('#admin-email').textContent = state.admin.email || '';
-  await Promise.all([loadDraft(), loadVersions()]);
-  showAdminSection(state.admin.section);
-  populateSettingsForm();
-}
-
-async function loadDraft() {
-  const payload = await api('/api/admin/draft');
-  state.admin.draft = payload.draft;
-  state.admin.entries = payload.entries || [];
-  state.admin.changes = payload.changes || [];
-  state.admin.houseChanges = payload.houseChanges || [];
-  renderDraftTable();
-  renderChangeReview();
-  $('#publish-date').value = state.admin.draft?.effectiveDate || new Date().toISOString().slice(0, 10);
-}
-
-function renderDraftTable() {
-  const query = normalise($('#draft-filter').value);
-  const rows = state.admin.entries
-    .filter((card) => !query || normalise(card.name).includes(query))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  $('#draft-entry-count').textContent = `${state.admin.entries.length} restricted cards in this draft`;
-  const body = $('#draft-table-body');
-  body.innerHTML = rows.map((card) => `
-    <tr data-draft-name="${escapeHtml(card.name)}">
-      <td>${escapeHtml(smartTitle(card.name))}${houseChangeBadge(card)}</td>
-      <td>${escapeHtml(card.category)} · ${escapeHtml(card.subtype)}</td>
-      <td>
-        <select data-draft-status="${escapeHtml(card.name)}" aria-label="Status for ${escapeHtml(smartTitle(card.name))}">
-          <option value="forbidden" ${card.status === 'forbidden' ? 'selected' : ''}>Forbidden</option>
-          <option value="limited" ${card.status === 'limited' ? 'selected' : ''}>Limited</option>
-          <option value="semi_limited" ${card.status === 'semi_limited' ? 'selected' : ''}>Semi-Limited</option>
-          <option value="unlimited">Unlimited / remove</option>
-        </select>
-      </td>
-      <td><input type="text" value="${escapeHtml(card.note || '')}" data-draft-note="${escapeHtml(card.name)}" aria-label="Note for ${escapeHtml(smartTitle(card.name))}" placeholder="Optional public note"></td>
-      <td class="row-save-state" aria-live="polite"></td>
-    </tr>`).join('');
-}
-
-function renderChangeReview() {
-  const container = $('#change-review-list');
-  const changes = state.admin.changes || [];
-  if (!changes.length) {
-    container.innerHTML = '<div class="suggestion-empty">No status changes yet. The draft currently matches the live list.</div>';
-    return;
-  }
-  container.innerHTML = changes.map((card) => `
-    <div class="change-review-row">
-      <div><strong>${escapeHtml(smartTitle(card.name))}</strong><small>${escapeHtml(card.category)} · ${escapeHtml(card.subtype)}</small></div>
-      <div class="change-statuses"><span class="mini-status ${card.previousStatus}">${STATUS[card.previousStatus]?.label || 'Unlimited'}</span><span aria-hidden="true">→</span><span class="mini-status ${card.status}">${STATUS[card.status]?.label || 'Unlimited'}</span></div>
-    </div>`).join('');
-}
-
-async function saveDraftRow(name, status, note, row) {
-  const marker = $('.row-save-state', row);
-  marker.textContent = '…';
-  try {
-    await api('/api/admin/draft/entry-by-name', { method: 'PATCH', body: { name, status, note } });
-    marker.textContent = '✓';
-    await loadDraft();
-    setTimeout(() => { if (marker.isConnected) marker.textContent = ''; }, 1000);
-  } catch (error) {
-    marker.textContent = '!';
-    toast(error.message, 'error');
-  }
-}
-
-let adminSearchTimer;
-async function runAdminSearch(query) {
-  const clean = query.trim();
-  const container = $('#admin-search-results');
-  if (clean.length < 2) {
-    state.admin.searchResults = [];
-    container.innerHTML = '';
-    return;
-  }
-  $('#admin-search-spinner').hidden = false;
-  try {
-    const payload = await api(`/api/cards/search?q=${encodeURIComponent(clean)}`);
-    state.admin.searchResults = payload.results || [];
-    container.innerHTML = state.admin.searchResults.length ? state.admin.searchResults.map((card, index) => `
-      <div class="admin-search-card">
-        <img src="${card.id ? cardImageUrl(card.id) : cardImageUrl(0)}" alt="" loading="lazy">
-        <div><strong>${escapeHtml(card.name)}</strong><small>${escapeHtml(card.cardType)} · Currently ${STATUS[draftStatusFor(card.name)]?.label || 'Unlimited'}</small></div>
-        <button class="button ghost-dark" type="button" data-admin-add-index="${index}">Apply status</button>
-      </div>`).join('') : '<div class="suggestion-empty">No cards found.</div>';
-  } catch (error) {
-    container.innerHTML = `<div class="suggestion-empty">${escapeHtml(error.message)}</div>`;
-  } finally {
-    $('#admin-search-spinner').hidden = true;
-  }
-}
-
-function draftStatusFor(name) {
-  return state.admin.entries.find((entry) => normalise(entry.name) === normalise(name))?.status || 'unlimited';
-}
-
-async function applyAdminCard(card) {
-  const status = $('#admin-status-select').value;
-  try {
-    await api('/api/admin/draft/entry', { method: 'POST', body: { card, status } });
-    toast(`${card.name} set to ${STATUS[status].label}.`);
-    await loadDraft();
-    await runAdminSearch($('#admin-card-search').value);
-  } catch (error) { toast(error.message, 'error'); }
-}
-
-async function loadVersions() {
-  if (!state.admin.authenticated) return;
-  const payload = await api('/api/admin/versions');
-  state.admin.versions = payload.versions || [];
-  renderVersions();
-}
-
-function renderVersions() {
-  const container = $('#version-list');
-  container.innerHTML = state.admin.versions.map((version) => `
-    <div class="version-row">
-      <div>
-        <strong>${escapeHtml(version.versionLabel)}</strong>
-        <p>${escapeHtml(version.summary || 'No public summary.')}</p>
-        <div class="version-meta"><span class="version-pill">${escapeHtml(version.status)}</span><span>Effective ${formatDate(version.effectiveDate)}</span>${version.source ? `<span>${escapeHtml(version.source)}</span>` : ''}</div>
-      </div>
-      ${version.status === 'published' ? `<button class="button ghost-dark compact" type="button" data-restore-version="${version.id}">Restore as draft</button>` : ''}
-    </div>`).join('');
-}
-
-function populateSettingsForm() {
-  const settings = state.config?.settings || {};
-  $('#setting-store-name').value = settings.store_name || '';
-  $('#setting-format-name').value = settings.format_name || '';
-  $('#setting-short-name').value = settings.format_short_name || '';
-  $('#setting-accent-label').value = settings.accent_label || '';
-  $('#setting-description').value = settings.format_description || '';
-}
-
-function showAdminSection(section) {
-  state.admin.section = section;
-  const titles = {
-    editor: ['Draft workspace', 'List editor'],
-    publish: ['Publication control', 'Review & publish'],
-    history: ['Audit trail', 'Version history'],
-    settings: ['Configuration', 'Format settings']
-  };
-  $$('.admin-nav button').forEach((button) => button.classList.toggle('active', button.dataset.adminSection === section));
-  $$('[data-section-panel]').forEach((panel) => {
-    const active = panel.dataset.sectionPanel === section;
-    panel.hidden = !active;
-    panel.classList.toggle('active', active);
-  });
-  $('#admin-section-kicker').textContent = titles[section][0];
-  $('#admin-section-title').textContent = titles[section][1];
-  if (section === 'publish') renderChangeReview();
-  if (section === 'history') loadVersions().catch((error) => toast(error.message, 'error'));
-}
-
 function wireEvents() {
-  $('#admin-button').addEventListener('click', () => openAdmin().catch((error) => toast(error.message, 'error')));
-  window.addEventListener('gog:admin-session', (event) => {
-    const session = event.detail || {};
-    state.admin.authenticated = Boolean(session.authenticated);
-    state.admin.email = session.email || null;
-    state.admin.csrf = session.csrfToken || null;
-    updateAdminButton();
-  });
   $$('[data-rule-filter]').forEach((button) => button.addEventListener('click', () => {
     const status = button.dataset.ruleFilter;
     state.filters.status.clear();
@@ -707,163 +473,11 @@ function wireEvents() {
     if (!event.target.closest('.search-panel')) hideSuggestions();
   });
 
-  $('#setup-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const error = $('#setup-error');
-    error.hidden = true;
-    const password = $('#setup-password').value;
-    if (password !== $('#setup-password-confirm').value) {
-      error.textContent = 'Passwords do not match.'; error.hidden = false; return;
-    }
-    try {
-      if (password.length < 12) throw new Error('Use a password of at least 12 characters.');
-      const salt = newPasswordSalt();
-      const passwordVerifier = await passwordProof(password, salt);
-      const payload = await api('/api/setup', { method: 'POST', body: {
-        email: $('#setup-email').value, salt, passwordVerifier, setupToken: $('#setup-token').value
-      } });
-      state.admin.authenticated = true;
-      state.admin.email = payload.email;
-      state.admin.csrf = payload.csrfToken;
-      state.config.adminConfigured = true;
-      updateAdminButton();
-      toast('Administrator account created.');
-      await showAdminApp();
-    } catch (err) { error.textContent = err.message; error.hidden = false; }
-  });
-
-  $('#login-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const error = $('#login-error');
-    error.hidden = true;
-    try {
-      const email = $('#login-email').value;
-      const { salt } = await api(`/api/auth/password-salt?email=${encodeURIComponent(email)}`);
-      const passwordVerifier = await passwordProof($('#login-password').value, salt);
-      const payload = await api('/api/auth/login', { method: 'POST', body: { email, passwordVerifier } });
-      state.admin.authenticated = true;
-      state.admin.email = payload.email;
-      state.admin.csrf = payload.csrfToken;
-      updateAdminButton();
-      $('#login-password').value = '';
-      await showAdminApp();
-    } catch (err) { error.textContent = err.message; error.hidden = false; }
-  });
-
-  $('#logout-button').addEventListener('click', async () => {
-    try { await api('/api/auth/logout', { method: 'POST' }); } catch {}
-    state.admin = { authenticated: false, email: null, csrf: null, draft: null, entries: [], changes: [], houseChanges: [], versions: [], section: 'editor', searchResults: [] };
-    updateAdminButton();
-    showAdminAuth(false);
-    toast('Signed out.');
-  });
-
-  $$('.admin-nav button').forEach((button) => button.addEventListener('click', () => showAdminSection(button.dataset.adminSection)));
-
-  $('#admin-card-search').addEventListener('input', (event) => {
-    clearTimeout(adminSearchTimer);
-    adminSearchTimer = setTimeout(() => runAdminSearch(event.target.value), 300);
-  });
-  $('#admin-search-results').addEventListener('click', (event) => {
-    const button = event.target.closest('[data-admin-add-index]');
-    if (!button) return;
-    applyAdminCard(state.admin.searchResults[Number(button.dataset.adminAddIndex)]);
-  });
-  $('#draft-filter').addEventListener('input', renderDraftTable);
-  $('#draft-table-body').addEventListener('change', (event) => {
-    const select = event.target.closest('[data-draft-status]');
-    if (!select) return;
-    const row = select.closest('tr');
-    const note = $('[data-draft-note]', row)?.value || '';
-    saveDraftRow(select.dataset.draftStatus, select.value, note, row);
-  });
-  $('#draft-table-body').addEventListener('focusout', (event) => {
-    const input = event.target.closest('[data-draft-note]');
-    if (!input) return;
-    const row = input.closest('tr');
-    const select = $('[data-draft-status]', row);
-    const current = state.admin.entries.find((entry) => normalise(entry.name) === normalise(input.dataset.draftNote));
-    if ((current?.note || '') !== input.value) saveDraftRow(input.dataset.draftNote, select.value, input.value, row);
-  });
-
-  $('#publish-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const error = $('#publish-error');
-    error.hidden = true;
-    if (!state.admin.changes.length) {
-      error.textContent = 'There are no status changes to publish.'; error.hidden = false; return;
-    }
-    try {
-      await api('/api/admin/publish', { method: 'POST', body: {
-        versionLabel: $('#publish-version').value,
-        effectiveDate: $('#publish-date').value,
-        summary: $('#publish-summary').value
-      }});
-      toast('New house-format version published.');
-      // Invalidate open deckbuilders only after a successful publication.
-      // Draft edits remain private and never trigger public rule refreshes.
-      try { localStorage.setItem('gog-published-list', String(Date.now())); } catch { /* Focus refresh also covers browsers without storage. */ }
-      $('#publish-version').value = '';
-      $('#publish-summary').value = '';
-      await loadPublicData();
-      await Promise.all([loadDraft(), loadVersions()]);
-      showAdminSection('editor');
-    } catch (err) { error.textContent = err.message; error.hidden = false; }
-  });
-
-  $('#version-list').addEventListener('click', async (event) => {
-    const button = event.target.closest('[data-restore-version]');
-    if (!button) return;
-    if (!confirm('Replace the current draft with a copy of this version? The live list will not change.')) return;
-    try {
-      await api(`/api/admin/versions/${button.dataset.restoreVersion}/restore`, { method: 'POST' });
-      toast('Version restored as a new draft.');
-      await loadDraft();
-      showAdminSection('editor');
-    } catch (error) { toast(error.message, 'error'); }
-  });
-
-  $('#settings-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const error = $('#settings-error');
-    error.hidden = true;
-    try {
-      const payload = await api('/api/admin/settings', { method: 'PATCH', body: {
-        store_name: $('#setting-store-name').value,
-        format_name: $('#setting-format-name').value,
-        format_short_name: $('#setting-short-name').value,
-        accent_label: $('#setting-accent-label').value,
-        format_description: $('#setting-description').value
-      }});
-      state.config.settings = payload.settings;
-      applyConfig();
-      toast('Format settings saved.');
-    } catch (err) { error.textContent = err.message; error.hidden = false; }
-  });
-
-  $('#password-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const error = $('#password-error');
-    error.hidden = true;
-    const next = $('#new-password').value;
-    if (next !== $('#new-password-confirm').value) { error.textContent = 'New passwords do not match.'; error.hidden = false; return; }
-    try {
-      if (next.length < 12) throw new Error('Use a password of at least 12 characters.');
-      const { salt } = await api(`/api/auth/password-salt?email=${encodeURIComponent(state.admin.email)}`);
-      const currentVerifier = await passwordProof($('#current-password').value, salt);
-      const newSalt = newPasswordSalt(), newVerifier = await passwordProof(next, newSalt);
-      await api('/api/admin/password', { method: 'POST', body: { currentVerifier, newSalt, newVerifier } });
-      event.target.reset();
-      toast('Administrator password changed.');
-    } catch (err) { error.textContent = err.message; error.hidden = false; }
-  });
 }
 
 async function init() {
   wireEvents();
-  updateAdminButton();
   restoreUrlState();
-  const sessionCheck = checkSession().catch(() => updateAdminButton());
   try {
     await loadPublicData();
   }
@@ -871,10 +485,7 @@ async function init() {
     $('#card-list').innerHTML = `<div class="empty-state"><h3>Could not load the house-format list</h3><p>${escapeHtml(error.message)}</p></div>`;
     toast(error.message, 'error');
   }
-  await sessionCheck;
-  if (new URLSearchParams(location.search).get('admin') === 'list') {
-    openAdmin().catch((error) => toast(error.message, 'error'));
-  }
+
 }
 
 init();

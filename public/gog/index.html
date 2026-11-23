@@ -26,7 +26,8 @@
       <div class="gog-header-actions">
         <p class="gog-context">Rotherham <span aria-hidden="true">·</span> Community duels</p>
         <span class="gog-mobile-context" aria-hidden="true">House format</span>
-        <button class="gog-admin-link" id="admin-button" type="button" aria-label="Administrator login">Admin Login</button>
+        <a class="gog-back-link" href="/gog/voting/">Community Banlist</a>
+        <a class="gog-admin-link" href="/gog/voting/#account">Player sign in</a>
       </div>
     </div>
   </header>
@@ -250,7 +251,7 @@
       <div class="footer-meta">
         <span>Card data powered by <a href="https://ygoprodeck.com/" target="_blank" rel="noopener noreferrer">YGOPRODeck</a></span>
         <span id="footer-version">Version —</span>
-        <span class="footer-admin-links"><a id="events-admin-link" href="/gog/?admin=events">Manage events</a></span>
+        <span class="footer-admin-links"><a href="/gog/voting/">Community Banlist</a></span>
       </div>
     </div>
   </footer>
@@ -286,201 +287,6 @@
         </div>
       </div>
     </div>
-  </dialog>
-
-  <dialog class="modal admin-modal" id="admin-modal">
-    <div class="admin-shell">
-      <button class="modal-close admin-close" type="button" data-close-dialog="admin-modal" aria-label="Close administration">×</button>
-
-      <section class="admin-auth" id="admin-auth">
-        <div class="admin-auth-brand">
-          <img class="brand-logo large" src="/gog/assets/guild-of-games-logo.png" alt="Guild of Games" width="512" height="483">
-          <p class="eyebrow dark">Restricted access</p>
-          <h2 id="auth-title">Administrator login</h2>
-          <p id="auth-description">Sign in to edit the draft list, review changes, and publish a new version.</p>
-        </div>
-
-        <form id="login-form" class="stack-form">
-          <label>Email address<input type="email" id="login-email" required autocomplete="username"></label>
-          <label>Password<input type="password" id="login-password" required autocomplete="current-password"></label>
-          <p class="form-error" id="login-error" hidden></p>
-          <button class="button gold wide" type="submit">Sign in</button>
-        </form>
-
-        <form id="setup-form" class="stack-form" hidden>
-          <div class="setup-notice"><strong>First-run setup</strong><span>Create the only administrator account. Public registration is permanently disabled after this.</span></div>
-          <label id="setup-token-label" hidden>Remote setup token<input type="password" id="setup-token" autocomplete="one-time-code"><small>Set this using the GOG_SETUP_TOKEN secret in Cloudflare Pages settings.</small></label>
-          <label>Administrator email<input type="email" id="setup-email" required autocomplete="username"></label>
-          <label>Password<input type="password" id="setup-password" required minlength="12" autocomplete="new-password"><small>At least 12 characters.</small></label>
-          <label>Confirm password<input type="password" id="setup-password-confirm" required minlength="12" autocomplete="new-password"></label>
-          <p class="form-error" id="setup-error" hidden></p>
-          <button class="button gold wide" type="submit">Create administrator</button>
-        </form>
-      </section>
-
-      <section class="admin-app" id="admin-app" hidden>
-        <aside class="admin-sidebar">
-          <div class="admin-sidebar-brand">
-            <img class="brand-logo" src="/gog/assets/guild-of-games-logo.png" alt="" width="512" height="483">
-            <span><strong>Guild of Games</strong><small id="admin-email"></small></span>
-          </div>
-          <nav class="admin-nav" aria-label="Administrator sections">
-            <button class="active" data-admin-section="editor"><span>✦</span> List editor</button>
-            <button data-admin-section="publish"><span>✓</span> Review &amp; publish</button>
-            <button data-admin-section="history"><span>↶</span> Version history</button>
-            <button data-admin-section="settings"><span>⚙</span> Format settings</button>
-          </nav>
-          <div class="admin-sidebar-footer">
-            <a class="button ghost-dark wide" href="/gog/api/admin/export.csv">Export draft CSV</a>
-            <button class="text-button danger" id="logout-button" type="button">Sign out</button>
-          </div>
-        </aside>
-
-        <div class="admin-content">
-          <header class="admin-topbar">
-            <div>
-              <p class="eyebrow dark" id="admin-section-kicker">Draft workspace</p>
-              <h2 id="admin-section-title">List editor</h2>
-            </div>
-            <div class="draft-state"><span></span> Changes saved to draft</div>
-          </header>
-
-          <div class="admin-scroll">
-            <section class="admin-section active" data-section-panel="editor">
-              <div class="admin-card add-card-panel">
-                <div class="admin-card-heading">
-                  <div><h3>Add or change a card</h3><p>Search the card database. No passcodes or manual card typing required.</p></div>
-                </div>
-                <div class="admin-search-row">
-                  <div class="admin-search-wrap">
-                    <label class="visually-hidden" for="admin-card-search">Search card database</label>
-                    <input id="admin-card-search" type="search" autocomplete="off" placeholder="Search by card name…">
-                    <span class="search-spinner small" id="admin-search-spinner" hidden></span>
-                  </div>
-                  <select id="admin-status-select" aria-label="New restriction status">
-                    <option value="forbidden">Forbidden · 0</option>
-                    <option value="limited">Limited · 1</option>
-                    <option value="semi_limited">Semi-Limited · 2</option>
-                    <option value="unlimited">Unlimited · remove</option>
-                  </select>
-                </div>
-                <div class="admin-search-results" id="admin-search-results"></div>
-              </div>
-
-              <div class="admin-card">
-                <div class="admin-card-heading split">
-                  <div><h3>Draft list</h3><p id="draft-entry-count">Loading entries…</p></div>
-                  <div class="compact-search"><label class="visually-hidden" for="draft-filter">Filter draft list</label><input id="draft-filter" type="search" placeholder="Filter draft…"></div>
-                </div>
-                <div class="draft-table-wrap">
-                  <table class="draft-table">
-                    <thead><tr><th>Card</th><th>Type</th><th>Status</th><th>Note</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
-                    <tbody id="draft-table-body"></tbody>
-                  </table>
-                </div>
-              </div>
-            </section>
-
-            <section class="admin-section" data-section-panel="publish" hidden>
-              <div class="publish-grid">
-                <div class="admin-card">
-                  <div class="admin-card-heading"><div><h3>Changes in this draft</h3><p>Compared with the currently published list.</p></div></div>
-                  <div class="change-review-list" id="change-review-list"></div>
-                </div>
-                <div class="admin-card publish-card">
-                  <div class="admin-card-heading"><div><h3>Publish new version</h3><p>The live site remains unchanged until you publish.</p></div></div>
-                  <form id="publish-form" class="stack-form compact-form">
-                    <label>Version label<input type="text" id="publish-version" required placeholder="e.g. House List v1.1"></label>
-                    <label>Effective date<input type="date" id="publish-date" required></label>
-                    <label>Public summary<textarea id="publish-summary" rows="5" placeholder="Briefly explain the goals of this update…"></textarea></label>
-                    <div class="publish-warning"><strong>This action updates the public list immediately.</strong><span>A complete version snapshot is preserved and can be restored later.</span></div>
-                    <p class="form-error" id="publish-error" hidden></p>
-                    <button class="button gold wide" type="submit">Publish this version</button>
-                  </form>
-                </div>
-              </div>
-            </section>
-
-            <section class="admin-section" data-section-panel="history" hidden>
-              <div class="admin-card">
-                <div class="admin-card-heading"><div><h3>Version history</h3><p>Every published snapshot remains available for inspection or restoration.</p></div></div>
-                <div class="version-list" id="version-list"></div>
-              </div>
-            </section>
-
-            <section class="admin-section" data-section-panel="settings" hidden>
-              <div class="settings-grid">
-                <div class="admin-card">
-                  <div class="admin-card-heading"><div><h3>Public identity</h3><p>These fields control the name and wording shown across the site.</p></div></div>
-                  <form id="settings-form" class="stack-form compact-form">
-                    <label>Store name<input type="text" id="setting-store-name" maxlength="80"></label>
-                    <label>Format name<input type="text" id="setting-format-name" maxlength="100"></label>
-                    <label>Short header name<input type="text" id="setting-short-name" maxlength="30"></label>
-                    <label>Eyebrow label<input type="text" id="setting-accent-label" maxlength="40"></label>
-                    <label>Description<textarea id="setting-description" rows="4" maxlength="300"></textarea></label>
-                    <p class="form-error" id="settings-error" hidden></p>
-                    <button class="button gold" type="submit">Save format settings</button>
-                  </form>
-                </div>
-                <div class="admin-card">
-                  <div class="admin-card-heading"><div><h3>Change password</h3><p>Changing the password signs out other active administrator sessions.</p></div></div>
-                  <form id="password-form" class="stack-form compact-form">
-                    <label>Current password<input type="password" id="current-password" required autocomplete="current-password"></label>
-                    <label>New password<input type="password" id="new-password" required minlength="12" autocomplete="new-password"></label>
-                    <label>Confirm new password<input type="password" id="new-password-confirm" required minlength="12" autocomplete="new-password"></label>
-                    <p class="form-error" id="password-error" hidden></p>
-                    <button class="button ghost-dark" type="submit">Change password</button>
-                  </form>
-                </div>
-              </div>
-            </section>
-          </div>
-        </div>
-      </section>
-    </div>
-  </dialog>
-
-  <dialog class="events-admin-dialog" id="events-admin-dialog" aria-labelledby="events-admin-title">
-    <div class="dialog-header"><h2 id="events-admin-title">Event administration</h2><button class="dialog-close" id="events-admin-close" type="button" aria-label="Close event administration">×</button></div>
-    <section class="admin-login" id="events-admin-login">
-      <img src="/gog/assets/jush/artwork/guild-of-games-logo-128.webp" alt="" width="128" height="121">
-      <h3>Administrator login</h3>
-      <p>Sign in to update upcoming dates and one-off events.</p>
-      <form class="event-form" id="events-login-form">
-        <label>Email<input id="events-login-email" type="email" autocomplete="username" required></label>
-        <label>Password<input id="events-login-password" type="password" autocomplete="current-password" minlength="12" required></label>
-        <p class="form-error" id="events-login-error" hidden></p>
-        <button class="event-admin-button primary" type="submit">Sign in</button>
-      </form>
-    </section>
-    <section id="events-admin-app" hidden>
-      <div class="admin-topline"><span>Signed in as <strong id="events-admin-email"></strong></span><button class="text-button" id="events-logout" type="button">Sign out</button></div>
-      <div class="events-admin-content">
-        <p class="admin-intro">Edits to a recurring event affect only that date. The homepage automatically rolls forward to the next scheduled JUSH format night.</p>
-        <section class="admin-section">
-          <div class="admin-section-heading"><div><h3>Recurring event dates</h3><p>Edit, reschedule, or cancel a displayed occurrence.</p></div></div>
-          <div class="admin-event-list" id="recurring-admin-list"></div>
-        </section>
-        <section class="admin-section">
-          <div class="admin-section-heading"><div><h3>Add a one-off event</h3><p>One-off events remain separate from the recurring JUSH schedule.</p></div></div>
-          <div class="add-event-card">
-            <form class="event-form" id="add-event-form">
-              <label>Event name<input name="title" maxlength="120" required placeholder="e.g. Yu-Gi-Oh! Win-a-Box"></label>
-              <label>Date<input name="eventDate" type="date" required></label>
-              <label>Start time<input name="startTime" type="time"></label>
-              <label>Finish time<input name="endTime" type="time"></label>
-              <label class="wide-field">Location<input name="location" maxlength="180" required value="Guild of Games, Rotherham"></label>
-              <label class="wide-field">Details<textarea name="description" maxlength="1200" placeholder="Entry, format, prizes, booking information…"></textarea></label>
-              <div class="form-actions"><button class="small-button primary" type="submit">Add event</button></div>
-            </form>
-          </div>
-        </section>
-        <section class="admin-section">
-          <div class="admin-section-heading"><div><h3>One-off events</h3><p>Update, cancel, or remove future events.</p></div></div>
-          <div class="admin-event-list" id="special-admin-list"></div>
-        </section>
-      </div>
-    </section>
   </dialog>
 
   <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>

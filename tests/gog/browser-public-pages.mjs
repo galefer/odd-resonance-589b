@@ -120,7 +120,7 @@ try {
         };
       };
       const build=[...document.querySelectorAll('a,button')].filter(e=>e.textContent.trim().toLowerCase()==='build a deck'&&e.getClientRects().length);
-      const adminButton=document.querySelector('#admin-button');
+      const adminButton=document.querySelector('.gog-admin-link');
       const adminRect=adminButton.getBoundingClientRect();
       const viewToggles=[...document.querySelectorAll('[data-list-view]')].map(button=>{const r=button.getBoundingClientRect();return {label:button.textContent.trim(),pressed:button.getAttribute('aria-pressed'),height:r.height,radius:getComputedStyle(button).borderRadius}});
       const search=document.querySelector('#card-search').getBoundingClientRect(),filter=document.querySelector('#filter-toggle').getBoundingClientRect();
@@ -157,8 +157,8 @@ try {
     assert.match(geometry.bodyFont,/Barlow/i);
     assert.match(geometry.headingFont,/Barlow Condensed/i);
     assert.equal(geometry.buildCount,1,`${width}px single Build a deck action`);
-    assert.equal(geometry.adminButton.text,'Admin Login',`${width}px signed-out admin label`);
-    assert.equal(geometry.adminButton.inHeader,true,`${width}px admin control remains available to the existing administration flow`);
+    assert.equal(geometry.adminButton.text,'Player sign in',`${width}px player sign-in label`);
+    assert.equal(geometry.adminButton.inHeader,true,`${width}px admin control remains available to the player sign-in flow`);
     assert.equal(geometry.oldNavigation,0,`${width}px obsolete navigation/components`);
     assert.equal(geometry.viewport,width,`${width}px controlled CSS viewport`);
     assert.equal(geometry.stage.background,'rgba(0, 0, 0, 0)',`${width}px transparent hero stage`);
@@ -233,11 +233,8 @@ try {
   await send('Emulation.setDeviceMetricsOverride', { width:1536,height:1024,deviceScaleFactor:1,mobile:false });
   await sleep(80);
 
-  await evaluate(`window.dispatchEvent(new CustomEvent('gog:admin-session',{detail:{authenticated:true,email:'admin@example.com',csrfToken:'test-token'}}))`);
-  assert.equal(await evaluate(`document.querySelector('#admin-button').textContent.trim()`),'Admin Panel','Authenticated session should relabel the header control');
-  assert.equal(await evaluate(`document.querySelector('#admin-button').dataset.authenticated`),'true');
-  await evaluate(`window.dispatchEvent(new CustomEvent('gog:admin-session',{detail:{authenticated:false}}))`);
-  assert.equal(await evaluate(`document.querySelector('#admin-button').textContent.trim()`),'Admin Login','Signed-out session should restore the login label');
+  assert.equal(await evaluate(`document.querySelector('.gog-admin-link').getAttribute('href')`),'/gog/voting/#account');
+  assert.equal(await evaluate(`document.querySelector('#admin-modal')`),null);
 
   await click('.status-filter .forbidden');
   assert.equal(await evaluate(`document.querySelector('[data-filter="status"][value="forbidden"]').checked`),true,'Status label click should check the input');

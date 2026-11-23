@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#13161d">
+<title>Community Banlist · JUSH House Format</title>
+<link rel="icon" href="/gog/assets/jush/artwork/guild-of-games-logo-64.webp">
+<link rel="stylesheet" href="/gog/assets/jush/fonts/fonts.css"><link rel="stylesheet" href="voting.css">
+</head><body>
+<a class="skip" href="#board">Skip to votes</a>
+<header><a class="brand" href="/gog/"><img src="/gog/assets/jush/artwork/guild-of-games-logo-64.webp" alt="" width="48" height="46">Guild of Games</a><nav><a href="/gog/">House format</a><a href="/gog/deckbuilder/">Deckbuilder</a><button id="account">Player sign in</button></nav></header>
+<main>
+<section class="hero"><div><p>JUSH House Format</p><h1>Community Banlist</h1><strong id="window">Loading voting window…</strong></div></section>
+<p id="feedback" role="status"></p>
+<section id="board"><div class="heading"><h2>Vote candidates</h2><div class="tools"><label>Voting period <select id="period"></select></label><label>Sort by <select id="sort"><option value="participation">Most participation</option><option value="up">Most supported</option><option value="down">Most opposed</option><option value="new">Newest</option></select></label></div></div>
+<details id="mine" hidden><summary>My votes</summary><div></div></details>
+<div id="candidates"></div></section>
+<section id="catalogue"><div class="heading"><h2>JUSH card catalogue</h2><label>Find a card <input type="search" id="search" placeholder="Search by name"></label></div><div id="cards"></div>
+<div class="paging"><button id="prev">Previous</button><span id="page"></span><button id="next">Next</button></div></section>
+</main>
+<dialog id="auth"><form id="credentials"><h2>Player account</h2><label>Account action <select name="mode"><option value="login">Sign in</option><option value="join">Join with a code</option><option value="recover">Reset password</option></select></label><label>Username <input name="username" autocomplete="username" required minlength="3" maxlength="32" pattern="[A-Za-z0-9_\-]{3,32}"></label><label>Password <input name="password" type="password" autocomplete="current-password" required></label><label id="code-field" hidden>One-use code <input name="code" autocomplete="off"></label><p role="alert"></p><div class="tools"><button type="button" data-close>Cancel</button><button class="primary">Continue</button></div></form></dialog>
+<dialog id="proposal"><form id="compose"><h2>Start a proposal</h2><strong id="proposed-card"></strong><label>Proposed status <select name="target"></select></label><label>Your reason <textarea name="reason" required maxlength="200" rows="3"></textarea></label><small>Up to 200 characters. Your slot is committed once another member votes.</small><p role="alert"></p><div class="tools"><button type="button" data-close>Cancel</button><button class="primary">Start proposal</button></div></form></dialog>
+<script type="module" src="voting.js"></script></body></html>

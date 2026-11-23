@@ -6,7 +6,7 @@
 
 **Deckbuilder:** `https://gravetalestudios.com/gog/deckbuilder/`
 
-The `/gog/` homepage is the Guild of Games JUSH format experience: illustrated identity, the next scheduled JUSH event, card search, the house-format Forbidden & Limited List and protected administration. The event panel supports occurrence-specific changes, cancellations and one-off events. The deckbuilder provides Main/Extra/Side editing, published-list validation, named local saves, YDK/YDKE import and export, JSON backup, exact opening probabilities and a sample-hand tool.
+The `/gog/` homepage is the Guild of Games JUSH format experience: illustrated identity, the next scheduled JUSH event, card search, the house-format Forbidden & Limited List and the community voting board at `/gog/voting/`. The JUSH workspace in the private Office manages invitations, seven-day voting windows, list publication and events. The event panel supports occurrence-specific changes, cancellations and one-off events. The deckbuilder provides Main/Extra/Side editing, published-list validation, named local saves, YDK/YDKE import and export, JSON backup, exact opening probabilities and a sample-hand tool.
 
 - **Card pool cutoff:** first TCG release in **any TCG region, including North America**, no later than **1 August 2025** (Justice Hunters / JUSH). **Battles of Legend: Monster Mayhem (BLMM) is included** through its [13 June 2025 North American release](https://www.yugioh-card.com/en/products/blmm/). Later regional releases and reprints do not disqualify an eligible card; an OCG-only release does not qualify.
 - **Starting restriction list:** 7 April 2025 TCG Advanced Format (109 Forbidden, 82 Limited, 16 Semi-Limited).

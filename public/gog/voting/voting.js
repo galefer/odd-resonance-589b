@@ -1,0 +1,144 @@
+const $ = id => document.getElementById(id);
+const escape = x => String(x ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const statuses = {forbidden:'Forbidden (0)', limited:'Limited (1)', semi_limited:'Semi-Limited (2)', unlimited:'Unlimited (3)'};
+const date = seconds => new Date(seconds*1000).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/London'})+' UK';
+let board={candidates:[],mine:[],history:[]}, selectedPeriod='', boardRequest=0, page=0, cards=[], searchRequest=0, chosen, timer;
+const active=()=>Boolean(board.period?.active && board.period.deadline>Date.now()/1000);
+const notice=text=>{$('feedback').textContent=text;};
+async function api(path,body) {
+  const init=body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json','X-JUSH-Action':'member'},body:JSON.stringify(body)};
+  const response=await fetch('/gog/api/'+path,{...init,cache:'no-store'});
+  const result=await response.json();
+  if(!response.ok) throw new Error(result.error||'Could not complete the request.');
+  return result;
+}
+const action=(name,body)=>api('community/'+name,{window:board.period?.id,...body});
+function renderBoard(){
+  const w=board.period, open=active();
+  $('window').textContent=w ? (open?'Voting open until ':'Voting closed · ')+date(w.closed??w.deadline) : 'Voting is closed';
+  $('period').innerHTML=board.history.map((p,i)=>`<option value="${i?p.id:''}">${i?'Period '+p.id:'Latest period'} · ${date(p.opened)}${p.reset_from?' · reset':''}</option>`).join('')||'<option>No periods yet</option>';
+  $('period').value=selectedPeriod;
+  $('period').parentElement.hidden=board.history.length<2;
+  $('account').textContent=board.username?'Sign out · '+board.username:'Player sign in';
+  $('mine').hidden=!board.username;
+  $('mine').querySelector('summary').textContent=`My votes · ${board.mine.length} of 3 used`;
+  $('mine').querySelector('div').innerHTML=board.mine.map(v=>{
+    const c=board.candidates.find(c=>c.id===v.candidate);
+    return c?`<a href="#candidate-${c.id}">${escape(c.name)} · ${statuses[c.target]} · ${v.direction===1?'Upvote':'Downvote'}</a>`:'';
+  }).join('')||'<p>You have three available slots.</p>';
+  const score=c=>({participation:c.up+c.down,up:c.up,down:c.down,new:c.id})[$('sort').value];
+  $('candidates').innerHTML=[...board.candidates].sort((a,b)=>score(b)-score(a)||b.id-a.id).map(c=>{
+    const mine=board.mine.find(v=>v.candidate===c.id);
+    const starter=mine && c.starter===board.username;
+    const disabled=!open || Boolean(starter && c.committed);
+    const btn=(direction,label,count)=>`<button data-vote="${direction}" aria-pressed="${mine?.direction===direction}" ${disabled||(starter&&direction<0)?'disabled':''}>${label} ${count}${mine?.direction===direction?' · Yours':''}</button>`;
+    const others=board.candidates.filter(o=>o.card===c.card && o.id!==c.id);
+    return `<article class="candidate" id="candidate-${c.id}" data-id="${c.id}"><img loading="lazy" alt="" width="86" height="125" src="/gog/api/cards/${c.card}/image?size=thumb"><div><h3>${escape(c.name)}</h3><p class="limits"><span>Published · ${statuses[c.published]}</span><span class="target">Proposed · ${statuses[c.target]}</span></p><p><strong>${escape(c.starter)}</strong> ${escape(c.reason)}</p>${c.ruling?`<p><b>Ruling</b> ${escape(c.ruling)}</p>`:''}
+    <div class="votes">${btn(1,'Upvote',c.up)}${btn(-1,'Downvote',c.down)}${mine&&open&&!disabled?`<button data-vote="0">${starter?'Withdraw proposal':'Remove my vote'}</button>`:''}</div>
+    ${others.length?`<p>Other proposals · ${others.map(o=>`<a href="#candidate-${o.id}">${statuses[o.target]}</a>`).join(' · ')}</p>`:''}</div>
+    <details><summary>Comments (${c.comments})</summary><div class="thread"></div></details></article>`;
+  }).join('')||`<p class="empty">${open?'Voting is open. Choose a card below to start the first proposal.':'This period has no proposals.'}</p>`;
+  renderCards();
+}
+async function refresh(){
+  const request=++boardRequest;
+  const data=await api('community/board'+(selectedPeriod?'?window='+selectedPeriod:''));
+  if(request!==boardRequest) return;
+  board=data; renderBoard();
+}
+function renderCards(){
+  $('cards').innerHTML=cards.map((c,i)=>`<article class="catalog-card"><strong>${escape(c.name)}</strong><small>${escape(c.category)} · ${statuses[c.status]}</small><button data-propose="${i}" ${active()?'':'disabled'}>Propose a change</button></article>`).join('')||'<p>No matching cards.</p>';
+}
+async function catalogue(){
+  const id=++searchRequest;
+  const result=await api('catalogue?'+new URLSearchParams({q:$('search').value.trim(),page,limit:48}));
+  if(id!==searchRequest)return;
+  cards=result.cards; $('prev').disabled=!page; $('next').disabled=!result.hasMore;
+  $('page').textContent='Page '+(page+1); renderCards();
+}
+function signIn(){ $('credentials').querySelector('[role=alert]').textContent=''; $('auth').showModal(); }
+function usable(){if(!active())throw Error('Voting has closed.');if(!board.username){signIn();return false;}return true;}
+function previous(card,next){
+  const mine=board.mine.find(v=>v.card===card);
+  if(mine && mine.candidate!==next){
+    const old=board.candidates.find(c=>c.id===mine.candidate);
+    if(old.starter===board.username && old.committed)throw Error('Your proposal has received a vote and its slot is committed.');
+    if(!confirm(`Move your slot off “${old.name} to ${statuses[old.target]}” and onto this proposal?${old.starter===board.username?' This withdraws your earlier proposal.':''}`))return null;
+  }
+  return mine?.candidate||0;
+}
+async function loadThread(details,cid){
+  const thread=details.querySelector('.thread');
+  const {comments}=await api('community/thread?candidate='+cid);
+  thread.innerHTML=comments.map(c=>`<p><b>${escape(c.username)}</b> ${escape(c.text)}</p>`).join('')||'<p>Be the first to comment.</p>';
+  if(active()&&board.username)thread.insertAdjacentHTML('beforeend','<form><label>Comment<textarea required maxlength="1000" name="text" rows="2"></textarea></label><button>Post comment</button></form>');
+}
+$('candidates').addEventListener('toggle',event=>{
+  if(event.target.matches('details[open]'))loadThread(event.target,event.target.closest('article').dataset.id).catch(e=>notice(e.message));
+},true);
+$('candidates').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const form=event.target,candidate=Number(form.closest('article').dataset.id),button=form.querySelector('button');
+  const text=form.elements.text.value.trim(); if(!text)return;
+  button.disabled=true;
+  try{
+    if(form.dataset.lastText!==text){form.dataset.key=crypto.randomUUID();form.dataset.lastText=text;}
+    await action('comment',{candidate,text,requestId:form.dataset.key});
+    const details=form.closest('details');await loadThread(details,candidate);
+    const data=await api('community/thread?candidate='+candidate);
+    details.querySelector('summary').textContent=`Comments (${data.comments.length})`;
+  }catch(e){notice(e.message);}finally{button.disabled=false;}
+});
+$('candidates').addEventListener('click',async event=>{
+  const b=event.target.closest('[data-vote]'); if(!b)return;
+  try{
+    if(!usable())return;
+    const c=board.candidates.find(c=>c.id===Number(b.closest('article').dataset.id));
+    let direction=Number(b.dataset.vote);
+    if(b.getAttribute('aria-pressed')==='true')direction=0;
+    if(!direction && c.starter===board.username && !confirm('Withdraw this proposal and its discussion?'))return;
+    const prior=previous(c.card,c.id);if(prior===null)return;
+    b.disabled=true;await action('vote',{candidate:c.id,direction,previous:prior});notice('Vote updated.');
+  }catch(e){notice(e.message);}finally{if(!b.closest('dialog') && b.disabled)await refresh().catch(e=>notice(e.message));}
+});
+$('cards').addEventListener('click',event=>{
+  const b=event.target.closest('[data-propose]');if(!b)return;
+  try{if(!usable())return;chosen=cards[Number(b.dataset.propose)];
+    const f=$('compose');f.reset();f.querySelector('[role=alert]').textContent='';
+    $('proposed-card').textContent=chosen.name+' · '+statuses[chosen.status];
+    f.elements.target.innerHTML=Object.entries(statuses).filter(([s])=>s!==chosen.status).map(([s,l])=>`<option value="${s}">${l}</option>`).join('');
+    $('proposal').showModal();
+  }catch(e){notice(e.message);}
+});
+$('compose').onsubmit=async event=>{
+  event.preventDefault();const f=event.target,b=f.querySelector('.primary');
+  try{const target=f.elements.target.value,existing=board.candidates.find(c=>c.card===chosen.id&&c.target===target);
+    if(existing){$('proposal').close();location.hash='candidate-'+existing.id;notice('This proposal already exists. You can vote on it here.');return;}
+    const prior=previous(chosen.id,0);if(prior===null)return;
+    b.disabled=true;await action('propose',{card:chosen.id,target,reason:f.elements.reason.value,previous:prior});
+    $('proposal').close();await refresh();notice('Your proposal is open.');
+  }catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{b.disabled=false;}
+};
+const hex=buf=>Array.from(new Uint8Array(buf),b=>b.toString(16).padStart(2,'0')).join('');
+async function proof(password,salt){const enc=new TextEncoder(),key=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveBits']);
+  return hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:enc.encode(salt),iterations:310000},key,256));}
+const auth=$('credentials');
+auth.elements.mode.onchange=()=>{const login=auth.elements.mode.value==='login';$('code-field').hidden=login;auth.elements.code.required=!login;auth.elements.password.minLength=login?1:12;auth.elements.password.autocomplete=login?'current-password':'new-password';};
+auth.onsubmit=async event=>{
+  event.preventDefault();const b=auth.querySelector('.primary');b.disabled=true;
+  try{const mode=auth.elements.mode.value, username=auth.elements.username.value.trim();
+    const salt=mode==='login'?(await api('community/salt?username='+encodeURIComponent(username))).salt:hex(crypto.getRandomValues(new Uint8Array(16)));
+    await action(mode,{username,code:auth.elements.code.value.trim(),salt,proof:await proof(auth.elements.password.value,salt)});
+    auth.reset();auth.elements.mode.onchange();$('auth').close();await refresh();notice('Signed in.');
+  }catch(e){auth.querySelector('[role=alert]').textContent=e.message;}finally{b.disabled=false;}
+};
+$('account').onclick=async()=>{if(!board.username){signIn();return;}try{await action('logout',{});await refresh();notice('Signed out.');}catch(e){notice(e.message);}};
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
+$('period').onchange=e=>{selectedPeriod=e.target.value;refresh().catch(e=>notice(e.message));};
+$('sort').onchange=renderBoard;
+$('search').oninput=()=>{clearTimeout(timer);++searchRequest;page=0;timer=setTimeout(()=>catalogue().catch(e=>notice(e.message)),180);};
+for(const [id,step] of [['prev',-1],['next',1]])$(id).onclick=()=>{page+=step;catalogue().catch(e=>notice(e.message));};
+Promise.all([refresh(),catalogue()]).then(()=>{if(location.hash==='#account'&&!board.username)signIn();}).catch(e=>notice(e.message));
+setInterval(()=>{if(document.hidden)return;
+  if(board.period?.active&&!active() || (!document.querySelector('dialog[open],article details[open]')&&!selectedPeriod))refresh().catch(e=>notice(e.message));
+},20000);

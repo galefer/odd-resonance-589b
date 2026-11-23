@@ -254,15 +254,17 @@ Decks are saved only in that browser profile. Use **Export deck -> Download comp
 
 Your existing `/`, `/null/`, `/outworld/`, etc. remain unchanged.
 
-## 7. Create your administrator
+## 7. Connect the JUSH Office and enable member voting
 
-1. Visit the deployed `/gog/` page.
-2. Click **Manage house list** in the footer.
-3. Enter your administrator email, a password of at least 12 characters, and the `GOG_SETUP_TOKEN` from step 4.
-4. After creation, the site logs you in and disables further public admin registration.
-5. Use **Draft editor** to change cards, **Review & publish** to make changes public, and **Version history** to restore a prior published snapshot.
+For an existing site apply only the additive voting migration before deploying the updated website.
 
-The same administrator account manages homepage events. Visit `/gog/`, click **Manage events** in the footer, and edit any displayed upcoming Thursday. Those edits apply only to that date. Add one-off events in the same panel; the next scheduled JUSH event appears in the homepage event panel.
+```
+npx wrangler d1 execute gog-house-format --remote --file=./database/migrations/0012_community_votes.sql
+```
+
+Generate a random secret of at least 32 bytes and set the same value as the encrypted Pages secret `JUSH_OFFICE_KEY` and in the Office service environment or its private `state/secrets/jush-office.key` file. Keep the existing `GOG_AUTH_PEPPER`. Deploy the website with its existing bindings and refresh the Office server with the JUSH routes. The Office backend contacts the canonical HTTPS host. Only the director's Office link can access administration.
+
+Players use `/gog/voting/`. In **Office → JUSH → Players & Invites**, generate a single-use code for each player. In **Votes**, open a window when the seven days should start. For first-run administrator setup and existing administrator account controls, open **Settings**. Use **Banlist** for editing, version history, draft CSV and publishing, and **Events** for recurring dates and one-off events. A window close or reset never publishes a list.
 
 The **Show house changes only** checkbox and every **House change** badge compare the current published status with the original `tcg-apr-2025` foundation. They do not reset when another house version is published. A card loses the marker only when its status matches that fixed baseline again.
 
