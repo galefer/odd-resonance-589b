@@ -367,6 +367,7 @@ export function mountCardViewer(container, { onConfig, onPropose, canPropose } =
     $('#card-detail').hidden = true;
     $('#card-detail-loading').hidden = false;
     dialog.showModal();
+    dialog.scrollTop = 0;
     try {
       let card = supplied;
       if (!card?.description) {
@@ -385,23 +386,40 @@ export function mountCardViewer(container, { onConfig, onPropose, canPropose } =
     syncProposalAction();
     const status = card.status || 'unlimited';
     const copies = STATUS[status].copies;
+    const detail = $('#card-detail');
+    detail.dataset.category = card.category || '';
+    detail.dataset.status = status;
     $('#detail-name').textContent = smartTitle(card.name || 'Unknown card');
-    $('#detail-status').className = `status-badge status-${status}`;
     $('#detail-status').textContent = STATUS[status].label;
     $('#detail-house-change').hidden = !card.isHouseChange;
-    $('#detail-type').textContent = card.cardType || `${card.category || 'Card'} · ${card.subtype || ''}`;
-    const stats = [];
-    if (card.attribute) stats.push(card.attribute);
-    if (card.race) stats.push(card.race);
-    if (card.subtype === 'Link' && card.linkRating != null) stats.push(`Link ${card.linkRating}`);
-    else if (card.level != null) stats.push(`${card.subtype === 'Link' ? 'Link' : card.subtype === 'Xyz' ? 'Rank' : 'Level'} ${card.level}`);
-    if (card.atk != null) stats.push(`ATK ${card.atk}`);
-    if (card.def != null) stats.push(`DEF ${card.def}`);
-    $('#detail-meta').textContent = stats.join(' · ') || `${card.category || 'Card'} · ${card.subtype || ''}`;
+    const isSpellOrTrap = card.category === 'Spell' || card.category === 'Trap';
+    const cardType = card.cardType || [card.category, card.subtype].filter(Boolean).join(' · ') || 'Card';
+    $('#detail-type').textContent = isSpellOrTrap && card.race ? card.race + ' ' + card.category : cardType;
+    const rating = card.subtype === 'Link' ? 'Link' : card.subtype === 'Xyz' ? 'Rank' : 'Level';
+    const stats = isSpellOrTrap ? [] : [
+      ['Attribute', card.attribute], ['Type', card.race],
+      [rating, rating === 'Link' ? card.linkRating ?? card.level : card.level],
+      ['Scale', card.pendulumScale], ['ATK', card.atk], ['DEF', card.def]
+    ].filter(([, value]) => value != null && value !== '');
+    const meta = $('#detail-meta');
+    meta.innerHTML = stats.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('');
+    meta.hidden = stats.length === 0;
     $('#detail-copy-count').textContent = copies === 0 ? '0 copies permitted' : `Up to ${copies} ${copies === 1 ? 'copy' : 'copies'}`;
     $('#detail-description').textContent = card.description || 'Card text is unavailable for this card.';
-    $('#detail-image').src = cardImageUrl(card.id || card.cardId || 0);
-    $('#detail-image').alt = `${smartTitle(card.name || 'Card')} card image`;
+    const image = $('#detail-image');
+    const print = $('#detail-print');
+    const artworkId = card.artworkId || card.id || card.cardId;
+    const imagePath = cardImageUrl(artworkId);
+    const fullSize = card.fullImageUrl || imagePath + '?size=full';
+    if (artworkId) print.href = fullSize;
+    else print.removeAttribute('href');
+    image.onerror = () => {
+      image.onerror = null;
+      print.removeAttribute('href');
+      image.src = imagePath + '?size=thumb';
+    };
+    image.alt = `${smartTitle(card.name || 'Card')} card image`;
+    image.src = fullSize;
     const noteBox = $('#detail-note');
     noteBox.hidden = !card.note;
     $('p', noteBox).textContent = card.note || '';

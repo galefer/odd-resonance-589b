@@ -127,34 +127,42 @@ export const viewerMarkup = `
   </section>
 
 <dialog class="modal card-modal" id="card-modal" aria-label="Card details">
-  <div class="modal-shell">
-    <button class="modal-close" type="button" data-close-dialog="card-modal" aria-label="Close card details">×</button>
-    <div class="card-detail-loading" id="card-detail-loading">
-      <span class="large-spinner"></span>
-      <p>Loading card details…</p>
-    </div>
-    <div class="card-detail" id="card-detail" hidden>
-      <div class="card-image-column">
+  <div class="detail-controls">
+    <button class="modal-close" type="button" data-close-dialog="card-modal" aria-label="Close card details">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 5 14 14M19 5 5 19"/></svg>
+    </button>
+  </div>
+  <div class="card-detail-loading" id="card-detail-loading" role="status">
+    <span class="large-spinner"></span><p>Loading card details…</p>
+  </div>
+  <div class="card-detail" id="card-detail" hidden>
+    <div class="detail-art">
+      <a class="detail-print" id="detail-print" target="_blank" rel="noopener" aria-label="Open full-size card image in a new tab">
         <img id="detail-image" alt="" width="421" height="614">
+        <span class="detail-enlarge" aria-hidden="true">Full size ↗</span>
+      </a>
+    </div>
+    <header class="detail-heading">
+      <p class="detail-kind" id="detail-type"></p>
+      <h2 id="detail-name"></h2>
+    </header>
+    <div class="card-detail-copy">
+      <dl class="detail-stats" id="detail-meta" hidden></dl>
+      <div class="detail-ruling">
+        <div class="detail-ruling-head">
+          <strong id="detail-status"></strong>
+          <span class="detail-change" id="detail-house-change" hidden>House change</span>
+        </div>
+        <p><strong id="detail-copy-count"></strong> across Main, Extra and Side Decks combined.</p>
       </div>
-      <div class="card-detail-copy">
-        <div class="detail-badges">
-          <span class="status-badge" id="detail-status"></span>
-          <span class="house-change-badge" id="detail-house-change" hidden>House change</span>
-          <span class="type-badge" id="detail-type"></span>
-        </div>
-        <h2 id="detail-name"></h2>
-        <p class="detail-meta" id="detail-meta"></p>
-        <div class="copy-limit-box">
-          <strong id="detail-copy-count"></strong>
-          <span>across Main, Extra, and Side Deck combined</span>
-        </div>
-        <p class="detail-description" id="detail-description"></p>
-        <div class="house-note" id="detail-note" hidden>
-          <strong>House-format note</strong>
-          <p></p>
-        </div>
-      </div>
+      <section class="detail-text" aria-labelledby="detail-text-label">
+        <h3 id="detail-text-label">Card text</h3>
+        <p id="detail-description"></p>
+      </section>
+      <section class="detail-house-note" id="detail-note" hidden>
+        <h3>House-format note</h3>
+        <p></p>
+      </section>
     </div>
   </div>
 </dialog>
