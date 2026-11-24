@@ -9,11 +9,20 @@
 <header class="mast"><div class="wrap mast-inner"><a class="brand" href="/gog/"><img src="/gog/assets/jush/artwork/guild-of-games-logo-64.webp" alt="" width="38" height="36"><span>Guild of Games</span></a><nav aria-label="Guild of Games"><a href="/gog/">House format</a><a href="/gog/deckbuilder/">Deckbuilder</a><button id="account">Player sign in</button></nav></div></header>
 <main>
 <section class="hero" aria-labelledby="page-title"><div class="wrap hero-inner">
-  <div class="hero-copy"><img class="wordmark" src="/gog/assets/jush/artwork/jush-wordmark-768.webp" width="768" height="256" alt="JUSH"><h1 id="page-title">Community<br>Banlist</h1>
-  <p>Propose a card limit or vote on a player’s proposal. Each member gets three votes per window.</p></div>
-  <img class="guardian" src="/gog/assets/jush/artwork/cosmic-mecha-dragon-guardian-768.webp" srcset="/gog/assets/jush/artwork/cosmic-mecha-dragon-guardian-384.webp 384w, /gog/assets/jush/artwork/cosmic-mecha-dragon-guardian-768.webp 768w" sizes="(max-width:600px) 55vw, 520px" width="768" height="768" alt="">
+  <div class="hero-copy">
+    <img class="wordmark" src="/gog/assets/jush/artwork/jush-wordmark-768.webp" width="768" height="256" alt="JUSH">
+    <h1 id="page-title">Community Banlist</h1>
+    <p>Propose a card limit or vote on a player’s proposal. Each member gets three votes per window.</p>
+    <div class="hero-meta">
+      <span class="window-status">
+        <svg aria-hidden="true" class="icon"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-calendar-clock"></use></svg>
+        <strong id="window">Loading voting window…</strong>
+      </span>
+      <a href="#catalogue">Browse cards <svg aria-hidden="true" class="icon"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-chevron-right"></use></svg></a>
+    </div>
+  </div>
+  <div class="hero-art" aria-hidden="true"></div>
 </div></section>
-<div class="window-bar"><div class="wrap window-inner"><svg aria-hidden="true" class="icon"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-calendar-clock"></use></svg><strong id="window">Loading voting window…</strong><a href="#catalogue">Browse cards <svg aria-hidden="true" class="icon"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-chevron-right"></use></svg></a></div></div>
 <div class="wrap content"><p id="feedback" role="status"></p>
 <section id="board"><div class="heading"><h2>Vote candidates <span id="candidate-count" hidden></span></h2><div class="tools"><label hidden>Voting period <select id="period"></select></label><label hidden>Sort by <select id="sort"><option value="participation">Most participation</option><option value="up">Most supported</option><option value="down">Most opposed</option><option value="new">Newest</option></select></label></div></div>
 <details id="mine" hidden><summary>My votes</summary><div></div></details>
