@@ -1,0 +1,561 @@
+import { viewerMarkup } from './card-viewer-markup.js';
+
+const GOG_BASE = '/gog';
+const CARD_POOL_CUTOFF = '2025-08-01';
+function cardImageUrl(id) { return `${GOG_BASE}/api/cards/${id || 0}/image`; }
+
+const mobileHouseLayout = window.matchMedia('(max-width: 600px)');
+
+const STATUS = {
+  forbidden: { label: 'Forbidden', copies: 0 },
+  limited: { label: 'Limited', copies: 1 },
+  semi_limited: { label: 'Semi-Limited', copies: 2 },
+  unlimited: { label: 'Unlimited', copies: 3 }
+};
+
+function normalise(value = '') {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[’‘]/g, "'")
+    .replace(/[–—]/g, '-')
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function smartTitle(value = '') {
+  const lowerWords = new Set(['a', 'an', 'and', 'as', 'at', 'by', 'for', 'from', 'in', 'of', 'on', 'or', 'the', 'to', 'with']);
+  return value.split(/(\s+)/).map((token, index) => {
+    if (/^\s+$/.test(token)) return token;
+    const clean = token.replace(/^["'(<]+|["')>,.:;!?]+$/g, '');
+    if (!clean) return token;
+    if (/[0-9★☆]/.test(clean) || /^(XYZ|CXYZ|PSY|T\.G\.|M-X-SABER|K9|S0)$/i.test(clean) || /^<[A-Z]>$/.test(clean)) return token;
+    const lower = token.toLowerCase();
+    if (index > 0 && lowerWords.has(lower.replace(/[^a-z]/g, ''))) return lower;
+    return lower.replace(/[a-z]/, (letter) => letter.toUpperCase());
+  }).join('');
+}
+
+function escapeHtml(value = '') {
+  return String(value).replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+}
+
+function typeInitial(category) {
+  return category === 'Spell' ? 'S' : category === 'Trap' ? 'T' : 'M';
+}
+
+function statusBadge(status) {
+  const item = STATUS[status] || STATUS.unlimited;
+  return `<span class="status-badge status-${status}"><b>${item.copies}</b><span>${item.label}</span></span>`;
+}
+
+function houseChangeBadge(card) {
+  return card?.isHouseChange
+    ? '<span class="house-change-badge" title="Different from the fixed JUSH-era baseline">House change</span>'
+    : '';
+}
+
+async function api(path, options = {}) {
+  const config = { ...options, headers: { ...(options.headers || {}) } };
+  if (config.body && typeof config.body !== 'string') {
+    config.headers['Content-Type'] = 'application/json';
+    config.body = JSON.stringify(config.body);
+  }
+  const routedPath = path.startsWith('/api/') ? `${GOG_BASE}${path}` : path;
+  const response = await fetch(routedPath, config);
+  const contentType = response.headers.get('content-type') || '';
+  const payload = contentType.includes('application/json') ? await response.json() : await response.text();
+  if (!response.ok) throw new Error(payload?.error || payload || `Request failed (${response.status})`);
+  return payload;
+}
+
+export function mountCardViewer(container, { onConfig, onPropose, canPropose } = {}) {
+  container.innerHTML = viewerMarkup;
+  const $ = (selector, root = container) => root.querySelector(selector);
+  const $$ = (selector, root = container) => [...root.querySelectorAll(selector)];
+  const state = {
+    config: null,
+    baseline: null,
+    entries: [],
+    changes: [],
+    recentChanges: [],
+    view: 'current',
+    filters: { status: new Set(), category: new Set(), subtype: new Set() },
+    sort: 'status-name',
+    searchResults: [],
+    searchIndex: -1,
+    searchAbort: null,
+
+  };
+
+  let selectedCard, detailRequest = 0;
+  let poolPage = 0, poolRequest = 0, poolCards = [];
+  let pager, proposalButton;
+  if (onPropose) {
+    $('.list-view-toggles').insertAdjacentHTML('beforeend', '<button type="button" data-list-view="pool" aria-pressed="false">Full card pool</button>');
+    $('#results-panel').insertAdjacentHTML('afterend', '<nav class="pool-pages" aria-label="Card pool pages" hidden><button type="button" data-page="-1">Previous</button><span aria-live="polite"></span><button type="button" data-page="1">Next</button></nav>');
+    pager = $('.pool-pages');
+    pager.addEventListener('click', async event => {
+      const button = event.target.closest('[data-page]');
+      if (!button || button.disabled) return;
+      poolPage += Number(button.dataset.page);
+      await loadPool().catch(showPoolError);
+      if (state.view === 'pool') $('#results-title').scrollIntoView({ block: 'start' });
+    });
+    $('.card-detail-copy').insertAdjacentHTML('beforeend', '<button type="button" class="button propose-card" hidden>Propose a change</button>');
+    proposalButton = $('.propose-card');
+    proposalButton.onclick = () => {
+      if (!selectedCard?.id || !canPropose()) return;
+      $('#card-modal').close();
+      onPropose(selectedCard);
+    };
+  }
+  function syncProposalAction() {
+    if (proposalButton) proposalButton.hidden = !(canPropose() && selectedCard?.id);
+  }
+  async function loadPool() {
+    const request = ++poolRequest;
+    const list = $('#card-list');
+    list.setAttribute('aria-busy', 'true');
+    $('#results-title').textContent = 'Full card pool';
+    $('#results-count').textContent = 'Loading cards…';
+    $('#empty-state').hidden = true;
+    list.replaceChildren();
+    poolCards = [];
+    pager.hidden = true;
+    const params = new URLSearchParams({ q: $('#card-search').value.trim(), page: poolPage, limit: 48, sort: state.sort });
+    for (const [group, values] of Object.entries(state.filters)) if (values.size) params.set(group, [...values].join(','));
+    let result;
+    try { result = await api('/api/catalogue?' + params); }
+    catch (error) { if (request === poolRequest && state.view === 'pool') throw error; return; }
+    if (request !== poolRequest || state.view !== 'pool') return;
+    poolCards = result.cards;
+    $('#results-count').textContent = poolCards.length + (poolCards.length === 1 ? ' card on this page' : ' cards on this page');
+    list.setAttribute('aria-busy', 'false');
+    renderRows(list, poolCards.map(card => ({ ...card, ...state.changes.find(change => normalise(change.name) === normalise(card.name)) })));
+    if (!poolCards.length) {
+      $('#empty-state h3').textContent = 'No matching cards';
+      $('#empty-state p').textContent = 'Try another name or clear a filter.';
+      $('#empty-clear').hidden = !activeFilterCount();
+      $('#empty-state').hidden = false;
+    }
+    $('[data-page="-1"]').disabled = !poolPage;
+    $('[data-page="1"]').disabled = !result.hasMore;
+    $('span', pager).textContent = 'Page ' + (poolPage + 1);
+    pager.hidden = !poolPage && !result.hasMore;
+  }
+  function showPoolError(error) {
+    $('#card-list').setAttribute('aria-busy', 'false');
+    $('#results-count').textContent = 'Card pool unavailable';
+    toast(error.message, 'error');
+  }
+
+  function toast(message, type = 'success') {
+    const region = container.getRootNode().getElementById('toast-region');
+    const element = document.createElement('div');
+    element.className = `toast ${type}`;
+    element.innerHTML = `<strong aria-hidden="true">${type === 'error' ? '!' : '✓'}</strong><span>${escapeHtml(message)}</span>`;
+    region.append(element);
+    setTimeout(() => element.remove(), 4200);
+  }
+
+  async function loadPublicData() {
+    const [configPayload, listPayload] = await Promise.all([api('/api/config'), api('/api/list')]);
+    state.config = configPayload;
+    if (configPayload.cardPool?.cutoffDate !== CARD_POOL_CUTOFF) throw new Error('Card pool mismatch. The deployed list is not locked to Justice Hunters.');
+    state.baseline = listPayload.baseline || null;
+    state.entries = listPayload.entries || [];
+    state.changes = listPayload.changes || [];
+    state.recentChanges = listPayload.recentChanges || [];
+    state.config.version = listPayload.version || configPayload.version;
+    onConfig?.(state.config);
+    renderList();
+  }
+
+  function currentDataset() {
+    if (state.view === 'changes') return state.changes;
+    if (state.view === 'recent') return state.recentChanges;
+    return state.entries;
+  }
+
+  function filteredDataset() {
+    const data = currentDataset().filter((card) => {
+      const statusOk = !state.filters.status.size || state.filters.status.has(card.status);
+      const categoryOk = !state.filters.category.size || state.filters.category.has(card.category);
+      const subtypeOk = !state.filters.subtype.size || (card.category === 'Monster' && state.filters.subtype.has(card.subtype));
+      return statusOk && categoryOk && subtypeOk;
+    });
+    const order = { forbidden: 0, limited: 1, semi_limited: 2, unlimited: 3 };
+    data.sort((a, b) => {
+      if (state.sort === 'name') return a.name.localeCompare(b.name);
+      if (state.sort === 'type') return `${a.category}-${a.subtype}-${a.name}`.localeCompare(`${b.category}-${b.subtype}-${b.name}`);
+      return (order[a.status] - order[b.status]) || a.name.localeCompare(b.name);
+    });
+    return data;
+  }
+
+  function renderList() {
+    if (state.view === 'pool') {
+      loadPool().catch(showPoolError);
+      return;
+    }
+    if (pager) pager.hidden = true;
+    const list = $('#card-list');
+    const data = filteredDataset();
+    const isHouse = state.view === 'changes';
+    const isRecent = state.view === 'recent';
+    $$('[data-list-view]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.listView === state.view)));
+    $('#results-title').textContent = 'Forbidden & Limited List';
+    $('#results-count').textContent = `${data.length} ${data.length === 1 ? 'card' : 'cards'} shown`;
+    list.setAttribute('aria-busy', 'false');
+
+    if (!data.length) {
+      list.innerHTML = '';
+      $('#empty-state').hidden = false;
+      if (isHouse && state.changes.length === 0 && !activeFilterCount()) {
+        $('#empty-state h3').textContent = 'This list matches the official baseline';
+        $('#empty-state p').textContent = 'House tweaks will appear here whenever a published status differs from the official JUSH banlist.';
+        $('#empty-clear').hidden = true;
+      } else if (isRecent && state.recentChanges.length === 0 && !activeFilterCount()) {
+        $('#empty-state h3').textContent = 'No card changes in this revision';
+        $('#empty-state p').textContent = 'The latest published revision did not change a card restriction or house-format note.';
+        $('#empty-clear').hidden = true;
+      } else {
+        $('#empty-state h3').textContent = 'No cards match those filters';
+        $('#empty-state p').textContent = 'Clear a filter or choose another combination.';
+        $('#empty-clear').hidden = false;
+      }
+      return;
+    }
+    $('#empty-state').hidden = true;
+    renderRows(list, data);
+  }
+
+  function renderRows(list, data) {
+    if (state.sort === 'status-name') {
+      const counts = data.reduce((map, card) => map.set(card.status, (map.get(card.status) || 0) + 1), new Map());
+      let lastStatus = null;
+      list.innerHTML = data.map((card) => {
+        const heading = card.status !== lastStatus
+          ? `<div class="status-section-heading"><strong>${STATUS[card.status]?.label || 'Cards'}</strong><span>${counts.get(card.status)} ${counts.get(card.status) === 1 ? 'card' : 'cards'}</span></div>`
+          : '';
+        lastStatus = card.status;
+        return heading + renderCardRow(card);
+      }).join('');
+    } else {
+      list.innerHTML = data.map(renderCardRow).join('');
+    }
+  }
+
+  function renderCardRow(card) {
+    const status = STATUS[card.status] || STATUS.unlimited;
+    const note = card.note ? `<span class="card-note-preview">${escapeHtml(card.note)}</span>` : '';
+    const baselineStatus = card.baselineStatus || card.previousStatus;
+    const changeContext = state.view === 'changes' && card.isHouseChange && baselineStatus
+      ? `<span class="change-context">${STATUS[baselineStatus]?.label || 'Unlimited'} <span aria-hidden="true">&gt;</span> ${status.label}</span>`
+      : state.view === 'recent' && card.changeType === 'note_updated'
+        ? '<span class="change-context">Note updated</span>'
+        : state.view === 'recent' && card.previousStatus
+          ? `<span class="change-context">${STATUS[card.previousStatus]?.label || 'Unlimited'} <span aria-hidden="true">&gt;</span> ${status.label}</span>`
+          : '';
+    return `
+      <article class="card-row status-${card.status}${card.isHouseChange ? ' is-house-change' : ''}" data-card-name="${escapeHtml(card.name)}">
+        <div class="card-thumbnail ${card.category.toLowerCase()}">
+          <img src="${cardImageUrl(card.cardId || card.id || 0)}" alt="" width="42" height="61" loading="lazy" decoding="async">
+          <span aria-hidden="true">${typeInitial(card.category)}</span>
+        </div>
+        <div class="card-copy">
+          <h3 class="card-name">${escapeHtml(smartTitle(card.name))}${houseChangeBadge(card)}</h3>
+          <div class="card-status-mobile">${statusBadge(card.status)}</div>
+          <div class="card-metadata"><span>${escapeHtml(card.category)} · ${escapeHtml(card.subtype)}</span>${changeContext}</div>
+          ${note}
+        </div>
+        <div class="status-cell">${statusBadge(card.status)}</div>
+        <button class="card-open" type="button" data-open-card="${escapeHtml(card.name)}" aria-label="View ${escapeHtml(smartTitle(card.name))}">›</button>
+      </article>`;
+  }
+
+  function activeFilterCount() {
+    return state.filters.status.size + state.filters.category.size + state.filters.subtype.size;
+  }
+
+  function updateFilterUi() {
+    poolPage = 0;
+    const count = activeFilterCount();
+    $('#filter-count').hidden = count === 0;
+    $('#filter-count').textContent = count;
+    const area = $('#active-filters');
+    area.hidden = count === 0;
+    area.innerHTML = []
+      .concat([...state.filters.status].map((value) => ({ group: 'status', value, label: STATUS[value]?.label || value })))
+      .concat([...state.filters.category].map((value) => ({ group: 'category', value, label: value })))
+      .concat([...state.filters.subtype].map((value) => ({ group: 'subtype', value, label: value })))
+      .map((item) => `<span class="active-filter-chip">${escapeHtml(item.label)}<button type="button" data-remove-filter="${item.group}:${escapeHtml(item.value)}" aria-label="Remove ${escapeHtml(item.label)} filter">×</button></span>`)
+      .join('');
+    $$('[data-rule-filter]').forEach((button) => button.setAttribute('aria-pressed', String(state.filters.status.has(button.dataset.ruleFilter))));
+    updateUrl();
+    renderList();
+  }
+
+  function clearFilters() {
+    Object.values(state.filters).forEach((set) => set.clear());
+    $$('[data-filter]').forEach((input) => { input.checked = false; });
+    updateFilterUi();
+  }
+
+  function updateUrl() {
+    const params = new URLSearchParams();
+    if (state.view !== 'current') params.set('view', state.view);
+    for (const [group, values] of Object.entries(state.filters)) if (values.size) params.set(group, [...values].join(','));
+    if (state.sort !== 'status-name') params.set('sort', state.sort);
+    const query = params.toString();
+    try { history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}${location.hash}`); } catch {}
+  }
+
+  function restoreUrlState() {
+    const params = new URLSearchParams(location.search);
+    if (['changes', 'recent', ...(onPropose ? ['pool'] : [])].includes(params.get('view'))) state.view = params.get('view');
+    for (const group of ['status', 'category', 'subtype']) {
+      const values = params.get(group)?.split(',').filter(Boolean) || [];
+      values.forEach((value) => state.filters[group].add(value));
+      $$(`[data-filter="${group}"]`).forEach((input) => { input.checked = state.filters[group].has(input.value); });
+    }
+    const sort = params.get('sort');
+    if (['status-name', 'name', 'type'].includes(sort)) state.sort = sort;
+    $('#sort-select').value = state.sort;
+    switchView(state.view, false);
+    updateFilterUi();
+  }
+
+  function switchView(view, update = true) {
+    poolPage = 0;
+    state.view = view;
+    syncSearchPlaceholder();
+    hideSuggestions();
+    $$('[data-list-view]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.listView === view)));
+    if (update) {
+      updateUrl();
+      renderList();
+    }
+  }
+
+  let publicSearchTimer;
+  function syncSearchPlaceholder() {
+    const label = state.view === 'pool' ? 'Search the card pool by name' : 'Search card names or archetypes';
+    $('#card-search-label').textContent = label;
+    $('#card-search').placeholder = mobileHouseLayout.matches ? 'Search cards…' : label + '…';
+  }
+  async function runPublicSearch(query) {
+    const clean = query.trim();
+    if (state.view === 'pool') {
+      $('#clear-search').hidden = !clean;
+      poolPage = 0;
+      await loadPool().catch(showPoolError);
+      return;
+    }
+    $('#clear-search').hidden = !clean;
+    if (clean.length < 2) {
+      hideSuggestions();
+      return;
+    }
+    $('#search-spinner').hidden = false;
+    const local = state.entries
+      .filter((card) => normalise(card.name).includes(normalise(clean)))
+      .slice(0, 12)
+      .map((card) => ({ ...card, id: card.cardId || null, cardType: card.cardType, copies: STATUS[card.status].copies }));
+    renderSuggestions(local, true);
+    try {
+      if (state.searchAbort) state.searchAbort.abort();
+      state.searchAbort = new AbortController();
+      const payload = await api(`/api/cards/search?q=${encodeURIComponent(clean)}`, { signal: state.searchAbort.signal });
+      if (state.view === 'pool' || $('#card-search').value.trim() !== clean) return;
+      const merged = new Map();
+      for (const item of [...local, ...(payload.results || [])]) merged.set(normalise(item.name), item);
+      state.searchResults = [...merged.values()].slice(0, 20);
+      renderSuggestions(state.searchResults, false);
+      $('#api-state').hidden = true;
+    } catch (error) {
+      if (error.name !== 'AbortError' && state.view !== 'pool' && $('#card-search').value.trim() === clean) {
+        state.searchResults = local;
+        renderSuggestions(local, false);
+        $('#api-state').hidden = false;
+      }
+    } finally {
+      $('#search-spinner').hidden = true;
+    }
+  }
+
+  function renderSuggestions(results, pending) {
+    const container = $('#search-suggestions');
+    state.searchResults = results;
+    state.searchIndex = -1;
+    container.hidden = false;
+    if (!results.length) {
+      container.innerHTML = `<div class="suggestion-empty">${pending ? 'Searching the card catalogue…' : 'No card from the Justice Hunters-era pool matched your search.'}</div>`;
+      return;
+    }
+    container.innerHTML = results.map((card, index) => `
+      <button class="suggestion-row" type="button" role="option" aria-selected="false" data-suggestion-index="${index}">
+        <img class="suggestion-thumb" src="${card.id ? cardImageUrl(card.id) : cardImageUrl(0)}" alt="" loading="lazy">
+        <span><span class="suggestion-name">${escapeHtml(smartTitle(card.name))}</span><span class="suggestion-meta">${escapeHtml(card.cardType || `${card.category} · ${card.subtype}`)}</span></span>
+        <span class="suggestion-status">${statusBadge(card.status || 'unlimited')}${houseChangeBadge(card)}</span>
+      </button>`).join('');
+  }
+
+  function hideSuggestions() {
+    $('#search-suggestions').hidden = true;
+    state.searchIndex = -1;
+  }
+
+  function moveSuggestion(direction) {
+    const rows = $$('.suggestion-row', $('#search-suggestions'));
+    if (!rows.length) return;
+    state.searchIndex = (state.searchIndex + direction + rows.length) % rows.length;
+    rows.forEach((row, index) => row.setAttribute('aria-selected', String(index === state.searchIndex)));
+    rows[state.searchIndex].scrollIntoView({ block: 'nearest' });
+  }
+
+  async function openCardDetail(cardOrName) {
+    const cardName = typeof cardOrName === 'string' ? cardOrName : cardOrName.name;
+    const local = state.entries.find((entry) => normalise(entry.name) === normalise(cardName)) ||
+      state.changes.find((entry) => normalise(entry.name) === normalise(cardName));
+    const supplied = typeof cardOrName === 'object' ? cardOrName : null;
+    const dialog = $('#card-modal');
+    const request = ++detailRequest;
+    selectedCard = null;
+    syncProposalAction();
+    $('#card-detail').hidden = true;
+    $('#card-detail-loading').hidden = false;
+    dialog.showModal();
+    try {
+      let card = supplied;
+      if (!card?.description) {
+        const payload = await api(`/api/cards/lookup?name=${encodeURIComponent(cardName)}`);
+        card = payload.card || supplied || { name: cardName };
+      }
+      card = { ...supplied, ...card, ...local, status: local?.status || card?.status || supplied?.status || 'unlimited' };
+      if (request === detailRequest) populateCardDetail(card);
+    } catch {
+      if (request === detailRequest) populateCardDetail({ ...supplied, ...local, name: cardName, status: local?.status || supplied?.status || 'unlimited' });
+    }
+  }
+
+  function populateCardDetail(card) {
+    selectedCard = { ...card, id: Number(card.canonicalId || card.id || card.cardId) };
+    syncProposalAction();
+    const status = card.status || 'unlimited';
+    const copies = STATUS[status].copies;
+    $('#detail-name').textContent = smartTitle(card.name || 'Unknown card');
+    $('#detail-status').className = `status-badge status-${status}`;
+    $('#detail-status').textContent = STATUS[status].label;
+    $('#detail-house-change').hidden = !card.isHouseChange;
+    $('#detail-type').textContent = card.cardType || `${card.category || 'Card'} · ${card.subtype || ''}`;
+    const stats = [];
+    if (card.attribute) stats.push(card.attribute);
+    if (card.race) stats.push(card.race);
+    if (card.subtype === 'Link' && card.linkRating != null) stats.push(`Link ${card.linkRating}`);
+    else if (card.level != null) stats.push(`${card.subtype === 'Link' ? 'Link' : card.subtype === 'Xyz' ? 'Rank' : 'Level'} ${card.level}`);
+    if (card.atk != null) stats.push(`ATK ${card.atk}`);
+    if (card.def != null) stats.push(`DEF ${card.def}`);
+    $('#detail-meta').textContent = stats.join(' · ') || `${card.category || 'Card'} · ${card.subtype || ''}`;
+    $('#detail-copy-count').textContent = copies === 0 ? '0 copies permitted' : `Up to ${copies} ${copies === 1 ? 'copy' : 'copies'}`;
+    $('#detail-description').textContent = card.description || 'Card text is unavailable for this card.';
+    $('#detail-image').src = cardImageUrl(card.id || card.cardId || 0);
+    $('#detail-image').alt = `${smartTitle(card.name || 'Card')} card image`;
+    const noteBox = $('#detail-note');
+    noteBox.hidden = !card.note;
+    $('p', noteBox).textContent = card.note || '';
+    $('#card-detail-loading').hidden = true;
+    $('#card-detail').hidden = false;
+  }
+
+  function wireEvents() {
+    $$('[data-rule-filter]').forEach((button) => button.addEventListener('click', () => {
+      const status = button.dataset.ruleFilter;
+      state.filters.status.clear();
+      state.filters.status.add(status);
+      $$('[data-filter="status"]').forEach((input) => { input.checked = input.value === status; });
+      if (state.view !== 'pool') switchView(status === 'unlimited' ? 'changes' : 'current', false);
+      updateFilterUi();
+      $('#list-workspace').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
+    $$('[data-close-dialog]').forEach((button) => button.addEventListener('click', () => $(`#${button.dataset.closeDialog}`).close()));
+    $$('.modal').forEach((dialog) => dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    }));
+
+    $$('[data-list-view]').forEach((button) => button.addEventListener('click', () => switchView(button.dataset.listView)));
+    $('#filter-toggle').addEventListener('click', () => {
+      const panel = $('#filters-panel');
+      panel.classList.toggle('open');
+      $('#filter-toggle').setAttribute('aria-expanded', String(panel.classList.contains('open')));
+    });
+    $$('[data-filter]').forEach((input) => input.addEventListener('change', () => {
+      const set = state.filters[input.dataset.filter];
+      input.checked ? set.add(input.value) : set.delete(input.value);
+      updateFilterUi();
+    }));
+    $('#sort-select').addEventListener('change', (event) => { state.sort = event.target.value; poolPage = 0; updateUrl(); renderList(); });
+    $('#clear-filters').addEventListener('click', clearFilters);
+    $('#empty-clear').addEventListener('click', clearFilters);
+    $('#active-filters').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-remove-filter]');
+      if (!button) return;
+      const [group, value] = button.dataset.removeFilter.split(':');
+      state.filters[group].delete(value);
+      const input = $$(`[data-filter="${group}"]`).find((item) => item.value === value);
+      if (input) input.checked = false;
+      updateFilterUi();
+    });
+    $('#card-list').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-open-card]');
+      if (button) openCardDetail(poolCards.find(card => state.view === 'pool' && card.name === button.dataset.openCard) || button.dataset.openCard);
+    });
+
+    const cardSearch = $('#card-search');
+    syncSearchPlaceholder();
+    mobileHouseLayout.addEventListener?.('change', syncSearchPlaceholder);
+    cardSearch.addEventListener('input', () => {
+      clearTimeout(publicSearchTimer);
+      publicSearchTimer = setTimeout(() => runPublicSearch(cardSearch.value), 260);
+    });
+    cardSearch.addEventListener('focus', () => { if (state.view !== 'pool' && cardSearch.value.trim().length >= 2) runPublicSearch(cardSearch.value); });
+    cardSearch.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowDown') { event.preventDefault(); moveSuggestion(1); }
+      else if (event.key === 'ArrowUp') { event.preventDefault(); moveSuggestion(-1); }
+      else if (event.key === 'Enter' && state.searchIndex >= 0) {
+        event.preventDefault();
+        openCardDetail(state.searchResults[state.searchIndex]);
+        hideSuggestions();
+      } else if (event.key === 'Escape') hideSuggestions();
+    });
+    $('#clear-search').addEventListener('click', () => { cardSearch.value = ''; $('#clear-search').hidden = true; hideSuggestions(); if (state.view === 'pool') runPublicSearch(''); cardSearch.focus(); });
+    $('#search-suggestions').addEventListener('click', (event) => {
+      const row = event.target.closest('[data-suggestion-index]');
+      if (!row) return;
+      openCardDetail(state.searchResults[Number(row.dataset.suggestionIndex)]);
+      hideSuggestions();
+    });
+    document.addEventListener('click', (event) => {
+      if (!event.composedPath().includes($('.search-panel'))) hideSuggestions();
+    });
+
+  }
+
+  async function init() {
+    wireEvents();
+    restoreUrlState();
+    try {
+      await loadPublicData();
+    }
+    catch (error) {
+      $('#card-list').innerHTML = `<div class="empty-state"><h3>Could not load the house-format list</h3><p>${escapeHtml(error.message)}</p></div>`;
+      toast(error.message, 'error');
+    }
+
+  }
+
+  init();
+  return { openCardDetail, syncProposalAction };
+}

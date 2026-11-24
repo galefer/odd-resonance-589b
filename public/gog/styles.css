@@ -1,4 +1,4 @@
-:root {
+:root, :host {
   --ink: #f8eee8;
   --ink-soft: #bba99e;
   --navy: #0b0b0c;
@@ -547,7 +547,7 @@ textarea:focus-visible {
 @keyframes toast-in { from { transform: translateY(10px); opacity: 0; } }
 
 @media (max-width: 900px) {
-  :root { --shell: min(100% - 28px, 760px); }
+  :root, :host { --shell: min(100% - 28px, 760px); }
   .hero-grid { grid-template-columns: 1fr; min-height: auto; gap: 35px; padding-block: 50px 78px; }
   .rule-summary { max-width: 610px; }
   .filters-panel { grid-template-columns: 1fr; }
@@ -569,7 +569,7 @@ textarea:focus-visible {
 }
 
 @media (max-width: 680px) {
-  :root { --shell: calc(100vw - 22px); }
+  :root, :host { --shell: calc(100vw - 22px); }
   .header-inner { min-height: 62px; }
   .brand small { display: none; }
   .header-actions .ghost { display: none; }
@@ -653,7 +653,7 @@ textarea:focus-visible {
 @media (max-width: 650px) { .pool-note { font-size: .61rem; max-width: 100%; } }
 
 /* Guild of Games brand theme shared with the deckbuilder. */
-:root { color-scheme: dark; }
+:root, :host { color-scheme: dark; }
 body {
   background:
     radial-gradient(circle at 18% 0%, rgba(255,122,46,.07), transparent 27rem),

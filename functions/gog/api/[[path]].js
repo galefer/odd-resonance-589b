@@ -336,6 +336,11 @@ async function localSearch(db, query) {
   const combined = new Map();
   for (const row of cached.results) combined.set(normalise(row.name), cachedCardView(row));
   for (const row of foundation.results) if (!combined.has(normalise(row.name))) combined.set(normalise(row.name), row);
+  if (combined.size < 20) {
+    const family = await db.prepare(`SELECT * FROM cards_cache WHERE pool_verified=1 AND archetype=? COLLATE NOCASE
+      ORDER BY sort_name LIMIT 20`).bind(query.trim()).all();
+    for (const row of family.results) if (!combined.has(row.sort_name)) combined.set(row.sort_name, cachedCardView(row));
+  }
   return [...combined.values()].slice(0, 20);
 }
 async function cardSearch(db, query) {
@@ -421,8 +426,9 @@ async function cataloguePage(db, url) {
   const version = await currentVersion(db);
   if (!version) throw fail(503, 'The published house list is unavailable.');
   const query = normalise((url.searchParams.get('q') || '').slice(0, 80));
-  const category = url.searchParams.get('category') || '';
-  const subtype = url.searchParams.get('subtype') || '';
+  const categories = (url.searchParams.get('category') || '').split(',').filter(Boolean);
+  const subtypes = (url.searchParams.get('subtype') || '').split(',').filter(Boolean);
+  const sort = url.searchParams.get('sort');
   const attribute = (url.searchParams.get('attribute') || '').toUpperCase();
   const archetype = (url.searchParams.get('archetype') || '').trim().slice(0, 80);
   const level = url.searchParams.get('level');
@@ -430,7 +436,7 @@ async function cataloguePage(db, url) {
   const statuses = (url.searchParams.get('status') || '').split(',').filter((item) => ALLOWED.has(item));
   const limit = boundedInteger(url.searchParams.get('limit'), CATALOGUE_PAGE_SIZE, 1, MAX_CATALOGUE_PAGE_SIZE);
   const page = boundedInteger(url.searchParams.get('page'), 0, 0, 500);
-  if (category && !['Monster','Spell','Trap'].includes(category)) throw fail(400, 'Invalid card category filter.');
+  if (categories.some(category => !['Monster','Spell','Trap'].includes(category))) throw fail(400, 'Invalid card category filter.');
   if (attribute && !['DARK','DIVINE','EARTH','FIRE','LIGHT','WATER','WIND'].includes(attribute))
     throw fail(400, 'Invalid attribute filter.');
   const clauses = ['c.pool_verified=1'];
@@ -439,8 +445,15 @@ async function cataloguePage(db, url) {
     clauses.push('search.search_text>=? AND search.search_text<?');
     bindings.push(query, `${query}\uffff`);
   }
-  if (category) { clauses.push('c.category=?'); bindings.push(category); }
-  if (subtype) { clauses.push('c.subtype=?'); bindings.push(subtype.slice(0, 40)); }
+  if (categories.length) {
+    clauses.push(`c.category IN (${categories.map(() => '?').join(',')})`);
+    bindings.push(...categories);
+  }
+  if (subtypes.length) {
+    if (subtypes.length > 12) throw fail(400, 'Too many subtype filters.');
+    clauses.push(`c.subtype IN (${subtypes.map(() => '?').join(',')})`);
+    bindings.push(...subtypes.map(value => value.slice(0, 40)));
+  }
   if (attribute) { clauses.push('c.attribute=?'); bindings.push(attribute); }
   if (archetype) { clauses.push("c.archetype LIKE ? ESCAPE '\\'"); bindings.push(`%${archetype.replace(/[%_\\]/g, '\\$&')}%`); }
   if (level !== null && level !== '') { clauses.push('c.level=?'); bindings.push(boundedInteger(level, -1, 0, 13)); }
@@ -465,6 +478,11 @@ async function cataloguePage(db, url) {
   if (query) {
     order = 'CASE WHEN c.sort_name=? THEN 0 WHEN c.sort_name>=? AND c.sort_name<? THEN 1 ELSE 2 END,c.sort_name';
     orderBindings.push(query, query, `${query}\uffff`);
+  }
+  if (sort === 'status-name' || sort === 'type' || sort === 'name') {
+    orderBindings.length = 0;
+    order = sort === 'status-name' ? "CASE house_status WHEN 'forbidden' THEN 0 WHEN 'limited' THEN 1 WHEN 'semi_limited' THEN 2 ELSE 3 END, c.sort_name"
+      : sort === 'type' ? 'c.category, c.subtype, c.sort_name' : 'c.sort_name';
   }
   // CROSS JOIN preserves the indexed search table as the outer loop. SQLite may
   // otherwise start with all eligible cards before applying the narrow range.

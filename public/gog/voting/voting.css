@@ -65,7 +65,12 @@ button.primary:enabled:hover, #account:hover { background: #92fff4; color: var(-
 }
 .content { padding: clamp(28px, 4vw, 52px) 0 65px; }
 #feedback:not(:empty),.ruling { padding: 12px 16px; border-left: 3px solid var(--aqua); background: #103747; margin-bottom: 16px; overflow-wrap: anywhere; }
-#catalogue { margin-top: clamp(34px, 5vw, 64px); border-top: 1px solid var(--line); padding-top: clamp(20px, 3vw, 36px); }
+#catalogue { border-top: 1px solid var(--line); }
+.content { padding-bottom: clamp(30px, 4vw, 52px); }
+.candidate-art,.candidate-name { padding: 0; border: 0; background: transparent; color: inherit; }
+.candidate-art { display: flex; }
+.candidate-name { min-height: 0; font: inherit; text-align: left; }
+.candidate-name:hover { text-decoration: underline; }
 .heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 16px; }
 h2 { font-size: clamp(32px, 4vw, 48px); color: var(--cream); }
 #candidate-count { vertical-align: middle; font: 700 16px/1 Barlow,sans-serif; border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; color: #b3f5ee; }

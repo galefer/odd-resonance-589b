@@ -1,8 +1,10 @@
+import { mountCardViewer } from '/gog/card-viewer.js';
+
 const $ = id => document.getElementById(id);
 const escape = x => String(x ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const statuses = {forbidden:'Forbidden (0)', limited:'Limited (1)', semi_limited:'Semi-Limited (2)', unlimited:'Unlimited (3)'};
 const date = seconds => new Date(seconds*1000).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/London'})+' UK';
-let board={candidates:[],mine:[],history:[]}, selectedPeriod='', boardRequest=0, page=0, cards=[], searchRequest=0, chosen, timer;
+let board={candidates:[],mine:[],history:[]}, selectedPeriod='', boardRequest=0, chosen;
 const active=()=>Boolean(board.period?.active && board.period.deadline>Date.now()/1000);
 const notice=text=>{$('feedback').textContent=text;};
 async function api(path,body) {
@@ -46,7 +48,7 @@ function renderBoard(){
     const btn=(direction,label,count)=>`<button data-vote="${direction}" aria-pressed="${mine?.direction===direction}" ${disabled||(starter&&direction<0)?'disabled':''}>${label} ${count}${mine?.direction===direction?' · Yours':''}</button>`;
     const others=board.candidates.filter(o=>o.card===c.card && o.id!==c.id);
     return `<article class="candidate" id="candidate-${c.id}" data-id="${c.id}">
-      <div class="proposal-head">${cardArt(c.card)}<div><h3>${escape(c.name)}</h3>
+      <div class="proposal-head"><button type="button" class="candidate-art" data-view-card aria-label="View details for ${escape(c.name)}">${cardArt(c.card)}</button><div><h3><button type="button" class="candidate-name" data-view-card>${escape(c.name)}</button></h3>
       <div class="limits"><div><small>Published</small>${limitBadge(c.published)}</div>${icon('arrow-right')}<div><small>Proposed</small>${limitBadge(c.target)}</div></div></div></div>
       <div class="case"><strong>${escape(c.starter)}</strong><p>${escape(c.reason)}</p></div>
       ${c.ruling?`<p class="ruling"><b>Ruling</b> ${escape(c.ruling)}</p>`:''}
@@ -54,26 +56,13 @@ function renderBoard(){
       ${others.length?`<p>Other proposals · ${others.map(o=>`<a href="#candidate-${o.id}">${statuses[o.target]}</a>`).join(' · ')}</p>`:''}
       <details><summary>Comments (${c.comments})</summary><div class="thread"></div></details></article>`;
   }).join('')||`<div class="empty">${icon('card-stack')}<div><h3>${open?'Start the first proposal':'No proposals this period'}</h3><p>${open?'Choose a card in the catalogue and propose its new limit.':'Browse the published card limits below.'}</p></div></div>`;
-  renderCards();
+  viewer.syncProposalAction();
 }
 async function refresh(){
   const request=++boardRequest;
   const data=await api('community/board'+(selectedPeriod?'?window='+selectedPeriod:''));
   if(request!==boardRequest) return;
   board=data; renderBoard();
-}
-function renderCards(){
-  $('cards').innerHTML=cards.map((c,i)=>`<article class="catalog-card">
-    ${cardArt(c.id,c.imageUrl)}<div class="card-copy"><small>${escape(c.category)}</small><h3>${escape(c.name)}</h3>${limitBadge(c.status)}
-    ${active()?`<button data-propose="${i}" aria-label="Propose a change to ${escape(c.name)}">Propose a change ${icon('chevron-right')}</button>`:''}</div>
-    </article>`).join('')||`<p class="empty">No cards match this search.</p>`;
-}
-async function catalogue(){
-  const id=++searchRequest;
-  const result=await api('catalogue?'+new URLSearchParams({q:$('search').value.trim(),page,limit:48}));
-  if(id!==searchRequest)return;
-  cards=result.cards; $('prev').disabled=!page; $('next').disabled=!result.hasMore;
-  $('page').textContent='Page '+(page+1); renderCards();
 }
 function signIn(){ clearUsernameError(); $('credentials').querySelector('[role=alert]').textContent=''; $('auth').showModal(); }
 function usable(){if(!active())throw Error('Voting has closed.');if(!board.username){signIn();return false;}return true;}
@@ -109,6 +98,11 @@ $('candidates').addEventListener('submit',async event=>{
   }catch(e){notice(e.message);}finally{button.disabled=false;}
 });
 $('candidates').addEventListener('click',async event=>{
+  if (event.target.closest('[data-view-card]')) {
+    const candidate = board.candidates.find(c => c.id === Number(event.target.closest('article').dataset.id));
+    if (candidate) viewer.openCardDetail({ id: candidate.card, name: candidate.name, status: candidate.published });
+    return;
+  }
   const b=event.target.closest('[data-vote]'); if(!b)return;
   try{
     if(!usable())return;
@@ -120,15 +114,14 @@ $('candidates').addEventListener('click',async event=>{
     b.disabled=true;await action('vote',{candidate:c.id,direction,previous:prior});notice('Vote updated.');
   }catch(e){notice(e.message);}finally{if(!b.closest('dialog') && b.disabled)await refresh().catch(e=>notice(e.message));}
 });
-$('cards').addEventListener('click',event=>{
-  const b=event.target.closest('[data-propose]');if(!b)return;
-  try{if(!usable())return;chosen=cards[Number(b.dataset.propose)];
+function proposeCard(card) {
+  try{if(!usable())return;chosen=card;
     const f=$('compose');f.reset();f.querySelector('[role=alert]').textContent='';
     $('proposed-card').textContent=chosen.name+' · '+statuses[chosen.status];
     f.elements.target.innerHTML=Object.entries(statuses).filter(([s])=>s!==chosen.status).map(([s,l])=>`<option value="${s}">${l}</option>`).join('');
     $('proposal').showModal();
   }catch(e){notice(e.message);}
-});
+}
 $('compose').onsubmit=async event=>{
   event.preventDefault();const f=event.target,b=f.querySelector('.primary');
   try{const target=f.elements.target.value,existing=board.candidates.find(c=>c.card===chosen.id&&c.target===target);
@@ -173,8 +166,6 @@ $('account').onclick=async()=>{if(!board.username){signIn();return;}try{await ac
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 $('period').onchange=e=>{selectedPeriod=e.target.value;refresh().catch(e=>notice(e.message));};
 $('sort').onchange=renderBoard;
-$('search').oninput=()=>{clearTimeout(timer);++searchRequest;page=0;timer=setTimeout(()=>catalogue().catch(e=>notice(e.message)),180);};
-for(const [id,step] of [['prev',-1],['next',1]])$(id).onclick=()=>{page+=step;catalogue().catch(e=>notice(e.message));};
 function openScannedInvite(){
   if(!location.hash.startsWith('#invite='))return;
   const code=location.hash.slice('#invite='.length);
@@ -187,8 +178,15 @@ function openScannedInvite(){
   if(!valid)auth.querySelector('[role=alert]').textContent='This invitation link is incomplete. Scan it again or enter your one-use code.';
 }
 window.addEventListener('hashchange',openScannedInvite);
+const catalogue = $('catalogue').attachShadow({ mode: 'open' });
+catalogue.innerHTML = `
+  <link rel="stylesheet" href="/gog/styles.css">
+  <link rel="stylesheet" href="/gog/house-format/house-format.css">
+  <link rel="stylesheet" href="/gog/voting/viewer.css">
+  <div class="house-format-page"><div id="viewer"></div><div id="toast-region" class="toast-region" role="status"></div></div>`;
+const viewer = mountCardViewer(catalogue.getElementById('viewer'), { onPropose: proposeCard, canPropose: active });
 openScannedInvite();
-Promise.all([refresh(),catalogue()]).then(()=>{if(location.hash==='#account'&&!board.username)signIn();}).catch(e=>notice(e.message));
+refresh().then(()=>{if(location.hash==='#account'&&!board.username)signIn();}).catch(e=>notice(e.message));
 setInterval(()=>{if(document.hidden)return;
-  if(board.period?.active&&!active() || (!document.querySelector('dialog[open],article details[open]')&&!selectedPeriod))refresh().catch(e=>notice(e.message));
+  if(board.period?.active&&!active() || (!document.querySelector('dialog[open],article details[open]')&&!catalogue.querySelector('dialog[open]')&&!selectedPeriod))refresh().catch(e=>notice(e.message));
 },20000);
