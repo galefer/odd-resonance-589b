@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/gog/assets/jush/fonts/fonts.css">
   <link rel="stylesheet" href="/gog/deckbuilder/deckbuilder.css">
   <link rel="stylesheet" href="/gog/site-header.css">
-  <link rel="stylesheet" href="/gog/deckbuilder/deckbuilder-jush-theme.css">
+  <link rel="stylesheet" href="/gog/deckbuilder/deckbuilder-jush-theme.css?v=desktop-20261125">
   <link rel="stylesheet" href="/gog/voting/entry.css">
 </head>
 <body class="deckbuilder-page" data-deck-zone="main">
@@ -56,7 +56,7 @@
       <button id="templates-button" class="button" type="button" aria-haspopup="dialog" aria-controls="templates-dialog">Template Decks</button>
       <button id="import-button" class="button" type="button">↥ Import</button>
       <button id="export-button" class="button primary" type="button" aria-haspopup="menu" aria-expanded="false">↧ Export deck <span aria-hidden="true">⌄</span></button>
-      <button id="mobile-actions-button" class="icon-button mobile-only" type="button" aria-label="Open deckbuilder menu" aria-haspopup="dialog" aria-controls="mobile-actions-dialog">•••</button>
+      <button id="mobile-actions-button" class="icon-button mobile-only" type="button" aria-label="Open deckbuilder menu" aria-haspopup="dialog" aria-controls="mobile-actions-dialog"><span class="desktop-only">Deck tools</span><span class="compact-only" aria-hidden="true">•••</span></button>
     </div>
   </section>
 
@@ -76,10 +76,12 @@
             <h3 id="effect-heading">Card text</h3>
             <p id="effect">Verified effect text and house-format status will appear here.</p>
           </section>
+          <div class="desktop-read-actions desktop-only"><button id="read-art" type="button">Full-size card</button><button id="read-text" type="button">Card text</button></div>
           <p id="add-reason" class="action-reason" hidden></p>
           <div class="inspector-actions" aria-label="Add selected card">
             <button id="add-auto" class="button" type="button" disabled>＋ Main / Extra</button>
             <button id="add-side" class="button" type="button" disabled>＋ Side</button>
+            <button id="desktop-remove" class="button desktop-only" type="button" disabled>− Remove</button>
           </div>
           <div id="selected-instance-actions" class="selected-actions" aria-label="Selected deck copy" hidden>
             <button id="remove-selected" type="button">Remove</button>
@@ -140,6 +142,7 @@
           <button id="clear-library-filters" class="text-button" type="button">Clear filters</button>
         </div>
         <div id="library-state" class="library-state" role="status">Loading eligible catalogue…</div>
+        <p id="desktop-results" class="desktop-only" aria-live="polite"></p>
         <div id="library-results-scroll" class="library-results-scroll">
           <div id="library-grid" class="library-grid" aria-live="polite"></div>
           <button id="load-more" class="button wide" type="button" hidden>Load more cards</button>
@@ -154,7 +157,7 @@
 
     <section id="deck-workspace" class="deck-canvas" data-workspace-panel="deck">
       <div class="canvas-heading">
-        <div class="canvas-title"><p class="eyebrow">DECK WORKSPACE</p><p class="canvas-caption">Arrange Main, Extra and Side without leaving the current deck.</p><p id="mobile-count" class="mobile-count">Main 0 · Extra 0 · Side 0</p></div>
+        <div class="canvas-title"><h2 class="desktop-only">Deck workspace</h2><p class="eyebrow">DECK WORKSPACE</p><p class="canvas-caption">Arrange Main, Extra and Side without leaving the current deck.</p><p id="mobile-count" class="mobile-count">Main 0 · Extra 0 · Side 0</p></div>
         <div class="canvas-heading-actions">
           <button id="compact-inspector-button" class="button compact-workspace-action" type="button">Card details</button>
           <button id="compact-tools-button" class="button compact-workspace-action" type="button">Deck tools</button>
@@ -178,7 +181,7 @@
           <button id="mobile-clear-zone" class="menu-row danger" type="button" role="menuitem">Clear section <span>Confirm first</span></button>
         </div>
       </div>
-      <div id="validation-banner" class="validation-banner checking" role="status"><span id="validation-icon">…</span><div><strong id="validation-title">Checking published house rules</strong><p id="validation-summary">Waiting for the current catalogue and list.</p></div><button id="validation-info" type="button" aria-label="View deck validation details" title="Deck validation details">Details</button></div>
+      <div id="validation-banner" class="validation-banner checking" role="status"><span id="validation-icon">…</span><div><strong id="validation-title">Checking published house rules</strong><p id="validation-summary">Waiting for the current catalogue and list.</p></div><strong id="desktop-validation-message" class="desktop-only"></strong><button id="validation-info" type="button" aria-label="View deck validation details" title="Deck validation details">Details</button></div>
       <div id="deck-zones"></div>
       <div class="canvas-footer"><span>Library: right-click to add to Main / Extra; Shift + right-click to add to Side. Deck: right-click to remove. Drag to add or move; click to inspect.</span><button id="keyboard-help" class="text-button" type="button">Keyboard help</button></div>
     </section>
@@ -356,7 +359,7 @@
         <button type="button" data-mobile-command="new"><span>New deck</span><small>Start fresh</small></button>
       </div></section>
       <section><h3>Find &amp; share</h3><div class="mobile-command-grid two-column">
-        <button type="button" data-mobile-command="templates"><span>Template decks</span><small>Browse 397 starting lists</small></button>
+        <button type="button" data-mobile-command="templates"><span>Template decks</span><small>Browse starting lists</small></button>
         <button type="button" data-mobile-command="redo"><span>Redo</span><small>Restore last change</small></button>
         <button type="button" data-mobile-command="import"><span>Import</span><small>YDK, YDKE or backup</small></button>
         <button type="button" data-mobile-command="export"><span>Export</span><small>Share or back up</small></button>
@@ -384,9 +387,9 @@
   </dialog>
 
   <dialog id="info-dialog" class="app-dialog narrow"><form method="dialog" class="modal-header"><h2 id="info-title">Details</h2><button class="close-button" value="cancel" aria-label="Close">×</button></form><div id="info-body" class="modal-content"></div></dialog>
-  <dialog id="art-dialog" class="art-dialog"><form method="dialog"><button class="close-button" value="cancel" aria-label="Close artwork">×</button><img id="art-dialog-image" src="/gog/deckbuilder/card-back.svg" alt=""></form></dialog>
+  <dialog id="art-dialog" class="art-dialog" aria-label="Full-size card"><form method="dialog"><button class="close-button" value="cancel" aria-label="Close artwork">×</button><button id="art-size" class="desktop-only button" type="button" aria-pressed="false">Read at original size</button><img id="art-dialog-image" src="/gog/deckbuilder/card-back.svg" alt=""></form></dialog>
   <div id="toast" class="toast" role="status" hidden></div>
 
-  <script type="module" src="/gog/deckbuilder/app.js?v=gog-jush-v17-2026-10-29-deck-manager"></script>
+  <script type="module" src="/gog/deckbuilder/app.js?v=desktop-20261125"></script>
 </body>
 </html>

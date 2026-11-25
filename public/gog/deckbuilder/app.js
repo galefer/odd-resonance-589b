@@ -49,8 +49,8 @@ let selectedInstanceId = null;
 const deckViewPreferences = (() => {
   try {
     const saved = JSON.parse(localStorage.getItem(DECK_VIEW_STORAGE_KEY) || '{}');
-    return { desktop: saved.desktop === true, mobile: saved.mobile !== false };
-  } catch { return { desktop: false, mobile: true }; }
+    return { desktop: saved.desktop !== false, mobile: saved.mobile !== false };
+  } catch { return { desktop: true, mobile: true }; }
 })();
 let deckViewContext = isMobileWorkspace() ? 'mobile' : 'desktop';
 let grouped = deckViewPreferences[deckViewContext];
@@ -298,7 +298,11 @@ function renderInspector() {
   if (found) selectedCard = clone(found.item);
   const card = found?.item || selectedCard;
   const selected = !!found;
-  $('selection-label').textContent = card ? (selected ? 'DECK COPY SELECTED' : 'CATALOGUE CARD') : 'NOTHING SELECTED';
+  $('selection-label').textContent = card ? (selected ? zoneLabel(found.zone) : 'Card library') : '';
+  $('read-art').disabled = !card?.canonicalId;
+  $('read-text').disabled = !card;
+  $('desktop-remove').disabled = !card || !instancesForCard(card, activeDeckZone).length;
+  $('desktop-remove').title = `Remove one copy from ${zoneLabel(activeDeckZone)}`;
   image($('large-card'), card, 'full');
   $('large-card').alt = card ? `${card.name} card artwork` : 'No card selected';
   $('zoom').disabled = !card || !card.canonicalId;
@@ -394,23 +398,17 @@ function renderDeck() {
   container.replaceChildren(...ZONES.map((zone) => renderZone(zone)));
   $('mobile-count').textContent = `Main ${history.deck.main.length} · Extra ${history.deck.extra.length} · Side ${history.deck.side.length}`;
   for (const zone of ZONES) $(`tab-count-${zone}`).textContent = history.deck[zone].length;
-  requestAnimationFrame(restoreMobileZoneScroll);
+  restoreMobileZoneScroll();
 }
 
 function captureMobileZoneScroll() {
-  if (!isMobileWorkspace()) return;
-  for (const zone of ZONES) {
-    const section = document.querySelector(`.zone[data-zone="${zone}"]`);
-    if (section) mobileZoneScroll[zone] = section.scrollTop;
-  }
+  const section = document.getElementById(`deck-zone-${activeDeckZone}`);
+  if (section?.clientHeight) mobileZoneScroll[activeDeckZone] = section.scrollTop;
 }
 
 function restoreMobileZoneScroll() {
-  if (!isMobileWorkspace()) return;
-  for (const zone of ZONES) {
-    const section = document.querySelector(`.zone[data-zone="${zone}"]`);
-    if (section) section.scrollTop = mobileZoneScroll[zone] || 0;
-  }
+  const section = document.getElementById(`deck-zone-${activeDeckZone}`);
+  if (section) section.scrollTop = mobileZoneScroll[activeDeckZone] || 0;
 }
 
 function renderZone(zone) {
@@ -435,7 +433,7 @@ function renderZone(zone) {
   const displays = grouped ? groupedCards(history.deck[zone]) : history.deck[zone].map((instance) => ({ instance, count: 1, instanceIds: [instance.instanceId] }));
   if (!displays.length) {
     const empty = document.createElement('p'); empty.className = 'empty-zone';
-    empty.innerHTML = `<strong>${zoneLabel(zone)} is empty</strong><span>Add a card from the library above.</span>`;
+    empty.innerHTML = `<strong>${zoneLabel(zone)} is empty</strong><span>Add a card from the library.</span>`;
     grid.append(empty);
   } else displays.forEach((group) => grid.append(renderDeckCard(group, zone)));
   const marker = document.createElement('span'); marker.className = 'drop-insertion-line'; marker.hidden = true; marker.setAttribute('aria-hidden', 'true');
@@ -453,6 +451,8 @@ function renderDeckCard(group, zone) {
   if (validationIssues.has(issueKey(zone, index))) button.setAttribute('aria-invalid', 'true');
   const art = document.createElement('img'); art.alt = ''; art.draggable = false; art.width = 421; art.height = 614; image(art, card);
   button.append(art);
+  const caption = document.createElement('span'); caption.className = 'desktop-only tile-caption'; caption.textContent = card.name;
+  button.append(caption);
   const badgeText = statusBadge(card.status);
   if (badgeText) {
     const badge = document.createElement('span'); badge.className = `limit-badge ${card.status}`; badge.textContent = badgeText;
@@ -879,6 +879,19 @@ async function validateCurrentDeck(key, sequence) {
 }
 
 function renderValidation(state = 'checking') {
+  // Keep the last settled layout while the edited deck is being checked.
+  if (state !== 'checking') $('deck-workspace').classList.toggle('has-validation-warning', state === 'invalid');
+  const sizeIssue = validationResult?.issues?.find(issue => issue.code === 'deck_size' && issue.count < issue.minimum);
+  const missing = sizeIssue && sizeIssue.minimum - sizeIssue.count;
+  let message = 'Checking published house rules…';
+  if (state === 'legal') message = 'Legal for the published house format';
+  if (state === 'invalid') {
+    const remaining = validationResult.issues.length - 1;
+    message = missing ? `Add ${missing} more ${missing === 1 ? 'card' : 'cards'} to ${zoneLabel(sizeIssue.zone)} to reach ${sizeIssue.minimum}.${remaining ? ` (+${remaining} more)` : ''}`
+      : validationResult.issues[0]?.message || 'Deck needs attention';
+  }
+  if (state === 'unverified') message = 'House rules could not be verified';
+  $('desktop-validation-message').textContent = message;
   const banner = $('validation-banner'); banner.className = `validation-banner ${state}`;
   const compact = $('validation-compact');
   compact.className = `validation-compact ${state}`;
@@ -906,6 +919,7 @@ async function loadCatalogue({ append = false } = {}) {
     $('library-grid').replaceChildren(...Array.from({ length: 12 }, () => { const item = document.createElement('span'); item.className = 'skeleton'; return item; }));
   }
   $('library-state').hidden = false; $('library-state').className = 'library-state'; $('library-state').textContent = 'Loading eligible catalogue…';
+  $('desktop-results').textContent = '';
   const params = new URLSearchParams({ page: String(cataloguePage), limit: '48' });
   const query = $('search').value.trim(); if (query) params.set('q', query);
   if (activeCategory) params.set('category', activeCategory);
@@ -929,6 +943,7 @@ async function loadCatalogue({ append = false } = {}) {
       if (current) selectedCard = current;
     }
     catalogueHasMore = data.hasMore; catalogueMeta = data.catalogue;
+    $('desktop-results').textContent = catalogueCards.length ? `${catalogueCards.length}${catalogueHasMore ? '+' : ''} ${catalogueCards.length === 1 ? 'card' : 'cards'}` : '';
     $('library-state').hidden = catalogueCards.length > 0;
     $('library-state').textContent = catalogueCards.length ? '' : 'No eligible cards match these filters.';
     $('load-more').hidden = !catalogueHasMore;
@@ -955,7 +970,11 @@ function renderLibrary({ preserve = false } = {}) {
     const inspect = document.createElement('button'); inspect.type = 'button'; inspect.className = 'library-inspect'; inspect.draggable = true;
     inspect.setAttribute('aria-label', `Inspect ${card.name}, ${statusLabel(card.status)}`);
     const art = document.createElement('img'); art.alt = ''; art.draggable = false; art.width = 421; art.height = 614; art.loading = 'lazy'; image(art, card);
-    inspect.append(art);
+    const crop = document.createElement('span'); crop.className = 'library-art'; crop.append(art);
+    const name = document.createElement('strong'); name.className = 'desktop-only library-name'; name.textContent = card.name;
+    const type = document.createElement('small'); type.className = 'desktop-only library-type';
+    type.textContent = card.category === 'Monster' ? card.cardType : [card.race, card.category].filter(Boolean).join(' ');
+    inspect.append(crop, name, type);
     const badgeText = statusBadge(card.status);
     let badge = null;
     if (badgeText) { badge = document.createElement('span'); badge.className = `restriction-dot ${card.status}`; badge.textContent = badgeText; badge.title = statusLabel(card.status); }
@@ -970,10 +989,10 @@ function renderLibrary({ preserve = false } = {}) {
     });
     inspect.addEventListener('contextmenu', (event) => event.preventDefault());
     inspect.addEventListener('pointerenter', () => {
-      if (!isMobileWorkspace() && !selectedInstanceId) { selectedCard = clone(card); renderInspector(); renderProbability(); }
+      if (isCompactWorkspace() && !isMobileWorkspace() && !selectedInstanceId) { selectedCard = clone(card); renderInspector(); renderProbability(); }
     });
     inspect.addEventListener('focus', () => {
-      if (!isMobileWorkspace() && !selectedInstanceId) { selectedCard = clone(card); renderInspector(); renderProbability(); }
+      if (isCompactWorkspace() && !isMobileWorkspace() && !selectedInstanceId) { selectedCard = clone(card); renderInspector(); renderProbability(); }
     });
     inspect.addEventListener('click', () => {
       if (Date.now() < suppressCardClickUntil) return;
@@ -1003,6 +1022,7 @@ function updateLibraryControls() {
   for (const wrap of document.querySelectorAll('.library-card[data-card-identity]')) {
     const card = cards.get(wrap.dataset.cardIdentity);
     if (!card) continue;
+    wrap.classList.toggle('inspected', !selectedInstanceId && sameCardIdentity(card, selectedCard));
     const quantity = instancesForCard(card).length;
     const badge = wrap.querySelector('.library-quantity');
     badge.hidden = quantity === 0; badge.textContent = `×${quantity}`;
@@ -2085,7 +2105,6 @@ function setToolsTab(tab) {
 }
 
 function openMobileTools(tab = 'overview') {
-  if (!isCompactWorkspace()) return;
   cancelTouchDrag(); setToolsTab(tab);
   const dialog = $('mobile-tools-dialog');
   $('mobile-tools-mount').append(document.querySelector('.tools-panel'));
@@ -2100,7 +2119,7 @@ function setActiveDeckZone(zone, { focus = false } = {}) {
   const current = document.querySelector(`.zone[data-zone="${activeDeckZone}"]`);
   if (current) mobileZoneScroll[activeDeckZone] = current.scrollTop;
   activeDeckZone = zone; document.body.dataset.deckZone = zone;
-  renderMobileChrome(); updateLibraryControls();
+  renderMobileChrome(); renderInspector(); updateLibraryControls();
   requestAnimationFrame(() => {
     const section = document.querySelector(`.zone[data-zone="${zone}"]`);
     if (section) section.scrollTop = mobileZoneScroll[zone] || 0;
@@ -2284,8 +2303,7 @@ function handleWorkspaceResize() {
   syncMobileViewport(); syncResponsiveDeckView();
   if (!isCompactWorkspace()) {
     if ($('card-inspector-dialog').open) $('card-inspector-dialog').close(); else moveInspectorHome();
-    if ($('mobile-tools-dialog').open) $('mobile-tools-dialog').close(); else moveToolsHome();
-    if ($('mobile-actions-dialog').open) $('mobile-actions-dialog').close();
+    if (!$('mobile-tools-dialog').open) moveToolsHome();
   }
   if (!isMobileWorkspace()) {
     document.body.classList.remove('search-keyboard-open');
@@ -2420,6 +2438,14 @@ function wireEvents() {
     openMobileInspector({ element: event.currentTarget, identity: cardIdentity(selectedSource()), source: selectedInstanceId ? 'deck' : 'library' });
   });
   $('compact-tools-button').addEventListener('click', () => openMobileTools('overview'));
+  $('desktop-remove').addEventListener('click', () => { const card = selectedSource(); if (card) removeCardFromZone(card, activeDeckZone); });
+  $('read-text').addEventListener('click', () => {
+    const card = selectedSource(); if (!card) return;
+    const copy = document.createElement('div'); copy.className = 'card-transcript';
+    const stats = $('card-stats').cloneNode(true); stats.removeAttribute('id');
+    const effect = document.createElement('p'); effect.textContent = $('effect').textContent;
+    copy.append(stats, effect); info(card.name, copy);
+  });
   $('add-auto').addEventListener('click', () => { const card = selectedSource(); if (card) addCard(card); });
   $('add-side').addEventListener('click', () => { const card = selectedSource(); if (card) addCard(card, 'side'); });
   $('remove-selected').addEventListener('click', removeSelected);
@@ -2427,7 +2453,20 @@ function wireEvents() {
   $('move-selected').addEventListener('click', () => { const found = findInstance(selectedInstanceId); if (found) moveInstance(found.item.instanceId, found.zone === 'side' ? found.item.placement : 'side'); });
   $('move-left').addEventListener('click', () => { const found = findInstance(selectedInstanceId); if (found) dispatch({ type: 'REORDER_INSTANCE', instanceId: found.item.instanceId, index: found.index - 1 }); });
   $('move-right').addEventListener('click', () => { const found = findInstance(selectedInstanceId); if (found) dispatch({ type: 'REORDER_INSTANCE', instanceId: found.item.instanceId, index: found.index + 1 }); });
-  document.querySelectorAll('[data-zone-tab]').forEach((tab) => tab.addEventListener('click', () => setActiveDeckZone(tab.dataset.zoneTab)));
+  for (const tab of document.querySelectorAll('[data-zone-tab]')) {
+    const zone = tab.dataset.zoneTab;
+    tab.addEventListener('click', () => setActiveDeckZone(zone));
+    tab.addEventListener('dragover', event => {
+      if (!activeDrag || !dropAllowed(zone)) return;
+      event.preventDefault(); event.dataTransfer.dropEffect = activeDrag.card ? 'copy' : 'move';
+    });
+    tab.addEventListener('drop', event => {
+      if (!activeDrag || !dropAllowed(zone)) return;
+      event.preventDefault();
+      const source = activeDrag; endCardDrag();
+      applyCardDrop(source, zone, history.deck[zone].length); setActiveDeckZone(zone);
+    });
+  }
   $('mobile-zone-tabs').addEventListener('keydown', (event) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
@@ -2450,7 +2489,17 @@ function wireEvents() {
     if (history.deck[activeDeckZone].length && confirm(`Remove every card from ${zoneLabel(activeDeckZone)}?`)) dispatch({ type: 'CLEAR_ZONE', zone: activeDeckZone });
     closeMobileZoneMenu();
   });
-  $('zoom').addEventListener('click', () => { const card = selectedSource(); if (!card) return; image($('art-dialog-image'), card, 'full'); $('art-dialog-image').alt = `${card.name} card artwork`; openDialog($('art-dialog'), $('zoom')); });
+  for (const trigger of [$('read-art'), $('zoom')]) trigger.addEventListener('click', () => {
+    const card = selectedSource(); if (!card) return;
+    const dialog = $('art-dialog');
+    dialog.classList.remove('original-size'); $('art-size').setAttribute('aria-pressed', 'false'); $('art-size').textContent = 'Read at original size';
+    image($('art-dialog-image'), card, 'full'); $('art-dialog-image').alt = `${card.name} card artwork`; openDialog(dialog, trigger);
+    dialog.scrollTop = 0;
+  });
+  $('art-size').addEventListener('click', () => {
+    const original = $('art-dialog').classList.toggle('original-size');
+    $('art-size').setAttribute('aria-pressed', String(original)); $('art-size').textContent = original ? 'Fit to window' : 'Read at original size';
+  });
   const catalogueDebounce = delay(() => loadCatalogue(), 220);
   $('search').addEventListener('input', catalogueDebounce);
   document.querySelectorAll('[data-category]').forEach((button) => button.addEventListener('click', () => {

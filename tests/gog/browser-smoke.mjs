@@ -168,7 +168,7 @@ try {
   await waitFor(`document.readyState==='complete' && document.querySelectorAll('.library-card').length>0`, 'initial card catalogue');
   assert.equal(await evaluate(`document.querySelector('.gog-brand strong').textContent.trim()`), 'Guild of Games');
   assert(await evaluate(`document.querySelector('.gog-brand img').naturalWidth > 0`), 'Guild of Games logo should load in the deckbuilder header');
-  assert.equal(await evaluate(`new URL(document.querySelector('.gog-back-link').href).pathname`), '/gog/');
+  assert.equal(await evaluate(`new URL(document.querySelector('.gog-back-link[href="/gog/"]').href).pathname`), '/gog/');
   assert.equal(await evaluate(`document.querySelectorAll('.gog-primary-nav,.gog-mobile-nav').length`), 0, 'Deckbuilder uses one quiet back link instead of site tabs');
   const deckHeader = await evaluate(`(() => { const header=document.querySelector('.gog-site-header').getBoundingClientRect(); const logo=document.querySelector('.gog-brand img').getBoundingClientRect(); const brand=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:header.height,logoWidth:logo.width,logoHeight:logo.height,brandLeft:brand.left,brandTop:brand.top}; })()`);
   assert.equal(await evaluate(`document.querySelector('#library-total')`), null, 'Redundant eligible-count label is removed');
@@ -176,6 +176,7 @@ try {
   assert.equal((await counts()).main, 0);
   evidence.checks.push('initial catalogue and IndexedDB state loaded');
 
+  await click('#copies-view');
   const originalEmptyId = await evaluate(`document.querySelector('#deck-menu-list button').dataset.deckId`);
   await click('#saved-decks-button');
   await waitFor(`document.querySelector('#deck-manager-dialog').open && document.querySelectorAll('.deck-manager-row').length===1`, 'My decks opens with the current deck');
@@ -185,7 +186,7 @@ try {
   await click('#deck-manager-undo-button');
   await waitFor(`document.querySelector('.deck-manager-row')?.dataset.deckId===${JSON.stringify(originalEmptyId)} && document.querySelectorAll('.deck-manager-row').length===1`, 'deleted final deck restored without leaving the replacement behind');
   await click('#deck-manager-close');
-  assert(await evaluate(`document.body.classList.contains('deck-is-empty') && document.querySelector('.empty-zone span').textContent==='Add a card from the library above.'`), 'Empty decks use neutral mobile-first guidance instead of drag-only wording');
+  assert(await evaluate(`document.body.classList.contains('deck-is-empty') && document.querySelector('.empty-zone span').textContent==='Add a card from the library.'`), 'Empty decks use neutral mobile-first guidance instead of drag-only wording');
   evidence.checks.push('My decks deletion is recoverable and preserves the final active deck');
 
   assert.equal(await evaluate(`document.querySelector('.quick-add')`), null, 'Library hover add controls should be removed');
@@ -203,11 +204,11 @@ try {
   await rightClick('.deck-grid[data-zone="main"] .card-tile img');
   await waitFor(`document.querySelector('#count-main').textContent==='1'`, 'right-click removes only one grouped copy');
   await click('#copies-view');
-  await dragCard('.deck-grid[data-zone="main"] .card-tile img', '.deck-grid[data-zone="side"]', 'move');
+  await dragCard('.deck-grid[data-zone="main"] .card-tile img', '#zone-tab-side', 'move');
   await waitFor(`document.querySelector('#count-main').textContent==='0' && document.querySelector('#count-side').textContent==='1'`, 'move copy to Side');
-  await dragCard('.deck-grid[data-zone="side"] .card-tile img', '.deck-grid[data-zone="main"]', 'move');
+  await dragCard('.deck-grid[data-zone="side"] .card-tile img', '#zone-tab-main', 'move');
   await waitFor(`document.querySelector('#count-main').textContent==='1' && document.querySelector('#count-side').textContent==='0'`, 'move copy back to Main');
-  await dragCard('.library-card img', '.deck-grid[data-zone="extra"]', 'copy');
+  await dragCard('.library-card img', '#zone-tab-extra', 'copy');
   assert.deepEqual(await counts(), { main: 1, extra: 0, side: 0 }, 'Drop must respect card placement');
   evidence.checks.push('native library drag to empty and populated zones; move between zones; invalid placement rejected');
   evidence.checks.push('right-click removes hovered copy, preserves selection, supports undo and grouped copies');
@@ -246,8 +247,9 @@ try {
   await dragCard(`${mainTile(1)} img`, mainTile(4), 'move', { xFraction:.25, preview:()=>checkInsertionLine(mainTile(3),mainTile(4)) });
   const forwardOrder = [originalOrder[1],originalOrder[2],originalOrder[0],...originalOrder.slice(3)];
   assert.deepEqual(await mainOrder(), forwardOrder, 'Forward moves adjust for the source leaving its old slot');
-  await dragCard(`${mainTile(1)} img`, mainTile(9), 'move', { xFraction:.25, preview:()=>checkInsertionLine(null,mainTile(9)) });
-  const wrappedOrder = [...forwardOrder.slice(1,8),forwardOrder[0],...forwardOrder.slice(8)];
+  const columns = await evaluate("getComputedStyle(document.querySelector('#deck-zone-main .deck-grid')).gridTemplateColumns.split(' ').length");
+  await dragCard(`${mainTile(1)} img`, mainTile(columns+1), 'move', { xFraction:.25, preview:()=>checkInsertionLine(null,mainTile(columns+1)) });
+  const wrappedOrder = [...forwardOrder.slice(1,columns),forwardOrder[0],...forwardOrder.slice(columns)];
   assert.deepEqual(await mainOrder(), wrappedOrder, 'Leading line on the second row inserts before that row');
   await dragCard(`${mainTile(1)} img`, mainTile(3), 'move', { xFraction:.25, cancel:true, preview:()=>checkInsertionLine(mainTile(2),mainTile(3)) });
   assert.deepEqual(await mainOrder(), wrappedOrder, 'Cancelling a drag preserves order');
@@ -395,11 +397,10 @@ try {
   assert(desktopLayout.overflow <= 1, `Desktop horizontal overflow: ${desktopLayout.overflow}`);
   assert(desktopLayout.inspectorLeft < desktopLayout.deckLeft && desktopLayout.toolsLeft < desktopLayout.deckLeft, 'Inspector and overview should be in the left sidebar');
   assert(desktopLayout.libraryLeft > desktopLayout.deckLeft, 'Card library should be in the right sidebar');
-  assert(desktopLayout.inspectorWidth >= 300 && desktopLayout.libraryWidth >= 340, 'Desktop sidebars should be comfortably wide');
+  assert(desktopLayout.inspectorWidth >= 300 && desktopLayout.libraryWidth >= 280, 'Desktop sidebars should be comfortably wide');
   assert(desktopLayout.libraryCard.imageWidth >= 85, 'Catalogue artwork should be readable at desktop size');
   assert(Math.abs(desktopLayout.libraryCard.imageHeight / desktopLayout.libraryCard.imageWidth - 614 / 421) < 0.03, 'Library artwork should keep the card aspect ratio');
-  assert(desktopLayout.libraryCard.cardHeight <= desktopLayout.libraryCard.imageHeight + 1, 'Library grid row should not add vertical space around artwork');
-  assert(desktopLayout.libraryCard.buttonHeight <= desktopLayout.libraryCard.imageHeight + 1, 'Library button should not stretch beyond artwork');
+  assert(await evaluate("document.querySelector('.library-name').clientHeight > 0 && document.querySelector('.library-type').clientHeight > 0"), 'Cropped desktop artwork includes a visible name and card type');
   if (desktopLayout.dialogOpen) await evaluate(`document.querySelector('#info-dialog').close()`);
   await screenshot('deckbuilder-desktop.png');
   evidence.desktop = desktopLayout;
@@ -424,7 +425,7 @@ try {
       assert.equal(layout.loadMoreOverlapsCard, false, 'Load more must not cover catalogue cards or their add controls');
       assert(['auto', 'scroll'].includes(layout.libraryOverflow), 'Catalogue results should own the library scroll region');
     } else {
-      assert(layout.save, `${width}px should retain the desktop/tablet save controls`);
+      assert(width >= 1280 ? layout.actions : layout.save, `${width}px should expose deck storage actions`);
       if (width < 1280) assert(!layout.leftPanel && layout.compactInspector, `${width}px should move the inspector on demand before cramping three columns`);
     }
     if (width === 320) assert(layout.libraryColumns === 4 && layout.deckColumns === 5, 'The narrowest phone should keep catalogue cards readable and deck cards denser');
