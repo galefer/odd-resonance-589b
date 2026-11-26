@@ -1,3 +1,22 @@
+export const vetoRule = 'Qualifying changes can only be vetoed by Judge Majority.';
+
+export function qualificationProgress(supporters, total, openRule) {
+  // Round down for display so a near miss can never appear to meet the cut.
+  const percent = total ? Math.floor(1000 * supporters / total) / 10 : 0;
+  let share = total ? percent + '% for' : 'No ballots yet';
+  if (supporters > 0 && percent === 0) share = 'Under 0.1% for';
+  if (!openRule) return share;
+
+  const {supportPercent, minSupporters} = openRule;
+  // Each new supporter adds one to both sides of the fraction (supporters + n) / (total + n).
+  const deficit = supportPercent * total - 100 * supporters;
+  if (deficit > 0 && supportPercent === 100) return share + ' · Needs unanimous support';
+  const votesForShare = deficit > 0 ? Math.ceil(deficit / (100 - supportPercent)) : 0;
+  const needed = Math.max(0, minSupporters - supporters, votesForShare);
+  if (!needed) return share + ' · Qualifies';
+  return share + ' · ' + needed + ' more upvote' + (needed === 1 ? '' : 's') + ' to qualify';
+}
+
 export function compareVoteTotals(a,b,sort){
   let difference;
   if(sort==='least')difference=(a.up+a.down)-(b.up+b.down);
@@ -35,11 +54,11 @@ export function renderCardBallots(board,ui){
   if(shortlist){
     const places=shortlist.limit===1?'1 place':shortlist.limit+' places';
     const timing=open?'If voting ended now':'At close';
-    const ruleLine=shortlist.priorityOnly?'All qualifying changes go to Kirk for review.':'Top 30% of proposed cards, rounded up, up to 3 picks.';
+    const ruleLine=shortlist.priorityOnly?vetoRule:'Top 30% of proposed cards, rounded up, up to 3 picks. '+vetoRule;
     summary.textContent=shortlist.cardCount?`${timing} · ${places} for ${shortlist.cardCount} ${shortlist.cardCount===1?'card':'cards'}. ${ruleLine}`:ruleLine;
   }
   $('review-rules').hidden=false;
-  $('review-rules').querySelector('p').textContent=`Vote for a proposed limit or against changing the card. You can vote once on every card and propose up to three distinct cards. At close, an exact limit needs ${rule.supportPercent}% of that card’s ballots and ${rule.minSupporters} supporters. Kirk reviews qualifying changes and edits the banlist manually.`;
+  $('review-rules').querySelector('p').textContent=`Vote for a proposed limit or against changing the card. You can vote once on every card and propose up to three distinct cards. To qualify, a limit needs at least ${rule.supportPercent}% of all ballots on its card and at least ${rule.minSupporters} supporters. The upvotes needed assume every new ballot supports that limit. Kirk publishes the official banlist manually.`;
   if(shortlist)$('review-rules').querySelector('p').append(' Review picks go to qualifying limits with the most supporters, then the higher share of card ballots. Kirk decides ties at the last place.');
   const myBallots=new Map(board.mine.map(b=>[b.card,b.choice]));
   function choiceName(card,choice){
@@ -75,6 +94,11 @@ export function renderCardBallots(board,ui){
     const splits=options.map(o=>`<span class="votes-for">${o.up} ${options.length===1?'for':escape(statuses[o.target])}</span>`);
     splits.push(`<span class="votes-against">${single?card.down:card.keep} ${single?'against':'against all'}</span>`);
     if(!single)for (const o of options) if(o.down)splits.push(`<span class="votes-against">${o.down} against ${escape(statuses[o.target])}</span>`);
+    const progress=options.map(o=>{
+      const label=single?'':escape(statuses[o.target])+' · ';
+      const description=qualificationProgress(o.up,card.votes,open&&!board.reviewDiscarded?rule:null);
+      return `<span class="qualification">${label}${escape(description)}</span>`;
+    }).join('');
     const detail=options.map(o=>`<section data-option="${o.id}" ${o.id===c.id?'':`id="candidate-${o.id}"`}>
       <div class="case"><strong>${escape(o.starter)} · ${escape(statuses[o.target])}</strong><p>${escape(o.reason)}</p></div>
       ${o.ruling?`<p class="ruling"><b>Ruling</b> ${escape(o.ruling)}</p>`:''}
@@ -84,7 +108,7 @@ export function renderCardBallots(board,ui){
       <button class="candidate-art" type="button" data-view-card aria-label="View card details for ${escape(c.name)}">${cardArt(c.card)}</button>
       <details class="proposal"><summary class="proposal-summary"><span class="summary-card"><strong class="candidate-title">${escape(c.name)}</strong>
       <span class="limits"><span class="sr">Current limit </span>${limitBadge(c.published)}${icon('arrow-right')}<span class="sr">Proposed limits </span>${options.map(o=>limitBadge(o.target)).join(' ')}</span></span>
-      <span class="tally">${standing}<span class="split">${splits.join(' · ')}</span></span><span class="disclose" aria-hidden="true">${icon('chevron-right')}</span>
+      <span class="tally">${standing}<span class="split">${splits.join(' · ')}</span>${progress}</span><span class="disclose" aria-hidden="true">${icon('chevron-right')}</span>
       ${mine!==undefined?`<span class="row-note">Your vote · ${escape(choiceName(card,mine))}</span>`:''}</summary>
       <div class="proposal-body"><div class="votes">${options.map(o=>button(o.id,single?'For':'For '+statuses[o.target],o.up)).join('')}${button(0,single?'Against':'Against all changes',single?card.down:card.keep)}
       ${open&&mine!==undefined?'<button data-choice="remove">Withdraw my vote</button>':''}</div>${detail}</div></details></article>`;

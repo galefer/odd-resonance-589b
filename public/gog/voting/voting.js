@@ -1,4 +1,4 @@
-import {compareVoteTotals,renderCardBallots} from './card-ballots.js?v=ballot-sort-1';
+import {compareVoteTotals,qualificationProgress,renderCardBallots,vetoRule} from './card-ballots.js?v=qualification-1';
 import { mountCardViewer } from '/gog/card-viewer.js';
 
 const $ = id => document.getElementById(id);
@@ -66,7 +66,7 @@ function renderBoard(keepThreads){
   const rule = board.reviewRule;
   $('review-rules').hidden = !rule;
   if (rule) $('review-rules').querySelector('p').textContent =
-    `At close, a proposed limit needs at least ${rule.minSupporters} supporters and ${rule.supportPercent}% of all votes on that card, across every proposed limit. Each player counts once per card. Qualifying changes go to Kirk for review. He decides and edits the official list manually.`;
+    `At close, a proposed limit needs at least ${rule.minSupporters} supporters and ${rule.supportPercent}% of all votes on that card, across every proposed limit. Each player counts once per card. ${vetoRule} Kirk publishes the official banlist manually.`;
   $('window').parentElement.classList.toggle('open',open);
   $('account').textContent=board.username?'Sign out · '+board.username:'Player sign in';
   $('mine').hidden=!board.username;
@@ -93,7 +93,7 @@ function renderBoard(keepThreads){
       <details class="proposal"><summary class="proposal-summary">
         <span class="summary-card"><strong class="candidate-title">${escape(c.name)}</strong>
         <span class="limits"><span class="sr">Published limit </span>${limitBadge(c.published)}${icon('arrow-right')}<span class="sr">Proposed limit </span>${limitBadge(c.target)}</span></span>
-        <span class="tally"><strong class="lean lean-${lean}">${leaningLabels[lean]}</strong><span class="split"><span class="votes-for">${c.up} for</span> · <span class="votes-against">${c.down} against</span></span></span>
+        <span class="tally"><strong class="lean lean-${lean}">${leaningLabels[lean]}</strong><span class="split"><span class="votes-for">${c.up} for</span> · <span class="votes-against">${c.down} against</span></span><span class="qualification">${escape(qualificationProgress(c.up,cardTurnout.get(c.card),open?rule:null))}</span></span>
         <span class="disclose" aria-hidden="true">${icon('chevron-right')}</span>
         ${notes.length ? `<span class="row-note">${notes.join(' · ')}</span>` : ''}
       </summary><div class="proposal-body">

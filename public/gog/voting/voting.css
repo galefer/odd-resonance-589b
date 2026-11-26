@@ -131,6 +131,7 @@ input::placeholder { color: #a8c1ce; }
 .lean-for,.votes-for { color: #99edc0; }
 .lean-against,.votes-against { color: #ffb1b5; }
 .split > span { white-space: nowrap; }
+.qualification { width: 100%; color: #d0e3eb; font-variant-numeric: tabular-nums; }
 .split,.row-note { color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
 .row-note { grid-column: 1 / -1; font-size: 13px; }
 .disclose { grid-column: 3; grid-row: 1; display: grid; color: #a0c4ce; }
