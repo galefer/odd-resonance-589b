@@ -4,6 +4,7 @@ const $ = id => document.getElementById(id);
 const escape = x => String(x ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const statuses = {forbidden:'Forbidden (0)', limited:'Limited (1)', semi_limited:'Semi-Limited (2)', unlimited:'Unlimited (3)'};
 const date = seconds => new Date(seconds*1000).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/London'})+' UK';
+const periodDate = (seconds, archived) => new Date(seconds*1000).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:archived?'2-digit':undefined,timeZone:'Europe/London'});
 let board={candidates:[],mine:[],history:[]}, selectedPeriod='', boardRequest=0, chosen;
 const active=()=>Boolean(board.period?.active && board.period.deadline>Date.now()/1000);
 const notice=text=>{$('feedback').textContent=text;};
@@ -23,15 +24,26 @@ function cardArt(id, url) {
 document.addEventListener('error', event => {
   if (event.target.matches?.('.card-art img')) event.target.hidden=true;
 }, true);
-function renderBoard(){
+function leaningOf(c) {
+  if (c.up > c.down) return 'for';
+  if (c.down > c.up) return 'against';
+  return c.up ? 'tied' : 'none';
+}
+const leaningLabels = {for:'Leaning for', against:'Leaning against', tied:'Tied', none:'No votes yet'};
+function renderBoard(keepThreads){
   const w=board.period, open=active();
   $('window').textContent=w ? (open?'Voting open until ':'Voting closed · ')+date(w.closed??w.deadline) : 'Voting is closed';
-  $('period').innerHTML=board.history.map((p,i)=>`<option value="${i?p.id:''}">${i?'Period '+p.id:'Latest period'} · ${date(p.opened)}${p.reset_from?' · reset':''}</option>`).join('')||'<option>No periods yet</option>';
+  $('period').innerHTML=board.history.map((p,i)=>`<option value="${i?p.id:''}" title="${date(p.opened)}">${i?'#'+p.id:'Latest'} · ${periodDate(p.opened,i>0)}${p.reset_from?' · reset':''}</option>`).join('')||'<option>No periods yet</option>';
   $('period').value=selectedPeriod;
   $('period').parentElement.hidden=board.history.length<2;
   $('sort').parentElement.hidden=board.candidates.length<2;
   $('candidate-count').hidden=!board.candidates.length;
   $('candidate-count').textContent=String(board.candidates.length);
+  const totals = {for:0, against:0, tied:0, none:0};
+  for (const candidate of board.candidates) totals[leaningOf(candidate)]++;
+  const overview = Object.entries(totals).filter(([,n])=>n).map(([lean,n])=>
+    lean === 'none' ? n+' awaiting votes' : n+' '+leaningLabels[lean].toLowerCase());
+  $('board-leaning').textContent = overview.join(' · ');
   $('window').parentElement.classList.toggle('open',open);
   $('account').textContent=board.username?'Sign out · '+board.username:'Player sign in';
   $('mine').hidden=!board.username;
@@ -40,29 +52,63 @@ function renderBoard(){
     const c=board.candidates.find(c=>c.id===v.candidate);
     return c?`<a href="#candidate-${c.id}">${escape(c.name)} · ${statuses[c.target]} · ${v.direction===1?'Upvote':'Downvote'}</a>`:'';
   }).join('')||'<p>You have three available slots.</p>';
-  const score=c=>({participation:c.up+c.down,up:c.up,down:c.down,new:c.id})[$('sort').value];
-  $('candidates').innerHTML=[...board.candidates].sort((a,b)=>score(b)-score(a)||b.id-a.id).map(c=>{
+  const list = $('candidates');
+  const focused = document.activeElement;
+  const focusedRow = focused?.closest('.candidate')?.id;
+  const openRows = new Set([...list.querySelectorAll('.proposal[open]')].map(el => el.closest('article').id));
+  const openThreads = new Map(keepThreads ? [...list.querySelectorAll('.comments[open]')].map(el => [el.closest('article').id, el.querySelector('textarea')?.value]) : []);
+  list.innerHTML=sortedCandidates().map(c=>{
     const mine=board.mine.find(v=>v.candidate===c.id);
     const starter=mine && c.starter===board.username;
     const disabled=!open || Boolean(starter && c.committed);
     const btn=(direction,label,count)=>`<button data-vote="${direction}" aria-pressed="${mine?.direction===direction}" ${disabled||(starter&&direction<0)?'disabled':''}>${label} ${count}${mine?.direction===direction?' · Yours':''}</button>`;
     const others=board.candidates.filter(o=>o.card===c.card && o.id!==c.id);
+    const lean = leaningOf(c);
+    const notes = [mine && (mine.direction===1 ? 'Your upvote' : 'Your downvote'), c.ruling && 'Ruling available'].filter(Boolean);
     return `<article class="candidate" id="candidate-${c.id}" data-id="${c.id}">
-      <div class="proposal-head"><button type="button" class="candidate-art" data-view-card aria-label="View details for ${escape(c.name)}">${cardArt(c.card)}</button><div><h3><button type="button" class="candidate-name" data-view-card>${escape(c.name)}</button></h3>
-      <div class="limits"><div><small>Published</small>${limitBadge(c.published)}</div>${icon('arrow-right')}<div><small>Proposed</small>${limitBadge(c.target)}</div></div></div></div>
+      <button type="button" class="candidate-art" data-view-card aria-label="View card details for ${escape(c.name)}">${cardArt(c.card)}</button>
+      <details class="proposal"><summary class="proposal-summary">
+        <span class="summary-card"><strong class="candidate-title">${escape(c.name)}</strong>
+        <span class="limits"><span class="sr">Published limit </span>${limitBadge(c.published)}${icon('arrow-right')}<span class="sr">Proposed limit </span>${limitBadge(c.target)}</span></span>
+        <span class="tally"><strong class="lean lean-${lean}">${leaningLabels[lean]}</strong><span class="split">${c.up} for · ${c.down} against</span></span>
+        <span class="disclose" aria-hidden="true">${icon('chevron-right')}</span>
+        ${notes.length ? `<span class="row-note">${notes.join(' · ')}</span>` : ''}
+      </summary><div class="proposal-body">
       <div class="case"><strong>${escape(c.starter)}</strong><p>${escape(c.reason)}</p></div>
       ${c.ruling?`<p class="ruling"><b>Ruling</b> ${escape(c.ruling)}</p>`:''}
       <div class="votes">${btn(1,'Upvote',c.up)}${btn(-1,'Downvote',c.down)}${mine&&open&&!disabled?`<button data-vote="0">${starter?'Withdraw proposal':'Remove my vote'}</button>`:''}</div>
       ${others.length?`<p>Other proposals · ${others.map(o=>`<a href="#candidate-${o.id}">${statuses[o.target]}</a>`).join(' · ')}</p>`:''}
-      <details><summary>Comments (${c.comments})</summary><div class="thread"></div></details></article>`;
+      <details class="comments"><summary>Comments (${c.comments})</summary><div class="thread"></div></details></div></details></article>`;
   }).join('')||`<div class="empty">${icon('card-stack')}<div><h3>${open?'Start the first proposal':'No proposals this period'}</h3><p>${open?'Choose a card in the catalogue and propose its new limit.':'Browse the published card limits below.'}</p></div></div>`;
+  for (const id of openRows) {
+    const row = $(id);
+    if (!row) continue;
+    row.querySelector('.proposal').open = true;
+    if (openThreads.has(id)) {
+      const comments = row.querySelector('.comments');
+      comments.dataset.draft = openThreads.get(id) || '';
+      comments.open = true;
+    }
+  }
+  if (focusedRow) {
+    const row = $(focusedRow);
+    const control = focused.matches('[data-vote]') ? row?.querySelector(`[data-vote="${focused.dataset.vote}"]:enabled`)
+      : focused.matches('[data-view-card]') ? row?.querySelector('[data-view-card]') : null;
+    (control || row?.querySelector('.proposal-summary'))?.focus({preventScroll:true});
+  }
   viewer.syncProposalAction();
+}
+function sortedCandidates() {
+  const score=c=>({participation:c.up+c.down,up:c.up,down:c.down,new:c.id})[$('sort').value];
+  return [...board.candidates].sort((a,b)=>score(b)-score(a)||b.id-a.id);
 }
 async function refresh(){
   const request=++boardRequest;
   const data=await api('community/board'+(selectedPeriod?'?window='+selectedPeriod:''));
   if(request!==boardRequest) return;
-  board=data; renderBoard();
+  const sameMember = data.username === board.username;
+  const samePeriod = data.period?.id === board.period?.id;
+  board=data; renderBoard(sameMember && samePeriod);
 }
 function signIn(){ clearUsernameError(); $('credentials').querySelector('[role=alert]').textContent=''; $('auth').showModal(); }
 function usable(){if(!active())throw Error('Voting has closed.');if(!board.username){signIn();return false;}return true;}
@@ -82,7 +128,13 @@ async function loadThread(details,cid){
   if(active()&&board.username)thread.insertAdjacentHTML('beforeend','<form><label>Comment<textarea required maxlength="1000" name="text" rows="2"></textarea></label><button>Post comment</button></form>');
 }
 $('candidates').addEventListener('toggle',event=>{
-  if(event.target.matches('details[open]'))loadThread(event.target,event.target.closest('article').dataset.id).catch(e=>notice(e.message));
+  const details = event.target;
+  if (!details.matches('.comments[open]')) return;
+  loadThread(details,details.closest('article').dataset.id).then(()=>{
+    const input = details.querySelector('textarea');
+    if (input && details.dataset.draft) input.value = details.dataset.draft;
+    delete details.dataset.draft;
+  }).catch(e=>notice(e.message));
 },true);
 $('candidates').addEventListener('submit',async event=>{
   event.preventDefault();
@@ -125,7 +177,7 @@ function proposeCard(card) {
 $('compose').onsubmit=async event=>{
   event.preventDefault();const f=event.target,b=f.querySelector('.primary');
   try{const target=f.elements.target.value,existing=board.candidates.find(c=>c.card===chosen.id&&c.target===target);
-    if(existing){$('proposal').close();location.hash='candidate-'+existing.id;notice('This proposal already exists. You can vote on it here.');return;}
+    if(existing){$('proposal').close();location.hash='candidate-'+existing.id;revealCandidate(location.hash);notice('This proposal already exists. You can vote on it here.');return;}
     const prior=previous(chosen.id,0);if(prior===null)return;
     b.disabled=true;await action('propose',{card:chosen.id,target,reason:f.elements.reason.value,previous:prior});
     $('proposal').close();await refresh();notice('Your proposal is open.');
@@ -165,7 +217,21 @@ auth.onsubmit=async event=>{
 $('account').onclick=async()=>{if(!board.username){signIn();return;}try{await action('logout',{});await refresh();notice('Signed out.');}catch(e){notice(e.message);}};
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 $('period').onchange=e=>{selectedPeriod=e.target.value;refresh().catch(e=>notice(e.message));};
-$('sort').onchange=renderBoard;
+$('sort').onchange=()=>{
+  for (const c of sortedCandidates()) $('candidates').append($('candidate-'+c.id));
+};
+function revealCandidate(hash) {
+  if (!/^#candidate-\d+$/.test(hash)) return;
+  const row = $(hash.slice(1));
+  if (!row) return;
+  row.querySelector('.proposal').open = true;
+  row.scrollIntoView({block:'nearest'});
+}
+$('board').addEventListener('click',event=>{
+  const link = event.target.closest('a[href^="#candidate-"]');
+  if (link) revealCandidate(link.hash);
+});
+window.addEventListener('hashchange',()=>revealCandidate(location.hash));
 function openScannedInvite(){
   if(!location.hash.startsWith('#invite='))return;
   const code=location.hash.slice('#invite='.length);
@@ -186,7 +252,7 @@ catalogue.innerHTML = `
   <div class="house-format-page"><div id="viewer"></div><div id="toast-region" class="toast-region" role="status"></div></div>`;
 const viewer = mountCardViewer(catalogue.getElementById('viewer'), { onPropose: proposeCard, canPropose: active });
 openScannedInvite();
-refresh().then(()=>{if(location.hash==='#account'&&!board.username)signIn();}).catch(e=>notice(e.message));
+refresh().then(()=>{revealCandidate(location.hash);if(location.hash==='#account'&&!board.username)signIn();}).catch(e=>notice(e.message));
 setInterval(()=>{if(document.hidden)return;
-  if(board.period?.active&&!active() || (!document.querySelector('dialog[open],article details[open]')&&!catalogue.querySelector('dialog[open]')&&!selectedPeriod))refresh().catch(e=>notice(e.message));
+  if(board.period?.active&&!active() || (!document.querySelector('dialog[open],.comments[open]')&&!catalogue.querySelector('dialog[open]')&&!selectedPeriod))refresh().catch(e=>notice(e.message));
 },20000);
