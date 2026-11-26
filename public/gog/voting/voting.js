@@ -1,4 +1,4 @@
-import {renderCardBallots} from './card-ballots.js?v=review-picks-1';
+import {compareVoteTotals,renderCardBallots} from './card-ballots.js?v=ballot-sort-1';
 import { mountCardViewer } from '/gog/card-viewer.js';
 
 const $ = id => document.getElementById(id);
@@ -42,12 +42,7 @@ function renderBoard(keepThreads){
   $('account').textContent=board.username?'Sign out · '+board.username:'Player sign in';
   $('mine').hidden=!board.username;
   $('my-proposals').hidden=true;
-  if(!board.shortlist){
-    const sort=$('sort');
-    if(sort.value==='picks')sort.value='participation';
-    sort.querySelector('[value="picks"]')?.remove();
-    $('pick-summary').hidden=true;
-  }
+  if(!board.shortlist)$('pick-summary').hidden=true;
   if(board.cardBallots){
     if(!keepThreads)for(const thread of $('candidates').querySelectorAll('.comments[open]'))thread.open=false;
     renderCardBallots(board,{$,escape,statuses,limitBadge,cardArt,icon,open});
@@ -128,8 +123,7 @@ function renderBoard(keepThreads){
   viewer.syncProposalAction();
 }
 function sortedCandidates() {
-  const score=c=>({participation:c.up+c.down,up:c.up,down:c.down,new:c.id})[$('sort').value];
-  return [...board.candidates].sort((a,b)=>score(b)-score(a)||b.id-a.id);
+  return [...board.candidates].sort((a,b)=>compareVoteTotals(a,b,$('sort').value));
 }
 async function refresh(){
   const request=++boardRequest;
@@ -196,7 +190,7 @@ $('candidates').addEventListener('click',async event=>{
       }else{
         const choice=modern.dataset.choice==='remove'?null:Number(modern.dataset.choice);
         const previous=board.mine.find(v=>v.card===card)?.choice??null;
-        if(choice===previous)return;
+        if(choice===previous || modern.getAttribute('aria-pressed')==='true')return;
         modern.disabled=true;
         await action('choose',{card,choice,previous});
       }
@@ -267,7 +261,6 @@ $('account').onclick=async()=>{if(!board.username){signIn();return;}try{await ac
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 $('period').onchange=e=>{selectedPeriod=e.target.value;refresh().catch(e=>notice(e.message));};
 $('sort').onchange=()=>{
-  $('sort').dataset.userSort='1';
   if(board.cardBallots){renderBoard(true);return;}
   for (const c of sortedCandidates()) $('candidates').append($('candidate-'+c.id));
 };
