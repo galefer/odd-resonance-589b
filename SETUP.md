@@ -256,10 +256,17 @@ Your existing `/`, `/null/`, `/outworld/`, etc. remain unchanged.
 
 ## 7. Connect the JUSH Office and enable member voting
 
-For an existing site apply only the additive voting migration before deploying the updated website.
+Apply the community voting migrations in order before deploying the matching website code. A site already running member voting needs the second command for voted changes.
 
 ```
 npx wrangler d1 execute gog-house-format --remote --file=./database/migrations/0012_community_votes.sql
+npx wrangler d1 execute gog-house-format --remote --file=./database/migrations/0013_voted_changes.sql
+```
+
+After the matching Pages deployment is serving the new voting client and API, activate card ballots once. This enrols the open window in place and enables the locked opening rule for future windows. Repeating the command preserves the same records.
+
+```cmd
+npx wrangler d1 execute gog-house-format --remote --command "INSERT OR IGNORE INTO jush_ballot_activation(id) VALUES(1)"
 ```
 
 Generate a random secret of at least 32 bytes and set the same value as the encrypted Pages secret `JUSH_OFFICE_KEY` and in the Office service environment or its private `state/secrets/jush-office.key` file. Keep the existing `GOG_AUTH_PEPPER`. Deploy the website with its existing bindings and refresh the Office server with the JUSH routes. The Office backend contacts the canonical HTTPS host. Only the director's Office link can access administration.

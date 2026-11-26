@@ -7,6 +7,7 @@ const sql=new DatabaseSync(':memory:');
 const file=name=>readFileSync(new URL('../../'+name,import.meta.url),'utf8');
 sql.exec(file('database/schema.sql'));
 sql.exec(file('database/migrations/0012_community_votes.sql'));
+sql.exec(file('database/migrations/0013_voted_changes.sql'));
 sql.exec("INSERT INTO versions(version_label,effective_date,status,created_at) VALUES('Fixture','2026-01-01','published','2026-01-01')");
 for(let i=1;i<=6;i++)sql.prepare(`INSERT INTO cards_cache(card_id,name,sort_name,category,subtype,card_type,pool_verified,tcg_date,updated_at)
   VALUES(?,?,?,'Monster','Effect','Effect Monster',1,'2024-01-01','2024-01-01')`).run(i,'Card '+i,'card '+i);
@@ -92,4 +93,84 @@ sql.prepare('UPDATE jush_windows SET deadline=unixepoch()-1 WHERE id=?').run(boa
 await act('propose',{window:board.period.id,card:4,target:'limited',reason:'Late',previous:0},cara,409);
 await admin('reset',{window:board.period.id});assert.equal((await officeBoard()).period.active,0);
 assert.equal(sql.prepare("SELECT count(*) AS n FROM versions WHERE status='published'").get().n,1);
-console.log('JUSH community voting, account recovery, deadline, reset, support and privacy checks passed.');
+
+const listState=()=>JSON.stringify(['versions','entries'].map(t=>sql.prepare('SELECT * FROM '+t+' ORDER BY rowid').all()));
+sql.exec("INSERT INTO versions(version_label,effective_date,status,created_at) VALUES('Manual draft','2026-01-02','draft','2026-01-02')");
+const official=listState();
+await admin('open',{window:(await officeBoard()).period.id});
+const beforeId=(await officeBoard()).period.id;
+const oldProposal=async (card,actor,target)=>act('propose',{window:beforeId,card,target,reason:'Existing reason',previous:0},actor);
+await oldProposal(1,alice,'limited');await oldProposal(1,bob,'semi_limited');await oldProposal(2,alice,'limited');
+let before=await officeBoard();
+const idOf=(b,card,target)=>b.candidates.find(c=>c.card===card&&c.target===target).id;
+const first=idOf(before,1,'limited'), alternative=idOf(before,1,'semi_limited');
+await act('vote',{window:beforeId,candidate:first,direction:-1,previous:0},cara);
+await act('comment',{window:beforeId,candidate:first,text:'Keep this thread',requestId:'before-switch'},cara);
+before=await officeBoard();
+sql.exec('INSERT OR IGNORE INTO jush_ballot_activation VALUES(1)');
+sql.exec('INSERT OR IGNORE INTO jush_ballot_activation VALUES(1)');
+let modern=await officeBoard();assert.deepEqual(modern.period,before.period);
+assert.deepEqual(modern.candidates.map(c=>[c.id,c.up,c.down,c.comments,c.reason]),before.candidates.map(c=>[c.id,c.up,c.down,c.comments,c.reason]));
+assert.equal(modern.reviewRule.minSupporters,3);assert.equal(modern.ballots.length,before.ballots.length);
+assert.ok(!('cardBallots' in await admin('board?window='+window)));
+assert.equal((await act('board',null,cara)).mine[0].choice,-first);
+assert.equal((await act('board',null,cara)).nominations.length,0);
+const windowAction=(path,data,actor,status)=>act(path,{window:beforeId,...data},actor,status);
+const choose=(actor,card,choice,previous=null,status)=>windowAction('choose',{card,choice,previous},actor,status);
+const nominate=(actor,card,target='limited',status)=>windowAction('nominate',{card,target,reason:'New limit'},actor,status);
+const dan=await invite('Daniel'),eve=await invite('Evelyn');
+await nominate(cara,3);await nominate(cara,4);await nominate(cara,5);await nominate(cara,6,'limited',409);
+assert.equal((await act('board',null,cara)).mine.length,1);
+await choose(alice,1,alternative,first); // A committed starter can freely move their ballot.
+assert.equal((await officeBoard()).candidates.length,6);
+await choose(alice,1,first,alternative);
+await choose(cara,1,0,-first);await choose(cara,1,first,-first,409);
+await choose(cara,1,first,0);await choose(dan,1,first);await choose(eve,1,0);
+for(const card of [2,3,4,5]) await choose(cara,card,idOf(await officeBoard(),card,'limited'));
+assert.equal((await act('board',null,cara)).mine.length,5);
+await choose(cara,2,null,idOf(await officeBoard(),2,'limited'));
+await choose(dan,3,first,null,409);
+await nominate(dan,1,'forbidden');
+await windowAction('withdraw-nomination',{card:1,candidate:first},alice,409);
+const fifth=idOf(await officeBoard(),5,'limited');
+await windowAction('withdraw-nomination',{card:5,candidate:fifth},cara);
+assert.equal((await act('board',null,cara)).nominations.length,3);
+await nominate(cara,6,'limited',409);
+await windowAction('vote',{candidate:first,previous:0,direction:-1},eve,409);
+await windowAction('propose',{card:6,target:'limited',reason:'Stale client',previous:0},eve,409);
+await nominate(dan,2,'semi_limited');
+const limit2=idOf(await officeBoard(),2,'limited'),semi2=idOf(await officeBoard(),2,'semi_limited');
+await choose(cara,2,semi2);await choose(dan,2,limit2);await choose(eve,2,semi2);
+const guest2=await act('board');assert.equal(guest2.mine.length,0);assert.ok(!('ballots' in guest2));assert.ok(!('votedChanges' in guest2));
+const onDisk=()=>sql.prepare('SELECT * FROM jush_voted_changes WHERE window=? AND card=1').get(beforeId);
+assert.equal(onDisk().supporters,3);assert.equal(onDisk().card_ballots,5);
+sql.prepare('UPDATE jush_windows SET deadline=unixepoch() WHERE id=?').run(beforeId);
+assert.equal(onDisk().candidate,first);await choose(dan,1,0,first,409);
+const closed=await officeBoard();assert.equal(closed.votedChanges.choices[0].candidate,first);
+assert.equal(closed.votedChanges.choices.length,1);
+assert.equal(closed.votedChanges.cards.find(c=>c.card===2).split,true);
+const player=(await admin('players')).players.find(p=>p.username==='Daniel').id;
+await admin('correct',{window:beforeId,member:player,card:1,choice:first,reason:'Support after close'});
+assert.deepEqual((await officeBoard()).votedChanges,closed.votedChanges);
+await admin('reset',{window:beforeId});
+assert.deepEqual((await admin('board?window='+beforeId)).votedChanges,closed.votedChanges);
+await admin('open',{window:(await officeBoard()).period.id});const fresh=await officeBoard();
+await admin('reset',{window:fresh.period.id});const replacement=await officeBoard();
+assert.equal(replacement.period.deadline,fresh.period.deadline);assert.equal(replacement.reviewRule.minSupporters,3);
+assert.equal((await admin('board?window='+fresh.period.id)).reviewDiscarded,true);
+await admin('close',{window:replacement.period.id});assert.deepEqual((await officeBoard()).votedChanges.choices,[]);
+assert.equal(listState(),official);
+// Three full qualifying windows with distinct turnout of 40, 100 and 125 lock the next cut at five.
+for(const n of [40,100,125]){
+  await admin('open',{window:(await officeBoard()).period.id});const w=(await officeBoard()).period.id;
+  await act('nominate',{window:w,card:1,target:'limited',reason:'History'},alice);
+  for(let i=0;i<n;i++){
+    sql.prepare('INSERT OR IGNORE INTO jush_members(username,salt,verifier) VALUES(?,?,?)').run('History'+i,'salt','verifier');
+    sql.prepare('INSERT INTO jush_card_ballots(window,member,card,choice) SELECT ?,id,1,0 FROM jush_members WHERE username=?').run(w,'History'+i);
+  }
+  sql.prepare('UPDATE jush_windows SET opened=unixepoch()-604801,deadline=unixepoch()-1 WHERE id=?').run(w);
+}
+await admin('open',{window:(await officeBoard()).period.id});const scaled=await officeBoard();
+assert.equal(scaled.reviewRule.minSupporters,5);assert.deepEqual(scaled.reviewRule.history.map(h=>h.voters),[125,100,40]);
+await admin('reset',{window:scaled.period.id});assert.equal((await officeBoard()).reviewRule.minSupporters,5);
+console.log('Passed legacy voting, active-window migration, nomination quotas, unlimited card ballots, frozen reviews, corrections, manual banlist and scaling.');

@@ -1,3 +1,4 @@
+import {renderCardBallots} from './card-ballots.js?v=window-rules-2';
 import { mountCardViewer } from '/gog/card-viewer.js';
 
 const $ = id => document.getElementById(id);
@@ -37,13 +38,34 @@ function renderBoard(keepThreads){
   $('period').value=selectedPeriod;
   $('period').parentElement.hidden=board.history.length<2;
   $('sort').parentElement.hidden=board.candidates.length<2;
+  $('window').parentElement.classList.toggle('open',open);
+  $('account').textContent=board.username?'Sign out · '+board.username:'Player sign in';
+  $('mine').hidden=!board.username;
+  $('my-proposals').hidden=true;
+  if(board.cardBallots){
+    if(!keepThreads)for(const thread of $('candidates').querySelectorAll('.comments[open]'))thread.open=false;
+    renderCardBallots(board,{$,escape,statuses,limitBadge,cardArt,icon,open});
+    viewer.syncProposalAction();
+    return;
+  }
   $('candidate-count').hidden=!board.candidates.length;
   $('candidate-count').textContent=String(board.candidates.length);
   const totals = {for:0, against:0, tied:0, none:0};
   for (const candidate of board.candidates) totals[leaningOf(candidate)]++;
   const overview = Object.entries(totals).filter(([,n])=>n).map(([lean,n])=>
     lean === 'none' ? n+' awaiting votes' : n+' '+leaningLabels[lean].toLowerCase());
-  $('board-leaning').textContent = overview.join(' · ');
+  const cardTurnout = new Map();
+  let periodVotes = 0;
+  for (const c of board.candidates) {
+    const votes = c.up+c.down;
+    periodVotes += votes;
+    cardTurnout.set(c.card,(cardTurnout.get(c.card)||0)+votes);
+  }
+  $('board-leaning').textContent = [periodVotes+' '+(periodVotes===1?'vote':'votes'),...overview].join(' · ');
+  const rule = board.reviewRule;
+  $('review-rules').hidden = !rule;
+  if (rule) $('review-rules').querySelector('p').textContent =
+    `At close, a proposed limit needs at least ${rule.minSupporters} supporters and ${rule.supportPercent}% of all votes on that card, across every proposed limit. Each player counts once per card. Qualifying changes go to Kirk for review. He decides and edits the official list manually.`;
   $('window').parentElement.classList.toggle('open',open);
   $('account').textContent=board.username?'Sign out · '+board.username:'Player sign in';
   $('mine').hidden=!board.username;
@@ -70,11 +92,12 @@ function renderBoard(keepThreads){
       <details class="proposal"><summary class="proposal-summary">
         <span class="summary-card"><strong class="candidate-title">${escape(c.name)}</strong>
         <span class="limits"><span class="sr">Published limit </span>${limitBadge(c.published)}${icon('arrow-right')}<span class="sr">Proposed limit </span>${limitBadge(c.target)}</span></span>
-        <span class="tally"><strong class="lean lean-${lean}">${leaningLabels[lean]}</strong><span class="split">${c.up} for · ${c.down} against</span></span>
+        <span class="tally"><strong class="lean lean-${lean}">${leaningLabels[lean]}</strong><span class="split"><span class="votes-for">${c.up} for</span> · <span class="votes-against">${c.down} against</span></span></span>
         <span class="disclose" aria-hidden="true">${icon('chevron-right')}</span>
         ${notes.length ? `<span class="row-note">${notes.join(' · ')}</span>` : ''}
       </summary><div class="proposal-body">
       <div class="case"><strong>${escape(c.starter)}</strong><p>${escape(c.reason)}</p></div>
+      ${rule && others.length ? `<p class="target-share">${c.up} of ${cardTurnout.get(c.card)} votes on this card support this limit.</p>` : ''}
       ${c.ruling?`<p class="ruling"><b>Ruling</b> ${escape(c.ruling)}</p>`:''}
       <div class="votes">${btn(1,'Upvote',c.up)}${btn(-1,'Downvote',c.down)}${mine&&open&&!disabled?`<button data-vote="0">${starter?'Withdraw proposal':'Remove my vote'}</button>`:''}</div>
       ${others.length?`<p>Other proposals · ${others.map(o=>`<a href="#candidate-${o.id}">${statuses[o.target]}</a>`).join(' · ')}</p>`:''}
@@ -130,7 +153,7 @@ async function loadThread(details,cid){
 $('candidates').addEventListener('toggle',event=>{
   const details = event.target;
   if (!details.matches('.comments[open]')) return;
-  loadThread(details,details.closest('article').dataset.id).then(()=>{
+  loadThread(details,details.dataset.option||details.closest('article').dataset.id).then(()=>{
     const input = details.querySelector('textarea');
     if (input && details.dataset.draft) input.value = details.dataset.draft;
     delete details.dataset.draft;
@@ -138,7 +161,7 @@ $('candidates').addEventListener('toggle',event=>{
 },true);
 $('candidates').addEventListener('submit',async event=>{
   event.preventDefault();
-  const form=event.target,candidate=Number(form.closest('article').dataset.id),button=form.querySelector('button');
+  const form=event.target,candidate=Number(form.closest('.comments').dataset.option||form.closest('article').dataset.id),button=form.querySelector('button');
   const text=form.elements.text.value.trim(); if(!text)return;
   button.disabled=true;
   try{
@@ -155,6 +178,26 @@ $('candidates').addEventListener('click',async event=>{
     if (candidate) viewer.openCardDetail({ id: candidate.card, name: candidate.name, status: candidate.published });
     return;
   }
+  const modern=event.target.closest('[data-choice],[data-withdraw]');
+  if(modern){
+    try{
+      if(!usable())return;
+      const card=Number(modern.closest('article').dataset.card);
+      if(modern.hasAttribute('data-withdraw')){
+        if(!confirm('Withdraw this proposal and its discussion? The card still counts toward your three proposals.'))return;
+        modern.disabled=true;
+        await action('withdraw-nomination',{card,candidate:Number(modern.dataset.withdraw)});
+      }else{
+        const choice=modern.dataset.choice==='remove'?null:Number(modern.dataset.choice);
+        const previous=board.mine.find(v=>v.card===card)?.choice??null;
+        if(choice===previous)return;
+        modern.disabled=true;
+        await action('choose',{card,choice,previous});
+      }
+      notice('Saved.');
+    }catch(e){notice(e.message);}finally{if(modern.disabled)await refresh().catch(e=>notice(e.message));}
+    return;
+  }
   const b=event.target.closest('[data-vote]'); if(!b)return;
   try{
     if(!usable())return;
@@ -166,8 +209,8 @@ $('candidates').addEventListener('click',async event=>{
     b.disabled=true;await action('vote',{candidate:c.id,direction,previous:prior});notice('Vote updated.');
   }catch(e){notice(e.message);}finally{if(!b.closest('dialog') && b.disabled)await refresh().catch(e=>notice(e.message));}
 });
-function proposeCard(card) {
-  try{if(!usable())return;chosen=card;
+async function proposeCard(card) {
+  try{if(!usable())return;chosen=board.cardBallots?{...card,status:(await api('community/opening-limit?window='+board.period.id+'&card='+card.id)).status}:card;
     const f=$('compose');f.reset();f.querySelector('[role=alert]').textContent='';
     $('proposed-card').textContent=chosen.name+' · '+statuses[chosen.status];
     f.elements.target.innerHTML=Object.entries(statuses).filter(([s])=>s!==chosen.status).map(([s,l])=>`<option value="${s}">${l}</option>`).join('');
@@ -178,8 +221,8 @@ $('compose').onsubmit=async event=>{
   event.preventDefault();const f=event.target,b=f.querySelector('.primary');
   try{const target=f.elements.target.value,existing=board.candidates.find(c=>c.card===chosen.id&&c.target===target);
     if(existing){$('proposal').close();location.hash='candidate-'+existing.id;revealCandidate(location.hash);notice('This proposal already exists. You can vote on it here.');return;}
-    const prior=previous(chosen.id,0);if(prior===null)return;
-    b.disabled=true;await action('propose',{card:chosen.id,target,reason:f.elements.reason.value,previous:prior});
+    const prior=board.cardBallots?0:previous(chosen.id,0);if(prior===null)return;
+    b.disabled=true;await action(board.cardBallots?'nominate':'propose',{card:chosen.id,target,reason:f.elements.reason.value,previous:prior});
     $('proposal').close();await refresh();notice('Your proposal is open.');
   }catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{b.disabled=false;}
 };
@@ -218,11 +261,12 @@ $('account').onclick=async()=>{if(!board.username){signIn();return;}try{await ac
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 $('period').onchange=e=>{selectedPeriod=e.target.value;refresh().catch(e=>notice(e.message));};
 $('sort').onchange=()=>{
+  if(board.cardBallots){renderBoard(true);return;}
   for (const c of sortedCandidates()) $('candidates').append($('candidate-'+c.id));
 };
 function revealCandidate(hash) {
   if (!/^#candidate-\d+$/.test(hash)) return;
-  const row = $(hash.slice(1));
+  const row = $(hash.slice(1))?.closest('article');
   if (!row) return;
   row.querySelector('.proposal').open = true;
   row.scrollIntoView({block:'nearest'});

@@ -72,6 +72,10 @@ button.primary:enabled:hover, #account:hover { background: #92fff4; color: var(-
 .heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 16px; }
 h2 { font-size: clamp(32px, 4vw, 48px); color: var(--cream); }
 #board-leaning:not(:empty) { margin-top: 6px; color: var(--muted); font-size: 14px; line-height: 1.4; }
+#review-rules { border: 0; margin: -8px 0 8px; }
+#review-rules summary { width: fit-content; min-height: 44px; padding: 11px 0; }
+#review-rules p,.target-share { max-width: 70ch; color: var(--muted); }
+#review-rules p { margin-bottom: 12px; }
 #candidate-count { vertical-align: middle; font: 700 16px/1 Barlow,sans-serif; border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; color: #b3f5ee; }
 .tools,.votes,.paging { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 label { display: grid; gap: 4px; min-width: 0; color: var(--muted); font-size: 14px; font-weight: 600; }
@@ -116,8 +120,9 @@ input::placeholder { color: #a8c1ce; }
 .limits .icon { width: 14px; height: 14px; color: #8fc5ce; }
 .tally { flex-direction: column; align-items: flex-start; gap: 2px; font-size: 14px; line-height: 1.25; }
 .lean { color: #f0dac0; }
-.lean-for { color: #99edc0; }
-.lean-against { color: #ffb1b5; }
+.lean-for,.votes-for { color: #99edc0; }
+.lean-against,.votes-against { color: #ffb1b5; }
+.split > span { white-space: nowrap; }
 .split,.row-note { color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
 .row-note { grid-column: 1 / -1; font-size: 13px; }
 .disclose { grid-column: 3; grid-row: 1; display: grid; color: #a0c4ce; }
@@ -183,3 +188,7 @@ dialog .tools { justify-content: flex-end; }
   .heading { gap: 12px; }
   .empty { gap: 12px; }
 }
+#my-proposals { margin-bottom: 8px; padding: 0 14px 8px; border: 1px solid var(--line); background: #102e41; }
+#my-proposals a { display: block; margin: 8px 0; }
+.votes .change-choice { --vote-fill: #194a35; --vote-accent: #78e6a1; }
+.votes .keep-choice { --vote-fill: #662d34; --vote-accent: #ffa2a2; }
