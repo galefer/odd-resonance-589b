@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {rankReviewChanges} from '../../lib/jush-card-ballots.js';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
 import {onRequest} from '../../functions/gog/api/[[path]].js';
@@ -142,6 +143,10 @@ await nominate(dan,2,'semi_limited');
 const limit2=idOf(await officeBoard(),2,'limited'),semi2=idOf(await officeBoard(),2,'semi_limited');
 await choose(cara,2,semi2);await choose(dan,2,limit2);await choose(eve,2,semi2);
 const guest2=await act('board');assert.equal(guest2.mine.length,0);assert.ok(!('ballots' in guest2));assert.ok(!('votedChanges' in guest2));
+assert.equal(guest2.shortlist.priorityOnly,true);
+assert.equal(guest2.shortlist.cardCount,4);
+assert.equal(guest2.shortlist.limit,2);
+assert.deepEqual(guest2.shortlist.entries.map(c=>[c.candidate,c.label]),[[first,'1st pick']]);
 const onDisk=()=>sql.prepare('SELECT * FROM jush_voted_changes WHERE window=? AND card=1').get(beforeId);
 assert.equal(onDisk().supporters,3);assert.equal(onDisk().card_ballots,5);
 sql.prepare('UPDATE jush_windows SET deadline=unixepoch() WHERE id=?').run(beforeId);
@@ -152,12 +157,16 @@ assert.equal(closed.votedChanges.cards.find(c=>c.card===2).split,true);
 const player=(await admin('players')).players.find(p=>p.username==='Daniel').id;
 await admin('correct',{window:beforeId,member:player,card:1,choice:first,reason:'Support after close'});
 assert.deepEqual((await officeBoard()).votedChanges,closed.votedChanges);
+assert.deepEqual((await act('board')).shortlist,closed.shortlist);
 await admin('reset',{window:beforeId});
 assert.deepEqual((await admin('board?window='+beforeId)).votedChanges,closed.votedChanges);
 await admin('open',{window:(await officeBoard()).period.id});const fresh=await officeBoard();
+assert.equal(fresh.shortlist.priorityOnly,false);assert.equal(fresh.shortlist.limit,0);
 await admin('reset',{window:fresh.period.id});const replacement=await officeBoard();
 assert.equal(replacement.period.deadline,fresh.period.deadline);assert.equal(replacement.reviewRule.minSupporters,3);
+assert.equal(replacement.shortlist.priorityOnly,false);
 assert.equal((await admin('board?window='+fresh.period.id)).reviewDiscarded,true);
+assert.ok(!('shortlist' in await admin('board?window='+fresh.period.id)));
 await admin('close',{window:replacement.period.id});assert.deepEqual((await officeBoard()).votedChanges.choices,[]);
 assert.equal(listState(),official);
 // Three full qualifying windows with distinct turnout of 40, 100 and 125 lock the next cut at five.
@@ -173,4 +182,17 @@ for(const n of [40,100,125]){
 await admin('open',{window:(await officeBoard()).period.id});const scaled=await officeBoard();
 assert.equal(scaled.reviewRule.minSupporters,5);assert.deepEqual(scaled.reviewRule.history.map(h=>h.voters),[125,100,40]);
 await admin('reset',{window:scaled.period.id});assert.equal((await officeBoard()).reviewRule.minSupporters,5);
-console.log('Passed legacy voting, active-window migration, nomination quotas, unlimited card ballots, frozen reviews, corrections, manual banlist and scaling.');
+const change=(card,supporters,ballots)=>({card,supporters,card_ballots:ballots});
+for(const [cards,places] of [[0,0],[1,1],[3,1],[4,2],[6,2],[7,3],[10,3],[100,3]]){
+  const preview=rankReviewChanges([],cards);
+  assert.equal(preview.limit,places);assert.deepEqual(preview.entries,[]);
+}
+const contenders=[change(8,10,16),change(4,9,10),change(3,9,11),change(2,8,8)];
+const medals=rankReviewChanges(contenders,20).entries;
+assert.deepEqual(medals.map(p=>[p.card,p.label]),[[8,'1st pick'],[4,'2nd pick'],[3,'3rd pick'],[2,'Qualified']]);
+const tie=rankReviewChanges([...contenders,change(7,9,11)],20).entries;
+assert.deepEqual(tie.map(p=>p.status),['pick','pick','cutoff-tie','cutoff-tie','qualified']);
+assert.deepEqual(tie.slice(2,4).map(p=>[p.label,p.places]),[['Tied for 3rd pick',1],['Tied for 3rd pick',1]]);
+assert.deepEqual(rankReviewChanges([change(1,5,5),change(2,5,5),change(3,4,4)],10).entries.map(p=>p.label),['Joint 1st pick','Joint 1st pick','3rd pick']);
+assert.deepEqual(rankReviewChanges([change(1,5,6),change(2,5,6),change(3,5,6)],4).entries.map(p=>p.places),[2,2,2]);
+console.log('Passed ballot migration, nominations, scaling, review cutoff, pick order, ties, closed snapshots and correction history.');

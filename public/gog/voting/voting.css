@@ -72,6 +72,14 @@ button.primary:enabled:hover, #account:hover { background: #92fff4; color: var(-
 .heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 16px; }
 h2 { font-size: clamp(32px, 4vw, 48px); color: var(--cream); }
 #board-leaning:not(:empty) { margin-top: 6px; color: var(--muted); font-size: 14px; line-height: 1.4; }
+#pick-summary { margin: -7px 0 12px; color: #d0e3eb; font-size: 14px; }
+.candidate[data-pick="1"] { --pick-ink: #ffe18b; --pick-fill: #493b16; }
+.candidate[data-pick="2"] { --pick-ink: #d6e5f7; --pick-fill: #314155; }
+.candidate[data-pick="3"] { --pick-ink: #ffc59d; --pick-fill: #503528; }
+.candidate[data-pick="tie"] { --pick-ink: #e2c9ff; --pick-fill: #40304e; }
+.candidate[data-pick] { border-inline-start: 3px solid var(--pick-ink); }
+.pick-badge { display: inline-flex; align-items: center; padding: 2px 7px; border: 1px solid var(--pick-ink); border-radius: 4px; background: var(--pick-fill); color: var(--pick-ink); font-size: 14px; line-height: 1.25; }
+.pick-target { font-size: 14px; color: var(--cream); }
 #review-rules { border: 0; margin: -8px 0 8px; }
 #review-rules summary { width: fit-content; min-height: 44px; padding: 11px 0; }
 #review-rules p,.target-share { max-width: 70ch; color: var(--muted); }

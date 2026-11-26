@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#041426">
 <title>Community Banlist · JUSH House Format</title>
 <link rel="icon" href="/gog/assets/jush/artwork/guild-of-games-logo-64.webp">
-<link rel="stylesheet" href="/gog/assets/jush/fonts/fonts.css"><link rel="stylesheet" href="voting.css?v=window-rules-2">
+<link rel="stylesheet" href="/gog/assets/jush/fonts/fonts.css"><link rel="stylesheet" href="voting.css?v=review-picks-1">
 </head><body>
 <a class="skip" href="#board">Skip to votes</a>
 <header class="mast"><div class="wrap mast-inner"><a class="brand" href="/gog/"><img src="/gog/assets/jush/artwork/guild-of-games-logo-64.webp" alt="" width="38" height="36"><span>Guild of Games</span></a><nav aria-label="Guild of Games"><a href="/gog/">House format</a><a href="/gog/deckbuilder/">Deckbuilder</a><button id="account">Player sign in</button></nav></div></header>
@@ -25,6 +25,7 @@
 </div></section>
 <div class="wrap content"><p id="feedback" role="status"></p>
 <section id="board"><div class="heading"><div><h2>Proposals <span id="candidate-count" hidden></span></h2><p id="board-leaning"></p></div><div class="tools"><label hidden>Voting period <select id="period"></select></label><label hidden>Sort by <select id="sort"><option value="participation">Most votes</option><option value="up">Most support</option><option value="down">Most opposition</option><option value="new">Newest</option></select></label></div></div>
+<p id="pick-summary" hidden></p>
 <details id="review-rules" hidden><summary>How proposals qualify</summary><p></p></details>
 <details id="my-proposals" hidden><summary>My proposals</summary><div></div></details>
 <details id="mine" hidden><summary>My votes</summary><div></div></details>
@@ -34,4 +35,4 @@
 </main>
 <dialog id="auth"><form id="credentials"><h2>Player account</h2><label>Account action <select name="mode"><option value="login">Sign in</option><option value="join">Join with a code</option><option value="recover">Reset password</option></select></label><label>Username <input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required aria-describedby="username-help"></label><small id="username-help">Use 3–32 letters (A–Z), digits, hyphens or underscores.</small><label>Password <input name="password" type="password" autocomplete="current-password" required></label><label id="code-field" hidden>One-use code <input name="code" autocomplete="off"></label><p role="alert"></p><div class="tools"><button type="button" data-close>Cancel</button><button class="primary">Continue</button></div></form></dialog>
 <dialog id="proposal"><form id="compose"><h2>Start a proposal</h2><strong id="proposed-card"></strong><label>Proposed status <select name="target"></select></label><label>Your reason <textarea name="reason" required maxlength="200" rows="3"></textarea></label><small>Up to 200 characters. Proposing uses one of your three nomination cards. Cast your vote separately.</small><p role="alert"></p><div class="tools"><button type="button" data-close>Cancel</button><button class="primary">Start proposal</button></div></form></dialog>
-<script type="module" src="voting.js?v=window-rules-2"></script></body></html>
+<script type="module" src="voting.js?v=review-picks-1"></script></body></html>
