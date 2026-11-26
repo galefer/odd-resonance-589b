@@ -2320,7 +2320,12 @@ async function runMobileCommand(command) {
   if (command === 'redo') { redoDeck(); return; }
   if (command === 'templates') { openTemplateDecks(trigger); return; }
   if (command === 'import') { openImport(trigger); return; }
-  if (command === 'export') { toggleMenu($('export-menu'), trigger); requestAnimationFrame(() => $('export-menu').querySelector('button')?.focus()); return; }
+  if (command === 'export') {
+    dialogTriggers.delete(actions); // Focus moves into the export menu when the sheet closes.
+    toggleMenu($('export-menu'), trigger);
+    requestAnimationFrame(() => $('download-ydk').focus({ preventScroll: true }));
+    return;
+  }
   if (command === 'overview') { openMobileTools('overview'); return; }
   if (command === 'hand') { openMobileTools('hand'); return; }
   if (command === 'groups') { renderGroupsDialog(); openDialog($('groups-dialog'), trigger); return; }
@@ -2427,6 +2432,7 @@ function wireEvents() {
   document.addEventListener('click', (event) => {
     if (!$('deck-menu').contains(event.target) && !$('deck-menu-button').contains(event.target) && !$('saved-decks-button').contains(event.target) &&
       !$('export-menu').contains(event.target) && !$('export-button').contains(event.target) && !$('mobile-actions-button').contains(event.target) &&
+      !event.target.closest('[data-mobile-command="export"]') &&
       !$('mobile-zone-menu').contains(event.target) && !$('mobile-zone-menu-button').contains(event.target)) closeMenus();
     if (!$('deck-row-menu').contains(event.target) && !event.target.closest('.deck-row-menu-button')) closeDeckRowMenu();
   });

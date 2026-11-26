@@ -133,7 +133,7 @@ async function refresh(){
   const samePeriod = data.period?.id === board.period?.id;
   board=data; renderBoard(sameMember && samePeriod);
 }
-function signIn(){ clearUsernameError(); $('credentials').querySelector('[role=alert]').textContent=''; $('auth').showModal(); }
+function signIn(){ clearAuthError(); $('auth').showModal(); }
 function usable(){if(!active())throw Error('Voting has closed.');if(!board.username){signIn();return false;}return true;}
 function previous(card,next){
   const mine=board.mine.find(v=>v.card===card);
@@ -231,31 +231,50 @@ async function proof(password,salt){const enc=new TextEncoder(),key=await crypto
   return hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:enc.encode(salt),iterations:310000},key,256));}
 const auth=$('credentials');
 const usernameField=auth.elements.username;
-function clearUsernameError(){
-  if(usernameField.hasAttribute('aria-invalid')){
-    usernameField.removeAttribute('aria-invalid');
-    auth.querySelector('[role=alert]').textContent='';
-  }
+const passwordField=auth.elements.password, codeField=auth.elements.code;
+const authError=auth.querySelector('[role=alert]'), authButton=auth.querySelector('.primary');
+function clearAuthError(){
+  auth.querySelector('[aria-invalid]')?.removeAttribute('aria-invalid');
+  authError.textContent='';
 }
-usernameField.addEventListener('input',clearUsernameError);
-auth.elements.mode.onchange=()=>{const login=auth.elements.mode.value==='login';$('code-field').hidden=login;auth.elements.code.required=!login;auth.elements.password.minLength=login?1:12;auth.elements.password.autocomplete=login?'current-password':'new-password';};
+function invalidField(field,message){
+  field.setAttribute('aria-invalid','true');
+  field.focus();
+  authError.textContent=message;
+}
+auth.addEventListener('input',clearAuthError);
+auth.elements.mode.onchange=()=>{
+  const login=auth.elements.mode.value==='login';
+  clearAuthError();
+  $('code-field').hidden=login;
+  codeField.required=!login;
+  passwordField.minLength=login?1:12;
+  passwordField.autocomplete=login?'current-password':'new-password';
+  $('password-help').hidden=login;
+};
 auth.onsubmit=async event=>{
   event.preventDefault();
+  if(authButton.disabled)return;
+  clearAuthError();
+  const mode=auth.elements.mode.value;
   const username=usernameField.value.replace(/^[\s\u200B]+|[\s\u200B]+$/g,'');
   usernameField.value=username;
-  clearUsernameError();
-  if(!/^[A-Za-z0-9_-]{3,32}$/.test(username)){
-    usernameField.setAttribute('aria-invalid','true');
-    auth.querySelector('[role=alert]').textContent='Choose a username of 3–32 characters using A–Z, a–z, 0–9, hyphens or underscores.';
-    usernameField.focus();
-    return;
-  }
-  const b=auth.querySelector('.primary');b.disabled=true;
-  try{const mode=auth.elements.mode.value;
+  if(!/^[A-Za-z0-9_-]{3,32}$/.test(username))
+    return invalidField(usernameField,'Choose a username of 3–32 characters using A–Z, a–z, 0–9, hyphens or underscores.');
+  const password=passwordField.value, code=codeField.value.trim();
+  if(!password || (mode!=='login' && password.length<12))
+    return invalidField(passwordField,mode==='login'?'Enter your password.':'Use at least 12 characters for your password.');
+  if(mode!=='login' && !code)return invalidField(codeField,'Enter your one-use code.');
+  authButton.disabled=true;
+  authButton.textContent=mode==='join'?'Creating account…':mode==='recover'?'Resetting password…':'Signing in…';
+  try{
     const salt=mode==='login'?(await api('community/salt?username='+encodeURIComponent(username))).salt:hex(crypto.getRandomValues(new Uint8Array(16)));
-    await action(mode,{username,code:auth.elements.code.value.trim(),salt,proof:await proof(auth.elements.password.value,salt)});
-    auth.reset();auth.elements.mode.onchange();$('auth').close();await refresh();notice('Signed in.');
-  }catch(e){auth.querySelector('[role=alert]').textContent=e.message;}finally{b.disabled=false;}
+    await action(mode,{username,code,salt,proof:await proof(password,salt)});
+    auth.reset();auth.elements.mode.onchange();$('auth').close();
+  }catch(e){authError.textContent=e.message;return;}
+  finally{authButton.disabled=false;authButton.textContent='Continue';}
+  notice('Signed in.');
+  await refresh().catch(e=>notice('Signed in. '+e.message));
 };
 $('account').onclick=async()=>{if(!board.username){signIn();return;}try{await action('logout',{});await refresh();notice('Signed out.');}catch(e){notice(e.message);}};
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
