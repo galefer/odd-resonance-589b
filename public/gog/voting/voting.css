@@ -126,7 +126,7 @@ input::placeholder { color: #a8c1ce; }
 .limits,.tally { display: flex; align-items: center; flex-wrap: wrap; }
 .limits { gap: 3px 5px; }
 .limits .icon { width: 14px; height: 14px; color: #8fc5ce; }
-.tally { flex-direction: column; align-items: flex-start; gap: 2px; font-size: 14px; line-height: 1.25; }
+.tally { flex-direction: column; align-items: flex-start; gap: 2px; font: 400 1rem/1.35 system-ui, sans-serif; }
 .lean { color: #f0dac0; }
 .lean-for,.votes-for { color: #99edc0; }
 .lean-against,.votes-against { color: #ffb1b5; }
