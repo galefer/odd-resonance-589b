@@ -1,4 +1,4 @@
-const CACHE = 'jush-public-shell-v3',
+const CACHE = 'jush-public-shell-v4',
   offline = '/gog/offline.html';
 const shellAssets = ['/gog/mobile-app.css', '/gog/mobile-nav.js', '/gog/duel/common.js'];
 self.addEventListener('install', (e) =>

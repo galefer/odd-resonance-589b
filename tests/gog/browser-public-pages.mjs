@@ -118,7 +118,7 @@ try {
         };
       };
       const build=[...document.querySelectorAll('a,button')].filter(e=>e.textContent.trim().toLowerCase()==='build a deck'&&e.getClientRects().length);
-      const adminButton=document.querySelector('.gog-admin-link');
+      const adminButton=document.querySelector(innerWidth<=800 ? '.j-tab-head .j-account' : '.gog-admin-link');
       const adminRect=adminButton.getBoundingClientRect();
 
       return {
@@ -214,7 +214,6 @@ try {
       assert(positions.filterRight<positions.resultsLeft,'Desktop filters should sit beside results');
     }
     if (width <= 600) {
-      assert.equal(geometry.adminButton.display,'none',`${width}px moves administration out of the public header`);
       assert(geometry.hero.height<=215,`${width}px compact mobile event header`);
       assert(geometry.hero.bottomGap>=12&&geometry.hero.bottomGap<=24,`${width}px hero should retain a small cushion below its actions, got ${geometry.hero.bottomGap}px`);
       assert(geometry.event.height<=90,`${width}px compact mobile event summary`);
@@ -227,6 +226,9 @@ try {
       assert.equal(geometry.mobileLayout.restriction,'none',`${width}px status legend moves out of the permanent result path`);
       assert(geometry.mobileLayout.firstCardHeight<=105,`${width}px ordinary result rows remain compact`);
       assert.notEqual(geometry.mobileLayout.nameWhiteSpace,'nowrap',`${width}px card names can wrap`);
+    }
+    if (width <= 800) {
+      assert(geometry.adminButton.inHeader && geometry.adminButton.width>=48,`${width}px shared account button`);
     } else {
       assert.notEqual(geometry.adminButton.display,'none',`${width}px desktop administration remains unchanged`);
       assert(geometry.adminButton.width>=90,`${width}px admin control should remain readable`);

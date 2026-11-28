@@ -1,17 +1,4 @@
-.cards-brand h1 { display: none; }
-
 @media (max-width: 800px) {
-  .ja-cards .ja-head { padding: 4px 12px; }
-  .cards-brand { display: flex; align-items: center; gap: 4px; }
-  .cards-brand a { width: 48px; height: 48px; justify-content: center; }
-  .cards-brand img { width: 32px; height: 32px; }
-  .cards-brand h1 {
-    display: block;
-    margin: 0;
-    color: #fff0bf;
-    font: 700 1.65rem/1.1 'Barlow Condensed', Barlow, sans-serif;
-  }
-  .cards-brand a span, .ja-cards .ja-main > h1,
   .ja-cards .search-heading-row > div:first-child,
   .ja-cards .results-header > div:first-child,
   .ja-cards .restriction-key { display: none; }

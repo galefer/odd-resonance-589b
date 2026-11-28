@@ -417,9 +417,9 @@ try {
       const headerControlState = await evaluate(`(()=>{const rect=e=>{const r=e.getBoundingClientRect();return {width:r.width,left:r.left,right:r.right}};const identity=document.querySelector('.deck-identity');return {controls:['deck-menu-button','undo','mobile-actions-button'].map(id=>({id,...rect(document.getElementById(id))})),toolbar:rect(document.querySelector('.deck-toolbar')),identity:rect(identity),name:rect(document.querySelector('#deck-name')),identityStyle:{width:getComputedStyle(identity).width,flex:getComputedStyle(identity).flex}}})()`);
       assert(headerControlState.controls.every(control=>control.width>=40&&control.left>=0&&control.right<=width), `${width}px compact mobile header controls should stay reachable: ${JSON.stringify(headerControlState)}`);
       assert(headerControlState.controls[0].width >= 44, `${width}px deck switcher should keep a full touch target: ${JSON.stringify(headerControlState)}`);
-      assert(headerControlState.name.width >= width - 205, `${width}px deck name should consume the available header width before truncating: ${JSON.stringify(headerControlState)}`);
+      assert(headerControlState.name.width >= width - 270, `${width}px should leave room for the deck name beside the account and editor controls`);
       const mobileHeaderBounds = await evaluate(`(()=>{const rect=e=>{const r=e.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height}};return {header:rect(document.querySelector('.gog-site-header')),toolbar:rect(document.querySelector('.deck-toolbar')),deckBar:rect(document.querySelector('.mobile-deck-bar')),validation:rect(document.querySelector('#validation-banner'))}})()`);
-      assert(mobileHeaderBounds.toolbar.top>=mobileHeaderBounds.header.top-1&&mobileHeaderBounds.toolbar.bottom<=mobileHeaderBounds.header.bottom+1&&mobileHeaderBounds.validation.top>=mobileHeaderBounds.deckBar.top&&mobileHeaderBounds.validation.bottom<=mobileHeaderBounds.deckBar.bottom, `${width}px should merge deck controls into the site header and validation into the deck header: ${JSON.stringify(mobileHeaderBounds)}`);
+      assert(mobileHeaderBounds.toolbar.top>=mobileHeaderBounds.header.top&&mobileHeaderBounds.toolbar.bottom<=mobileHeaderBounds.header.bottom&&mobileHeaderBounds.validation.top>=mobileHeaderBounds.deckBar.top&&mobileHeaderBounds.validation.bottom<=mobileHeaderBounds.deckBar.bottom, `${width}px should fit deck controls within the shared header and validation in the deck bar: ${JSON.stringify(mobileHeaderBounds)}`);
       assert(await evaluate(`document.querySelector('#mobile-grouped-view').getAttribute('aria-checked')==='true' && document.querySelector('#mobile-copies-view').getAttribute('aria-checked')==='false'`), `${width}px should default the deck to grouped stacks`);
       assert(layout.libraryCardWidth > 0 && layout.libraryCardWidth <= 78, `${width}px catalogue cards should remain readable without taking over the phone workspace`);
       assert.equal(layout.loadMoreOverlapsCard, false, 'Load more must not cover catalogue cards or their add controls');
@@ -429,10 +429,10 @@ try {
       if (width < 1280) assert(!layout.leftPanel && layout.compactInspector, `${width}px should move the inspector on demand before cramping three columns`);
     }
     if (width === 320) assert(layout.libraryColumns === 4 && layout.deckColumns === 5, 'The narrowest phone should keep catalogue cards readable and deck cards denser');
-    if (width === 390) assert(layout.libraryColumns === 5 && layout.deckColumns === 6 && layout.libraryHeight >= 390 && layout.deckHeight >= 285, 'A typical phone should balance a five-column catalogue with a denser six-column deck');
+    if (width === 390) assert(layout.libraryColumns === 5 && layout.deckColumns === 6 && layout.libraryHeight >= 340 && layout.deckHeight >= 240, 'A typical phone should balance a five-column catalogue with a denser six-column deck');
     if (width === 767) assert(layout.libraryColumns === 9 && layout.deckColumns === 10, 'Wide mobile layouts should add useful density without reducing cards to thumbnails');
     if (width >= 1180) assert(await evaluate(`document.querySelector('.workspace').getBoundingClientRect().width >= innerWidth-20`), 'Workspace should use the available width');
-    if (width === 390) deckMobileHeader = await evaluate(`(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()`);
+    if (width === 390) deckMobileHeader = await evaluate(`(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.j-mobile-brand img').getBoundingClientRect(); const b=document.querySelector('.j-mobile-brand a').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()`);
     if (width === 2048) await screenshot('deckbuilder-2048.png');
     evidence.checks.push(`${width}px no horizontal overflow`);
   }
@@ -440,7 +440,7 @@ try {
   await send('Emulation.setDeviceMetricsOverride', { width: 740, height: 390, deviceScaleFactor: 1, mobile: true });
   await sleep(180);
   const landscape = await evaluate(`(() => {const w=document.querySelector('.workspace').getBoundingClientRect(),l=document.querySelector('.library-panel').getBoundingClientRect(),d=document.querySelector('.deck-canvas').getBoundingClientRect(),s=document.querySelector('.search-box').getBoundingClientRect(),f=document.querySelector('.library-filters').getBoundingClientRect(),m=document.querySelector('#load-more').getBoundingClientRect(),tracks=e=>getComputedStyle(e).gridTemplateColumns.split(' ').filter(Boolean).length;return {overflow:document.documentElement.scrollWidth-innerWidth,header:getComputedStyle(document.querySelector('.gog-site-header')).display,workspace:w.height,library:l.height,deck:d.height,libraryColumns:tracks(document.querySelector('.library-grid')),deckColumns:tracks(document.querySelector('.deck-grid')),controlsDelta:Math.abs(s.top-f.top),loadMoreWidth:m.width}})()`);
-  assert(landscape.overflow <= 1 && landscape.header === 'none' && landscape.library > 80 && landscape.deck > 80, 'Short landscape keeps both panes usable and removes nonessential site chrome');
+  assert(landscape.overflow <= 1 && landscape.header === 'flex' && landscape.library > 80 && landscape.deck > 80, 'Short landscape keeps both panes usable and retains the shared header');
   assert(landscape.libraryColumns === 9 && landscape.deckColumns === 10 && landscape.controlsDelta <= 1 && landscape.loadMoreWidth <= 120, 'Landscape keeps a denser deck, readable catalogue cards and catalogue controls on one row');
   await screenshot('deckbuilder-mobile-landscape.png');
   evidence.checks.push('740×390 short landscape split workspace');
@@ -592,7 +592,7 @@ try {
     buildActions:[...document.querySelectorAll('a.event-deck-link,a.hero-build-link')].filter(e=>e.getClientRects().length).length,
     eventVisible:document.querySelector('.next-event-panel').getBoundingClientRect().height>0,
     logoLoaded:document.querySelector('.gog-brand img').naturalWidth>0,
-    header:(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.gog-brand img').getBoundingClientRect(); const b=document.querySelector('.gog-brand').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()
+    header:(() => { const h=document.querySelector('.gog-site-header').getBoundingClientRect(); const l=document.querySelector('.j-mobile-brand img').getBoundingClientRect(); const b=document.querySelector('.j-mobile-brand a').getBoundingClientRect(); return {height:h.height,logoWidth:l.width,logoHeight:l.height,brandLeft:b.left,brandTop:b.top}; })()
   })`);
   assert(mobileCardList.overflow <= 1, `Mobile card-list horizontal overflow: ${mobileCardList.overflow}`);
   assert.notEqual(mobileCardList.filterToggle, 'none');
@@ -600,8 +600,7 @@ try {
   assert.equal(mobileCardList.buildActions, 1);
   assert(mobileCardList.eventVisible);
   assert(mobileCardList.logoLoaded);
-  assert(mobileCardList.header.height > deckMobileHeader.height && mobileCardList.header.logoWidth > deckMobileHeader.logoWidth,
-    'Only the deckbuilder should use the compact mobile editing header');
+  assert.deepEqual(mobileCardList.header, deckMobileHeader, 'The mobile header geometry matches across tabs');
   await screenshot('gog-home-mobile.png');
   evidence.cardListBrand = cardListBrand;
   evidence.mobileCardList = mobileCardList;

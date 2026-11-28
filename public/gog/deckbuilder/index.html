@@ -34,7 +34,7 @@
           <p>JUSH Deckbuilder</p>
           <div class="deck-name-line">
             <h1 id="deck-name">Untitled deck</h1>
-            <button id="deck-menu-button" class="deck-title-button" type="button" aria-label="Open deck menu" aria-haspopup="menu" aria-expanded="false" aria-controls="deck-menu"><span aria-hidden="true">⌄</span></button>
+            <button id="deck-menu-button" class="deck-title-button" type="button" aria-label="Open deck menu" aria-describedby="deck-name" aria-haspopup="menu" aria-expanded="false" aria-controls="deck-menu"><span aria-hidden="true">⌄</span></button>
           </div>
         </div>
         <div class="deck-save-actions" aria-label="Local deck storage">
@@ -42,7 +42,7 @@
           <button id="saved-decks-button" class="button" type="button" aria-haspopup="dialog" aria-controls="deck-manager-dialog">My decks</button>
         </div>
       </div>
-      <div class="save-line"><span id="save-dot"></span><span id="saved-label" role="status">Opening local decks…</span></div>
+      <div class="save-line"><span id="save-dot"></span><span id="saved-label" role="status">Opening local decks…</span><span class="j-saved-short" aria-hidden="true">Saved</span></div>
       <div id="deck-menu" class="floating-menu deck-menu" role="menu" hidden>
         <div class="menu-heading"><b>Recent decks</b><span>This browser</span></div>
         <div id="deck-menu-list" class="deck-menu-list"></div>

@@ -124,6 +124,35 @@ try {
     await wait('location.pathname===' + JSON.stringify(path.split('?')[0]) + '&&document.readyState==="complete"');
   };
   const click = (selector) => ev('document.querySelector(' + JSON.stringify(selector) + ').click()');
+  async function checkTabHeaders(signedIn) {
+    const layouts = [];
+    for (const [path, label] of [['', 'Home'], ['cards/', 'Cards'], ['voting/', 'Voting'], ['duel/', 'Duel'], ['deckbuilder/', 'Builder']]) {
+      await goto('/gog/' + path);
+      await wait(signedIn ? 'document.querySelector(".j-tab-head .j-account img")'
+        : 'document.querySelector(".j-tab-head .j-account")?.textContent === "Sign in"');
+      await ev('document.fonts.ready.then(() => true)');
+      const layout = await ev(`(() => {
+        const header = document.querySelector('.j-tab-head');
+        const account = header.querySelector('.j-account'), brand = header.querySelector('.j-mobile-brand');
+        const bounds = e => { const r = e.getBoundingClientRect(); return [r.x,r.y,r.width,r.height]; };
+        const [x,y,w,h] = bounds(account);
+        return {
+          title: brand.innerText.trim(), visibleParts: [...header.children].filter(e => e.getClientRects().length).length,
+          href: account.getAttribute('href'), accessibleName: account.ariaLabel || account.textContent,
+          tappable: account.contains(document.elementFromPoint(x+w/2,y+h/2)),
+          geometry: [bounds(header),bounds(brand.querySelector('img')),bounds(brand.querySelector('span'))[0],bounds(account)]
+        };
+      })()`);
+      assert.equal(layout.title, label);
+      assert.equal(layout.visibleParts, label === 'Builder' ? 3 : 2, label + ' header content');
+      assert.ok(layout.tappable, label + ' account hit area');
+      assert.equal(layout.href, signedIn ? '/gog/duel/?profile=me' : '/gog/voting/?return=account#account');
+      assert.equal(layout.accessibleName, signedIn ? 'Account for Tester6' : 'Sign in');
+      if (layouts.length) assert.deepEqual(layout.geometry, layouts[0], label + ' header geometry');
+      layouts.push(layout.geometry);
+    }
+    console.log(signedIn ? 'Member' : 'Guest', 'header on all five tabs:', layouts[0]);
+  }
   await send('Runtime.enable');
   await send('Network.enable');
   await send('Page.enable');
@@ -222,6 +251,13 @@ try {
     await wait("Math.abs(document.querySelector('#workspace').getBoundingClientRect().bottom - document.querySelector('.j-app-nav').getBoundingClientRect().top) < 4");
     await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
     const before = await measure();
+    assert.ok(await ev(`(() => {
+      const header = document.querySelector('.j-tab-head').getBoundingClientRect();
+      const toolbar = document.querySelector('.deck-toolbar').getBoundingClientRect();
+      const account = document.querySelector('.j-account');
+      return header.height >= 48 && toolbar.top >= header.top && toolbar.bottom <= header.bottom &&
+        account.checkVisibility() && document.querySelector('#mobile-actions-button').checkVisibility();
+    })()`), 'Builder keeps deck tools and account in the shared header row');
     assert.ok(before.deck > 40 && before.library > 40 && before.bottom <= before.nav + 1, JSON.stringify(before));
     await send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: before.x, y: before.y}]});
     await send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: before.x, y: before.y - 36}]});
@@ -282,14 +318,51 @@ try {
   assert.ok(await ev("document.querySelector('.status-cell .status-badge b').getClientRects().length > 0"));
   assert.equal(await ev("document.querySelector('.catalogue-rules').getClientRects().length"), 0);
   await send('Emulation.setDeviceMetricsOverride', {width:390, height:844, deviceScaleFactor:1, mobile:true});
+  await checkTabHeaders(true);
   await click('.j-account');
   await wait('document.querySelector("#player-dialog")?.open && document.querySelector("#dialog-title").textContent==="My account"');
   await as(5);
   await goto('/gog/cards/');
   await wait('document.querySelector(".j-account-portrait")?.textContent==="T"');
   await send('Network.clearBrowserCookies');
-  await goto('/gog/cards/');
-  await wait('document.querySelector(".j-account")?.textContent==="Sign in"');
+  await checkTabHeaders(false);
+  await send('Emulation.setDeviceMetricsOverride', {width:320, height:640, deviceScaleFactor:1, mobile:true});
+  await ev("document.querySelector('#deck-name').textContent = 'A long deck name for the narrowest phone'");
+  const controls = await ev(`(() => {
+    const header = document.querySelector('.j-tab-head').getBoundingClientRect();
+    const items = ['#deck-menu-button','#undo','#mobile-actions-button','.j-account'].map(s => {
+      const el = document.querySelector(s), r = el.getBoundingClientRect();
+      return {left:r.left, right:r.right, width:r.width, height:r.height,
+        sameRow:r.top >= header.top && r.bottom <= header.bottom,
+        hittable:el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))};
+    });
+    const name = document.querySelector('#deck-name');
+    return {items, nameWidth:name.clientWidth, longNameTruncated:name.scrollWidth>name.clientWidth,
+      headerHeight:header.height, overflow:document.documentElement.scrollWidth>innerWidth};
+  })()`);
+  assert.ok(!controls.overflow && controls.longNameTruncated && controls.nameWidth >= 44, JSON.stringify(controls));
+  controls.items.forEach((item, index, list) => {
+    assert.ok(item.sameRow && item.hittable && item.width >= 44 && item.height >= 44, JSON.stringify(controls));
+    if (index) assert.ok(list[index-1].right <= item.left, JSON.stringify(controls));
+  });
+  await click('#deck-menu-button');
+  await wait("document.querySelector('#deck-menu-button').getAttribute('aria-expanded')==='true'");
+  assert.ok(await ev(`(() => {
+    const item = document.querySelector('#view-all-decks'), r = item.getBoundingClientRect();
+    return item.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));
+  })()`), 'The whole recent-decks menu is reachable beyond the header');
+  await click('#deck-menu-button');
+  await click('#mobile-actions-button');
+  await wait("document.querySelector('#mobile-actions-dialog').open");
+  await ev("document.querySelector('#mobile-actions-dialog').close()");
+  console.log('320px Builder: one ' + controls.headerHeight + 'px row; deck name ' + controls.nameWidth + 'px; four separate tap targets.');
+  await send('Emulation.setDeviceMetricsOverride', {width:1280, height:900, deviceScaleFactor:1, mobile:false});
+  await wait("document.querySelector('body > .deck-toolbar') && !document.querySelector('.j-mobile-account').checkVisibility()");
+  await send('Emulation.setDeviceMetricsOverride', {width:320, height:640, deviceScaleFactor:1, mobile:true});
+  await wait("document.querySelector('.j-tab-head > .deck-toolbar') && document.querySelector('.j-mobile-account').checkVisibility()");
+  await click('.j-account');
+  await wait('document.querySelector("#auth")?.open');
+  await ev('document.querySelector("#auth").close()');
   await click('.j-account');
   await wait('document.querySelector("#auth")?.open');
   await goto('/gog/');

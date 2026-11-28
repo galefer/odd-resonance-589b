@@ -1,5 +1,6 @@
 import {compareVoteTotals,qualificationProgress,renderCardBallots,vetoRule} from './card-ballots.js?v=proposal-sections-1.author-edits-1';
 import { mountCardViewer } from '/gog/card-viewer.js';
+import { refreshInbox } from '/gog/mobile-nav.js';
 
 const $ = id => document.getElementById(id);
 const escape = x => String(x ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -133,10 +134,18 @@ async function refresh(){
   const data=await api('community/board'+(selectedPeriod?'?window='+selectedPeriod:''));
   if(request!==boardRequest) return;
   const sameMember = data.username === board.username;
+  if (board.username !== undefined && !sameMember) refreshInbox();
   const samePeriod = data.period?.id === board.period?.id;
   board=data; renderBoard(sameMember && samePeriod);
 }
 function signIn(){ clearAuthError(); $('auth').showModal(); }
+// A guest can reopen sign-in after dismissing it on the account landing URL.
+document.querySelector('.j-tab-head .j-account')?.addEventListener('click', event => {
+  if (event.currentTarget.href === location.href && !board.username) {
+    event.preventDefault();
+    signIn();
+  }
+});
 function usable(){if(!active())throw Error('Voting has closed.');if(!board.username){signIn();return false;}return true;}
 function previous(card,next){
   const mine=board.mine.find(v=>v.card===card);

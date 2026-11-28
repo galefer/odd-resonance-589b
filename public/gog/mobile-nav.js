@@ -10,6 +10,26 @@ const tabs = [
 const nav = document.createElement('nav');
 nav.className = 'j-app-nav';
 nav.ariaLabel = 'JUSH navigation';
+const header = document.querySelector('body > header');
+const pagePath = location.pathname.replace(/(?:\/index\.html|\/)?$/, '/');
+const tab = tabs.find(([, path]) => path === pagePath);
+if (header && tab) {
+  header.classList.add('j-tab-head');
+  const brand = document.createElement('div');
+  brand.className = 'j-mobile-brand';
+  brand.innerHTML = '<a href="/gog/" aria-label="Guild of Games home"><img src="/gog/assets/jush/artwork/guild-of-games-logo-64.webp" width="32" height="32" alt=""></a>';
+  const title = document.createElement('span');
+  title.textContent = tab[0];
+  brand.append(title);
+  header.prepend(brand);
+  if (!header.querySelector('.j-account')) {
+    const link = document.createElement('a');
+    link.className = 'j-account j-mobile-account';
+    link.href = '/gog/duel/?profile=me';
+    link.textContent = 'Account';
+    header.append(link);
+  }
+}
 for (const [label, path, icon] of tabs) {
   const a = document.createElement('a');
   a.href = path;
@@ -20,16 +40,26 @@ for (const [label, path, icon] of tabs) {
   a.prepend(pic);
   if (
     path === '/gog/'
-      ? location.pathname === path
-      : location.pathname.startsWith(path) ||
-        (label === 'Cards' && location.pathname.startsWith('/gog/house-format/'))
+      ? pagePath === path
+      : pagePath.startsWith(path) ||
+        (label === 'Cards' && pagePath.startsWith('/gog/house-format/'))
   )
     a.setAttribute('aria-current', 'page');
   nav.append(a);
 }
-const header = document.querySelector('body>header');
 if (header) header.after(nav);
 else document.body.prepend(nav);
+const deckTools = document.querySelector('body.deckbuilder-page > .deck-toolbar');
+if (header && deckTools) {
+  const phone = matchMedia('(max-width: 800px)');
+  const account = header.querySelector('.j-account');
+  function placeDeckTools() {
+    if (phone.matches) account.before(deckTools);
+    else nav.after(deckTools);
+  }
+  placeDeckTools();
+  phone.addEventListener('change', placeDeckTools);
+}
 document.body.classList.add('j-nav-ready');
 export function renderAccount(player) {
   const link = header?.querySelector('.j-account');
@@ -62,11 +92,13 @@ export function renderAccount(player) {
   link.replaceChildren(portrait);
 }
 
-function refreshInbox() {
-  fetch('/gog/api/community/app/inbox', { cache: 'no-store' })
+let inboxRequest = 0;
+export function refreshInbox() {
+  const request = ++inboxRequest;
+  return fetch('/gog/api/community/app/inbox', { cache: 'no-store' })
     .then((r) => (r.ok ? r.json() : null))
     .then((data) => {
-      if (!data) return;
+      if (!data || request !== inboxRequest) return;
       if ('player' in data) renderAccount(data.player);
       const duel = nav.querySelector('a[href^="/gog/duel/"]');
       duel.querySelector('.j-inbox-count')?.remove();
