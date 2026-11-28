@@ -63,4 +63,12 @@
 </main>
 <dialog id="auth"><form id="credentials" novalidate><h2>Player account</h2><label>Account action <select name="mode"><option value="login">Sign in</option><option value="join">Join with a code</option><option value="recover">Reset password</option></select></label><label>Username <input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required aria-describedby="username-help"></label><small id="username-help">Use 3–32 letters (A–Z), digits, hyphens or underscores.</small><label>Password <input name="password" type="password" autocomplete="current-password" required aria-describedby="password-help"><small id="password-help" hidden>Use at least 12 characters.</small></label><label id="code-field" hidden>One-use code <input name="code" autocomplete="off"></label><p role="alert"></p><div class="tools"><button type="button" data-close>Cancel</button><button class="primary">Continue</button></div></form></dialog>
 <dialog id="proposal"><form id="compose"><h2>Start a proposal</h2><strong id="proposed-card"></strong><label>Proposed status <select name="target"></select></label><label>Your reason <textarea name="reason" required maxlength="200" rows="3"></textarea></label><small>Up to 200 characters. Each distinct card counts toward your proposal limit for this window. Your proposal gets your upvote unless you already voted on this card. You can change or withdraw your vote while voting is open.</small><p role="alert"></p><div class="tools"><button type="button" data-close>Cancel</button><button class="primary">Start proposal</button></div></form></dialog>
-<script type="module" src="voting.js?v=proposal-sections-1"></script></body></html>
+<dialog id="text-editor" aria-labelledby="edit-heading">
+  <form>
+    <h2 id="edit-heading"></h2>
+    <label><span id="edit-label"></span><textarea name="text" required rows="4"></textarea></label>
+    <p role="alert"></p>
+    <div class="tools"><button type="button" data-close>Cancel</button><button class="primary">Save changes</button></div>
+  </form>
+</dialog>
+<script type="module" src="voting.js?v=proposal-sections-1.author-edits-1"></script></body></html>
