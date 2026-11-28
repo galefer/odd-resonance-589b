@@ -1,4 +1,4 @@
-import { mountCardViewer } from './card-viewer.js';
+import {api,esc,avatar} from './duel/common.js';
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -29,5 +29,6 @@ function applyConfig(config) {
   document.title = `${settings.format_name || 'Yu-Gi-Oh! JUSH House Format'} · Guild of Games`;
 }
 
-mountCardViewer($('#card-viewer'), { onConfig: applyConfig });
-$('#hero-check-card').addEventListener('click', () => requestAnimationFrame(() => $('#card-search').focus()));
+if(location.search&&['q','view','subtype','status','type','category','card','archetype','sort','page'].some(k=>new URLSearchParams(location.search).has(k))||location.hash==='#card-search')location.replace('/gog/cards/'+location.search+location.hash);
+fetch('/gog/api/config').then(r=>r.json()).then(applyConfig).catch(()=>{});
+api('ladder').then(({players})=>{$('#home-standings').innerHTML=players.slice(0,3).map(p=>'<div class="row item"><strong>#'+p.place+'</strong>'+avatar(p)+'<a href="/gog/duel/?profile='+p.id+'">'+esc(p.name)+'</a><strong>'+p.score+' pts</strong></div>').join('')||'Standings start after players complete four rated matches.';}).catch(()=>{$('#home-standings').textContent='Standings are unavailable. Try again shortly.';});

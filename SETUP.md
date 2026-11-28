@@ -320,4 +320,10 @@ node tests/test-cloudflare.mjs
 node --test tests/gog/deckbuilder-unit.mjs
 ```
 
+### JUSH mobile event app
+
+Use the existing Pages D1 binding and member accounts. Apply `database/migrations/0015_jush_event_app.sql` after the community migrations, then deploy the minute settlement trigger with `wrangler deploy --config workers/jush-settlement/wrangler.jsonc`. The Worker uses the same D1 database as Pages. Its last heartbeat is visible in the JUSH Office Duels workspace. Open `/gog/install/` for the reusable install poster.
+
+Run `node tests/gog/event-app.mjs` for the isolated ledger rehearsal. Run `node tests/gog/event-browser.mjs` for the phone and desktop player journeys with Chrome. Both use a disposable in-memory database. During an event, both players check in and share a single match receipt. Pending and disputed matches reserve both places. Confirmation, automatic approval and Office rulings rate both players. Voiding the record releases both places.
+
 Tests simulate D1, HTTP requests and an API that enforces the 1 August cutoff; they do not require Cloudflare credentials. `tests/gog/browser-smoke.mjs` can additionally exercise a local `wrangler pages dev` instance using an installed Chrome browser. A live Cloudflare deployment and external simulator interoperability still require separate verification.

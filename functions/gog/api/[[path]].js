@@ -707,9 +707,11 @@ async function imageFor(context, id) {
   if (!validCardId(validId) || !['thumb','cover','full'].includes(size)) return failure(400);
   const edgeHit = await edgeImageMatch(context.request);
   if (edgeHit) return edgeHit;
-  // Image requests for unknown / post-cutoff IDs never reach the image host.
-  const cached = await db.prepare(`SELECT a.artwork_id FROM card_artworks a JOIN cards_cache c ON c.card_id=a.canonical_id
-    WHERE a.artwork_id=? AND c.pool_verified=1 LIMIT 1`).bind(validId).first();
+  // Profile art can use any known catalogue ID. Builder and voting stay restricted to the House pool.
+  const portrait=size==='cover' && url.searchParams.get('purpose')==='profile';
+  const cached=portrait
+    ? await db.prepare('SELECT artwork_id FROM card_artworks WHERE artwork_id=? UNION ALL SELECT card_id FROM cards_cache WHERE card_id=? LIMIT 1').bind(validId,validId).first()
+    : await db.prepare('SELECT a.artwork_id FROM card_artworks a JOIN cards_cache c ON c.card_id=a.canonical_id WHERE a.artwork_id=? AND c.pool_verified=1 LIMIT 1').bind(validId).first();
   if (!cached || !context.env.GOG_IMAGES) return failure(cached ? 503 : 404, cached ? 'binding-missing' : 'unknown-card');
   const bucketPrefix = size === 'full' ? 'cards' : size === 'cover' ? 'cards-cropped' : 'cards-small';
   const providerPrefix = size === 'full' ? 'cards' : size === 'cover' ? 'cards_cropped' : 'cards_small';
@@ -903,7 +905,7 @@ function eventValues(body, fallback = {}) {
   if (!EVENT_STATUSES.has(status)) throw fail(400, 'Invalid event status.');
   return { title, eventDate, startTime, endTime, location, description, status };
 }
-async function eventSchedule(db) {
+async function eventSchedule(db, includeEnded = false) {
   const now = londonNow();
   const today = now.date;
   const [seriesResult, specialResult, houseStartSetting] = await Promise.all([
@@ -926,12 +928,12 @@ async function eventSchedule(db) {
         customised: !!override, sortOrder: series.sortOrder
       };
     }));
-    const visible = candidates.filter((event) => !eventHasEnded(event, now));
+    const visible = candidates.filter((event) => includeEnded || !eventHasEnded(event, now));
     return visible.slice(0, series.slug === 'yugioh-advanced-thursday' ? 4 : 4);
   }))).flat();
   const special = specialResult.results
     .map((event) => ({ ...event, id: `special-${event.id}`, eventId: event.id, source: 'special' }))
-    .filter((event) => !eventHasEnded(event, now));
+    .filter((event) => includeEnded || !eventHasEnded(event, now));
   return [...recurring, ...special].sort((a, b) => a.eventDate.localeCompare(b.eventDate)
     || (a.startTime || '99:99').localeCompare(b.startTime || '99:99') || (a.sortOrder || 0) - (b.sortOrder || 0));
 }
@@ -952,7 +954,7 @@ async function handle(context) {
     const director = path.startsWith('/admin/');
     if (director && !office) throw fail(403, 'Use the JUSH Office workspace.');
     return community(context, path.slice(director ? 17 : 11), {json, fail, inputJson, sha256, makeId,
-      passwordStorageHash, safeEquals, loginThrottled, normalise, parseCookie, statusesFor, cachedCardView}, director);
+      passwordStorageHash, safeEquals, loginThrottled, normalise, parseCookie, statusesFor, cachedCardView, londonNow, getSchedule: () => eventSchedule(db,true)}, director);
   }
 
   if (method === 'GET' && path === '/config') {

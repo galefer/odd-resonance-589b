@@ -326,8 +326,9 @@ auth.onsubmit=async event=>{
   authButton.textContent=mode==='join'?'Creating account…':mode==='recover'?'Resetting password…':'Signing in…';
   try{
     const salt=mode==='login'?(await api('community/salt?username='+encodeURIComponent(username))).salt:hex(crypto.getRandomValues(new Uint8Array(16)));
-    await action(mode,{username,code,salt,proof:await proof(password,salt)});
+    await action(mode,{username,code,salt,remember:auth.elements.remember.checked,proof:await proof(password,salt)});
     auth.reset();auth.elements.mode.onchange();$('auth').close();
+    if(new URLSearchParams(location.search).get('return')==='duel'){location.assign('/gog/duel/');return;}
   }catch(e){authError.textContent=e.message;return;}
   finally{authButton.disabled=false;authButton.textContent='Continue';}
   notice('Signed in.');

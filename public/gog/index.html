@@ -14,9 +14,10 @@
   <link rel="stylesheet" href="/gog/site-header.css">
   <link rel="stylesheet" href="/gog/house-format/house-format.css?v=2026-10-29-mobile-hero-spacing">
   <link rel="stylesheet" href="/gog/voting/entry.css">
+<link rel="manifest" href="/gog/app.webmanifest"><link rel="apple-touch-icon" href="/gog/assets/app/icon-180.png"><link rel="stylesheet" href="/gog/mobile-app.css"><script type="module" src="/gog/mobile-nav.js"></script>
 </head>
 <body class="house-format-page jush-theme jush-homepage">
-  <a class="skip-link" href="#main-content">Skip to card list</a>
+  <a class="skip-link" href="#main-content">Skip to event information</a>
 
   <header class="gog-site-header">
     <div class="gog-header-inner">
@@ -74,7 +75,7 @@
         </article>
         <nav class="hero-mobile-actions" aria-label="House format shortcuts">
           <a class="jush-button hero-build-link" href="/gog/deckbuilder/">Build a deck <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-chevron-right"></use></svg></a>
-          <a class="jush-button hero-check-link" id="hero-check-card" href="#card-search">Check a card <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-search"></use></svg></a>
+          <a class="jush-button hero-check-link" id="hero-check-card" href="/gog/cards/">Check a card <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-search"></use></svg></a>
         </nav>
         </div>
       </div>
@@ -112,7 +113,7 @@
       </details>
     </section>
 
-    <div id="card-viewer"></div>
+    <section class="shell j-home-top" aria-labelledby="top-title"><h2 id="top-title">Top JUSH players</h2><div class="panel" id="home-standings" aria-live="polite">Loading standings…</div><p><a href="/gog/duel/">Full leaderboard</a> · <a href="/gog/install/">Install JUSH</a> · <a href="/gog/cookies/">Cookies and storage</a></p></section>
 
     <section class="about-strip" id="format-rules">
       <div class="shell about-grid">
@@ -142,7 +143,7 @@
   <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
   <div class="home-toast" id="home-toast" role="status" hidden></div>
 
-  <script type="module" src="/gog/app.js?v=shared-card-viewer"></script>
+  <script type="module" src="/gog/app.js?v=jush-app-1"></script>
   <script src="/gog/home.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,9 @@
+{
+  "name": "jush-match-settlement",
+  "main": "index.js",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "triggers": {"crons": ["* * * * *"]},
+  "d1_databases": [{"binding":"GOG_DB","database_name":"gog-house-format","database_id":"aec66a35-3c9b-460d-8721-abeea167770a"}]
+}

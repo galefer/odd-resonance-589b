@@ -1,0 +1,24 @@
+{
+  "id": "/gog/",
+  "name": "JUSH · Guild of Games",
+  "short_name": "JUSH",
+  "start_url": "/gog/",
+  "scope": "/gog/",
+  "display": "standalone",
+  "background_color": "#071929",
+  "theme_color": "#071929",
+  "icons": [
+    {
+      "src": "/gog/assets/app/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/gog/assets/app/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
