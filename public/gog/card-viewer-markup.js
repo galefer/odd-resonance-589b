@@ -1,3 +1,5 @@
+const legalityRules = 'Eligible cards not on the restricted list are Unlimited. Cards outside the Justice Hunters pool are not legal.';
+
 export const catalogueMarkup = `
   <section class="search-zone" aria-labelledby="search-heading">
     <div class="shell">
@@ -6,7 +8,7 @@ export const catalogueMarkup = `
           <div>
             <p class="search-kicker">Know your limits</p>
             <h2 id="search-heading"><span class="desktop-search-title">Check a card. Build with confidence.</span><span class="mobile-search-title">Check a card</span></h2>
-            <p>Eligible cards not on the restricted list are Unlimited. Cards outside the Justice Hunters pool are not legal.</p>
+            <p>${legalityRules}</p>
           </div>
           <div class="api-state" id="api-state" hidden>
             <span class="status-dot"></span>
@@ -26,7 +28,7 @@ export const catalogueMarkup = `
           </div>
           <button class="button filter-toggle" id="filter-toggle" type="button" aria-expanded="false" aria-controls="filters-panel">
             <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-filter"></use></svg>
-            Filters
+            <span class="filter-toggle-label">Filters</span>
             <span class="filter-count" id="filter-count" hidden>0</span>
           </button>
         </div>
@@ -100,6 +102,7 @@ export const catalogueMarkup = `
                 <button type="button" data-list-view="recent" aria-pressed="false">Recent</button>
               </div>
               <p class="results-count" id="results-count" aria-live="polite">Loading cards…</p>
+              <details class="catalogue-rules"><summary>Rules</summary><p>${legalityRules}</p></details>
             </div>
           </div>
 

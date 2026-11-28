@@ -1,4 +1,4 @@
-import { catalogueMarkup, cardDetailMarkup } from './card-viewer-markup.js?v=card-detail-view';
+import { catalogueMarkup, cardDetailMarkup } from './card-viewer-markup.js?v=compact-cards';
 
 const GOG_BASE = '/gog';
 const CARD_POOL_CUTOFF = '2025-08-01';
@@ -214,7 +214,7 @@ export function mountCardViewer(container, { onConfig, onPropose, canPropose, ca
         </div>
         <div class="card-copy">
           <h3 class="card-name">${escapeHtml(smartTitle(card.name))}${houseChangeBadge(card)}</h3>
-          <div class="card-status-mobile">${statusBadge(card.status)}</div>
+          <div class="card-status-mobile">${statusBadge(card.status)}${houseChangeBadge(card)}</div>
           <div class="card-metadata"><span>${escapeHtml(card.category)} · ${escapeHtml(card.subtype)}</span>${changeContext}</div>
           ${note}
         </div>

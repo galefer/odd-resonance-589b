@@ -239,7 +239,59 @@ try {
   await send('Emulation.setDeviceMetricsOverride', {width: 390, height: 844, deviceScaleFactor: 1, mobile: true});
   await wait('!document.querySelector("#catalogue").shadowRoot.querySelector("#card-search").getClientRects().length');
   await goto('/gog/cards/');
-  await wait('document.querySelector("#card-search")');
+  await wait('document.querySelector(".card-row") && document.querySelector(".j-account img")');
+  assert.equal(await ev("document.querySelector('.j-account').ariaLabel"), 'Account for Tester6');
+  assert.match(await ev("document.querySelector('.j-account img').src"), /\/12\/image\?size=cover&purpose=profile$/);
+  for (const [width, height] of [[320, 640], [390, 844]]) {
+    await send('Emulation.setDeviceMetricsOverride', {width, height, deviceScaleFactor: 1, mobile: true});
+    await ev('document.fonts.ready');
+    const layout = await ev(`(() => {
+      const rect = s => document.querySelector(s).getBoundingClientRect();
+      const rows = [...document.querySelectorAll('.card-row')];
+      return { first: rect('.card-row').top, shown: rows.filter(r => r.getBoundingClientRect().bottom <= rect('.j-app-nav').top).length,
+        avatar: rect('.j-account').width, portrait: rect('.j-account-portrait').width,
+        filter: rect('#filter-toggle').width, overflow: document.documentElement.scrollWidth > innerWidth };
+    })()`);
+    console.log('Cards at ' + width + 'x' + height, layout);
+    assert.ok(layout.shown >= 6 && !layout.overflow, JSON.stringify(layout));
+    assert.deepEqual([layout.avatar, layout.portrait, layout.filter], [48, 32, 48]);
+  }
+  await click('.catalogue-rules summary');
+  assert.ok(await ev("document.querySelector('.catalogue-rules p').getClientRects().length > 0"));
+  await click('.catalogue-rules summary');
+  await click('#filter-toggle');
+  await wait('document.querySelector("#filter-toggle").getAttribute("aria-expanded")==="true"');
+  await click('#filter-toggle');
+  await click('[data-list-view="changes"]');
+  await wait('document.querySelector(".is-house-change .card-status-mobile .house-change-badge")?.getClientRects().length');
+  assert.equal(await ev("document.querySelector('#results-count').textContent"), '1 card shown');
+  assert.equal(await ev("document.querySelector('.card-name').innerText"), 'Rehearsal Card');
+  assert.ok(await ev("document.querySelector('.card-metadata .change-context').innerText.includes('Limited')"));
+  await click('[data-list-view="recent"]');
+  await wait('document.querySelector("[data-list-view=recent]").getAttribute("aria-pressed")==="true"');
+  await click('[data-list-view="current"]');
+  const point = await ev(`(() => {const r=document.querySelector('.card-thumbnail').getBoundingClientRect();
+    return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+  await send('Input.dispatchTouchEvent', {type:'touchStart', touchPoints:[point]});
+  await send('Input.dispatchTouchEvent', {type:'touchEnd', touchPoints:[]});
+  await wait('document.querySelector("#card-modal").open');
+  await click('[data-close-dialog="card-modal"]');
+  await send('Emulation.setDeviceMetricsOverride', {width:1280, height:900, deviceScaleFactor:1, mobile:false});
+  assert.ok(await ev("document.querySelector('.ja-main > h1').getClientRects().length > 0"));
+  assert.ok(await ev("document.querySelector('.card-metadata > span').getClientRects().length > 0"));
+  assert.ok(await ev("document.querySelector('.status-cell .status-badge b').getClientRects().length > 0"));
+  assert.equal(await ev("document.querySelector('.catalogue-rules').getClientRects().length"), 0);
+  await send('Emulation.setDeviceMetricsOverride', {width:390, height:844, deviceScaleFactor:1, mobile:true});
+  await click('.j-account');
+  await wait('document.querySelector("#player-dialog")?.open && document.querySelector("#dialog-title").textContent==="My account"');
+  await as(5);
+  await goto('/gog/cards/');
+  await wait('document.querySelector(".j-account-portrait")?.textContent==="T"');
+  await send('Network.clearBrowserCookies');
+  await goto('/gog/cards/');
+  await wait('document.querySelector(".j-account")?.textContent==="Sign in"');
+  await click('.j-account');
+  await wait('document.querySelector("#auth")?.open');
   await goto('/gog/');
   await wait('document.querySelector("#home-standings .item")');
   assert.equal(await ev('!!document.querySelector("#card-search")'), false);
@@ -251,7 +303,7 @@ try {
   await wait('document.querySelector(".ja-qr").naturalWidth>0');
   assert.deepEqual(errors, []);
   console.log(
-    'Chrome passed: live/closed Duel, reciprocal match history, touch resizing in Builder, responsive Voting, compact Home and install QR.',
+    'Chrome passed: compact Cards and account states, desktop catalogue, Duel, reciprocal match history, Builder touch resizing, responsive Voting, Home and install QR.',
   );
 } finally {
   ws?.close();

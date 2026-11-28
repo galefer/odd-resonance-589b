@@ -39,6 +39,18 @@
 .ja-head img {
   object-fit: contain;
 }
+.ja-head .j-account {
+  min-width: 48px; min-height: 48px; justify-content: center;
+  padding: 0 12px; border: 1px solid #41616e; border-radius: 24px;
+}
+.ja-head .j-account.has-player { width: 48px; height: 48px; padding: 0; }
+.j-account-portrait {
+  position: relative; display: grid; place-items: center; overflow: hidden;
+  width: 32px; height: 32px; border-radius: 50%; background: #264657; color: #a1eeee;
+}
+.ja-head .j-account-portrait img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+}
 .ja-main {
   min-height: 65vh;
 }

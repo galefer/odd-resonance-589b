@@ -210,6 +210,15 @@ await api('app/favourite', a[6], {
   zones: { main: [11, 12], extra: [], side: [] },
 });
 const fixtureShare = (await api('app/profile?id=7')).favourites[0].share;
+assert.equal((await api('app/inbox')).player, null);
+assert.deepEqual((await api('app/inbox', a[5])).player, { name: 'Tester5', art: null });
+assert.deepEqual((await api('app/inbox', a[6])).player, { name: 'Tester6', art: 12 });
+sql.exec(readFileSync(new URL('../../database/seed.sql', import.meta.url), 'utf8'));
+sql.exec(`INSERT INTO versions(id,version_label,effective_date,status,previous_version_id,created_at)
+  VALUES(2,'Rehearsal','2027-01-23','published',1,'2027-01-23');
+  INSERT INTO entries SELECT 2,name,sort_name,card_id,category,subtype,card_type,status,note
+    FROM entries WHERE version_id=1;
+  INSERT INTO entries VALUES(2,'Rehearsal card','rehearsal card',11,'Monster','Effect','Effect Monster','limited',NULL);`);
 export { env, a as testCookies, fixtureShare };
 export function setEventTime(value) {
   hour = value;

@@ -335,7 +335,9 @@ auth.onsubmit=async event=>{
     const salt=mode==='login'?(await api('community/salt?username='+encodeURIComponent(username))).salt:hex(crypto.getRandomValues(new Uint8Array(16)));
     await action(mode,{username,code,salt,remember:auth.elements.remember.checked,proof:await proof(password,salt)});
     auth.reset();auth.elements.mode.onchange();$('auth').close();
-    if(new URLSearchParams(location.search).get('return')==='duel'){location.assign('/gog/duel/');return;}
+    const destination=new URLSearchParams(location.search).get('return');
+    if(destination==='account'){location.assign('/gog/duel/?profile=me');return;}
+    if(destination==='duel'){location.assign('/gog/duel/');return;}
   }catch(e){authError.textContent=e.message;return;}
   finally{authButton.disabled=false;authButton.textContent='Continue';}
   notice('Signed in.');

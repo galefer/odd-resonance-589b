@@ -1,10 +1,11 @@
-const CACHE = 'jush-public-shell-v2',
+const CACHE = 'jush-public-shell-v3',
   offline = '/gog/offline.html';
+const shellAssets = ['/gog/mobile-app.css', '/gog/mobile-nav.js', '/gog/duel/common.js'];
 self.addEventListener('install', (e) =>
   e.waitUntil(
     caches
       .open(CACHE)
-      .then((c) => c.addAll([offline, '/gog/mobile-app.css', '/gog/mobile-nav.js']))
+      .then((c) => c.addAll([offline, ...shellAssets]))
       .then(() => self.skipWaiting()),
   ),
 );
@@ -24,6 +25,6 @@ self.addEventListener('fetch', (e) => {
   const u = new URL(e.request.url);
   if (u.origin !== location.origin || e.request.method !== 'GET' || u.pathname.startsWith('/gog/api/')) return;
   if (e.request.mode === 'navigate') e.respondWith(fetch(e.request).catch(() => caches.match(offline)));
-  else if (['/gog/mobile-app.css', '/gog/mobile-nav.js'].includes(u.pathname))
+  else if (shellAssets.includes(u.pathname))
     e.respondWith(fetch(e.request).catch(() => caches.match(u.pathname)));
 });

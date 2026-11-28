@@ -467,6 +467,9 @@
   border-color: var(--jush-cyan);
   box-shadow: 0 0 18px rgba(0,232,242,.16);
 }
+.catalogue-rules,
+.house-format-page .card-status-mobile .house-change-badge { display: none; }
+
 .house-format-page .results-count { margin: 0; color: #fff; font-size: .98rem; white-space: nowrap; }
 .house-format-page .active-filters { margin: 8px 0; }
 .house-format-page .active-filter-chip { color: #fff; background: #0a243b; border-color: #335a77; }

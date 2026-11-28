@@ -1,4 +1,5 @@
 import { api, esc, avatar, nameButton, resultName, statusName, artUrl } from './common.js';
+import { renderAccount } from '../mobile-nav.js';
 import { DeckDatabase } from '../deckbuilder/persistence.js';
 const $ = (id) => document.getElementById(id),
   dlg = $('player-dialog'),
@@ -174,6 +175,7 @@ async function refresh() {
   const data = await api('board');
   if (seq !== sequence) return;
   board = data;
+  renderAccount(board.me);
   offset = board.serverTime - Date.now() / 1000;
   render();
 }
