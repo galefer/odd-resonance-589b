@@ -106,7 +106,7 @@ function renderBoard(keepThreads){
       <div class="votes">${btn(1,'Upvote',c.up)}${btn(-1,'Downvote',c.down)}${mine&&open&&!disabled?`<button data-vote="0">${starter?'Withdraw proposal':'Remove my vote'}</button>`:''}</div>
       ${others.length?`<p>Other proposals · ${others.map(o=>`<a href="#candidate-${o.id}">${statuses[o.target]}</a>`).join(' · ')}</p>`:''}
       <details class="comments"><summary>Comments (${c.comments})</summary><div class="thread"></div></details></div></details></article>`;
-  }).join('')||`<div class="empty">${icon('card-stack')}<div><h3>${open?'Start the first proposal':'No proposals this period'}</h3><p>${open?'Choose a card in the catalogue and propose its new limit.':'Browse the published card limits below.'}</p></div></div>`;
+  }).join('')||`<div class="empty">${icon('card-stack')}<div><h3>${open?'Start the first proposal':'No proposals this period'}</h3><p>${open?'Choose a card in the catalogue and propose its new limit.':'Browse the published limits in Cards.'}</p></div></div>`;
   for (const id of openRows) {
     const row = $(id);
     if (!row) continue;
@@ -390,7 +390,14 @@ catalogue.innerHTML = `
   <link rel="stylesheet" href="/gog/house-format/house-format.css">
   <link rel="stylesheet" href="/gog/voting/viewer.css">
   <div class="house-format-page"><div id="viewer"></div><div id="toast-region" class="toast-region" role="status"></div></div>`;
-const viewer = mountCardViewer(catalogue.getElementById('viewer'), { onPropose: proposeCard, canPropose: active });
+const desktopCatalogue = matchMedia('(min-width: 801px)');
+const viewer = mountCardViewer(catalogue.getElementById('viewer'), {
+  onPropose: proposeCard, canPropose: active, catalogueMedia: desktopCatalogue
+});
+const browseCards = document.querySelector('.hero-meta a');
+function updateBrowseLink() { browseCards.href = desktopCatalogue.matches ? '#catalogue' : '/gog/cards/'; }
+desktopCatalogue.addEventListener('change', updateBrowseLink);
+updateBrowseLink();
 openScannedInvite();
 refresh().then(()=>{revealCandidate(location.hash);if(location.hash==='#account'&&!board.username)signIn();return linkedProposal();}).catch(e=>notice(e.message));
 setInterval(()=>{if(document.hidden)return;

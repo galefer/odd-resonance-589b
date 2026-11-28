@@ -1,4 +1,4 @@
-export const viewerMarkup = `
+export const catalogueMarkup = `
   <section class="search-zone" aria-labelledby="search-heading">
     <div class="shell">
       <div class="search-panel">
@@ -126,7 +126,9 @@ export const viewerMarkup = `
     </div>
   </section>
 
-<dialog class="modal card-modal" id="card-modal" aria-label="Card details">
+`;
+
+export const cardDetailMarkup = `<dialog class="modal card-modal" id="card-modal" aria-label="Card details">
   <div class="detail-controls">
     <button class="modal-close" type="button" data-close-dialog="card-modal" aria-label="Close card details">
       <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 5 14 14M19 5 5 19"/></svg>
@@ -167,3 +169,6 @@ export const viewerMarkup = `
   </div>
 </dialog>
 `;
+
+// A previously cached Cards script may still request the complete template.
+export const viewerMarkup = catalogueMarkup + cardDetailMarkup;

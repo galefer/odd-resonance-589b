@@ -316,9 +316,6 @@
   outline: 3px solid #ffc774;
   outline-offset: 3px;
 }
-.j-view-deck {
-  display: none;
-}
 .ja [hidden] {
   display: none !important;
 }
@@ -376,54 +373,75 @@
   .ja-main {
     padding-top: 24px;
   }
-  body.j-builder .workspace {
-    display: flex !important;
-    flex-direction: column !important;
-    height: calc(100dvh - var(--j-bar) - var(--j-header-height, 64px)) !important;
-    min-height: 0 !important;
-  }
-  body.j-builder .library-panel {
-    height: 100% !important;
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-  }
-  body.j-builder #mobile-workspace-splitter,
-  body.j-builder #deck-workspace {
-    display: none !important;
-  }
-  body.j-builder.j-deck-open #deck-workspace {
-    display: flex !important;
-    flex-direction: column;
-    position: fixed;
-    z-index: 33;
-    inset: var(--j-header-height, 64px) 0 var(--j-bar);
-    height: auto !important;
-    background: #071e2d;
-    overflow: auto;
-  }
-  body.j-builder .j-view-deck {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    color: #71f2eb;
-    border: 1px solid #40717c;
-    background: #0a2b36;
-    border-radius: 6px;
-    padding: 4px 9px;
-    font-weight: 700;
+  body.deckbuilder-page .workspace {
+    height: calc(var(--mobile-viewport-height, 100dvh) - var(--mobile-site-header, 48px) - var(--mobile-editor-header) - var(--j-bar));
+    padding-bottom: 8px;
   }
   .ja-main .player-stats {
     display: block;
   }
 }
 @media (min-width: 801px) {
-  body.j-builder .j-app-nav {
+  body.deckbuilder-page .j-app-nav {
     display: none;
   }
   .j-app-nav {
     position: relative;
   }
 }
+@media (max-width: 800px) {
+  .jush-homepage .hero-mobile-actions,
+  .jush-homepage .event-deck-link,
+  .jush-homepage .jush-ballot-entry,
+  .jush-homepage .hero-ribbon,
+  .jush-homepage .hero-brand-line,
+  .jush-homepage .hero-community-line,
+  .jush-homepage .hero-format-title,
+  .jush-homepage .facts-grid,
+  .jush-homepage #format-rules,
+  .jush-homepage .site-footer,
+  .jush-homepage .footer-admin-links,
+  .jush-homepage .home-links > span,
+  .jush-homepage main::before,
+  .jush-homepage main::after { display: none; }
+  .jush-homepage .hero,
+  .jush-homepage .hero-stage { height: auto; min-height: 0; }
+  .jush-homepage .hero-copy {
+    width: min(100% - 32px, 520px);
+    height: auto;
+    gap: 6px;
+    padding: 8px 0 16px;
+  }
+  .jush-homepage .hero-wordmark { width: clamp(160px, 48vw, 230px); margin: 0; }
+  .jush-homepage .next-event-panel {
+    width: 100%;
+    min-height: 0;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 10px;
+    margin: 0;
+    padding: 10px 14px;
+    text-align: left;
+  }
+  .jush-homepage .event-panel-icon { width: 26px; height: 26px; margin: 0; align-self: center; }
+  .jush-homepage .next-event-copy time { font-size: clamp(1.35rem, 5vw, 1.7rem); white-space: normal; }
+  .jush-homepage .j-home-top { width: min(100% - 32px, 520px); padding: 20px 0 12px; }
+  .jush-homepage .j-home-top h2 { font-size: 1.65rem; margin: 0 0 10px; }
+  .jush-homepage #home-standings { padding: 10px 14px; }
+  .jush-homepage #home-standings .item { flex-wrap: nowrap; padding: 6px 0; gap: 8px; }
+  .jush-homepage #home-standings .avatar { width: 32px; height: 32px; }
+  .jush-homepage #home-standings .item a { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .jush-homepage #home-standings .item strong { white-space: nowrap; }
+  .jush-homepage .format-facts { background: transparent; border: 0; min-height: 0; padding: 0 0 12px; }
+  .jush-homepage .mobile-format-summary { display: block; width: min(100% - 32px, 520px); margin: 0 auto; }
+  .jush-homepage .mobile-format-summary summary { min-height: 46px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+  .jush-homepage .mobile-format-summary summary > span { display: grid; }
+  .jush-homepage .mobile-format-summary summary > svg { width: 18px; }
+  .jush-homepage .mobile-format-summary .footer-inner { display: block; padding: 8px 4px; width: auto; }
+  .jush-homepage .mobile-format-summary .footer-inner strong,
+  .jush-homepage .mobile-format-summary #footer-version { display: none; }
+  .jush-homepage .mobile-format-summary .home-links a { display: inline-block; padding: 12px 0; }
+}
+
 @media print {
   .j-app-nav,
   .ja-head,

@@ -30,7 +30,7 @@ const zoneLabel = (zone) => zone === 'main' ? 'Main Deck' : zone === 'extra' ? '
 const statusLabel = (status) => ({ unlimited: 'Unlimited', semi_limited: 'Semi-Limited', limited: 'Limited', forbidden: 'Forbidden', unverified: 'Unverified' }[status] || 'Unverified');
 const statusBadge = (status) => ({ forbidden: '0', limited: '1', semi_limited: '2' }[status] || '');
 const clone = (value) => structuredClone(value);
-const MOBILE_WORKSPACE_QUERY = '(max-width:767px)';
+const MOBILE_WORKSPACE_QUERY = '(max-width:800px)';
 const COMPACT_WORKSPACE_QUERY = '(max-width:1279px)';
 const MOBILE_SPLIT_STORAGE_KEY = 'gog-deckbuilder-mobile-split';
 const DECK_VIEW_STORAGE_KEY = 'gog-deckbuilder-view-preferences';

@@ -179,6 +179,28 @@ async function loadEvents() {
   renderNextJushEvent(state.events, cached);
 }
 
+// The same rules, credits and utility links live in one disclosure on a phone.
+const phoneHome = matchMedia('(max-width: 800px)');
+const facts = $('.format-facts');
+const summary = $('.mobile-format-summary');
+const topPlayers = $('.j-home-top');
+const rules = $('#format-rules .about-grid > p');
+const credits = $('.site-footer .footer-inner');
+const links = $('.home-links');
+function arrangeHome() {
+  if (phoneHome.matches) {
+    topPlayers.after(facts);
+    summary.append(rules, credits, links);
+  } else {
+    topPlayers.before(facts);
+    $('#format-rules .about-grid').append(rules);
+    $('.site-footer').append(credits);
+    topPlayers.append(links);
+  }
+}
+arrangeHome();
+phoneHome.addEventListener('change', arrangeHome);
+
 loadEvents().catch(renderEventUnavailable);
 
 document.addEventListener('visibilitychange', () => {

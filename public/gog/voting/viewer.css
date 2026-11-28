@@ -9,3 +9,7 @@
 }
 .house-format-page .card-row { position: relative; }
 .house-format-page .card-open::after { content: ""; position: absolute; inset: 0; }
+
+@media (max-width: 800px) {
+  #viewer > .search-zone, #viewer > .list-section { display: none; }
+}

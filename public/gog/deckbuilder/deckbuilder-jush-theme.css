@@ -497,13 +497,13 @@ body.deckbuilder-page .deck-footer {
   background: rgba(2, 12, 25, .92);
 }
 
-@media (min-width: 768px) {
+@media (min-width: 801px) {
   body.deckbuilder-page .deck-toolbar { position: relative; }
 }
 
 /* The phone editor keeps exactly the same compact workspace, with themed
    surfaces and high-contrast touch/focus states. */
-@media (max-width: 767px) {
+@media (max-width: 800px) {
   body.deckbuilder-page {
     background-color: var(--jush-deep);
     background-image: url('/gog/assets/jush/textures/navy-grain.svg');
@@ -640,7 +640,7 @@ body.deckbuilder-page .deck-footer {
   }
 }
 
-@media (max-width: 767px) and (max-height: 520px) {
+@media (max-width: 800px) and (max-height: 520px) {
   body.deckbuilder-page .deck-toolbar {
     width: 100%;
     background: #031326;
@@ -847,7 +847,7 @@ body.deckbuilder-page .validation-compact strong { font-family: var(--font); fon
 body.deckbuilder-page .validation-compact.legal { color: #8fe5c8; border-color: #286d59; background: #082820; }
 body.deckbuilder-page .validation-compact.invalid { color: #ffb3cc; border-color: #89365a; background: #301428; }
 body.deckbuilder-page .validation-compact.unverified { color: #ffd68d; border-color: #735e38; background: #2b2415; }
-@media (min-width: 768px) {
+@media (min-width: 801px) {
   body.deckbuilder-page .deck-canvas:not(.has-validation-warning) .validation-banner { display: none; }
   body.deckbuilder-page .has-validation-warning .validation-compact { display: none; }
   body.deckbuilder-page .validation-banner {
@@ -949,7 +949,7 @@ body.deckbuilder-page .tool-section label { font-family: var(--font); }
   body.deckbuilder-page .deck-grid { grid-template-columns: repeat(10,minmax(0,1fr)); }
 }
 
-@media (min-width: 768px) and (max-width: 1279px) {
+@media (min-width: 801px) and (max-width: 1279px) {
   body.deckbuilder-page .workspace {
     grid-template-columns: minmax(0,1fr) clamp(280px,34vw,390px);
     grid-template-areas: "deck library";
@@ -979,7 +979,7 @@ body.deckbuilder-page .tool-section label { font-family: var(--font); }
 }
 
 /* Shared actions and statistics drawers for tablets and desktops. */
-@media (min-width: 768px) {
+@media (min-width: 801px) {
   body.deckbuilder-page dialog.mobile-sheet {
     position: fixed;
     inset: 0 0 0 auto;
@@ -1035,7 +1035,7 @@ body.deckbuilder-page .tool-section label { font-family: var(--font); }
   body.deckbuilder-page .mobile-site-links { margin-top: 18px; padding-top: 14px; border-top: 1px solid #28506c; }
   body.deckbuilder-page .mobile-site-links a { min-height: 42px; display: grid; place-items: center; color: var(--jush-cyan); border: 1px solid #2d5873; border-radius: 8px; }
 }
-@media (min-width: 768px) and (max-width: 980px) {
+@media (min-width: 801px) and (max-width: 980px) {
   body.deckbuilder-page .deck-save-actions #saved-decks-button,
   body.deckbuilder-page .toolbar-actions #export-button { display: none; }
   body.deckbuilder-page .workspace { grid-template-columns: minmax(0,1fr) minmax(260px,36vw); }
@@ -1043,7 +1043,7 @@ body.deckbuilder-page .tool-section label { font-family: var(--font); }
   body.deckbuilder-page .canvas-caption { display: none; }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 800px) {
   body.deckbuilder-page { font-size: 14px; }
   body.deckbuilder-page .workspace { gap: 0; }
   body.deckbuilder-page .gog-header-inner { height: var(--mobile-site-header,48px); padding: 0 8px; }
@@ -1132,11 +1132,11 @@ body.deckbuilder-page .tool-section label { font-family: var(--font); }
   body.deckbuilder-page .deck-grid { grid-template-columns: repeat(5,minmax(0,1fr)); }
   body.deckbuilder-page #mobile-inspector-mount .inspector { grid-template-columns: 96px minmax(0,1fr); }
 }
-@media (min-width: 600px) and (max-width: 767px) {
+@media (min-width: 600px) and (max-width: 800px) {
   body.deckbuilder-page .library-grid { grid-template-columns: repeat(9,minmax(0,1fr)); }
   body.deckbuilder-page .deck-grid { grid-template-columns: repeat(10,minmax(0,1fr)); }
 }
-@media (max-width: 767px) and (max-height: 520px) {
+@media (max-width: 800px) and (max-height: 520px) {
   body.deckbuilder-page .library .search-box { margin-top: 6px; }
 }
 
@@ -1332,7 +1332,7 @@ body.deckbuilder-page .deck-move-option { min-height: 52px; padding: 8px 12px; d
 body.deckbuilder-page .deck-move-option:hover { border-color: #16c6d1; background: #12384b; }
 body.deckbuilder-page .deck-move-option small { color: #a8bfca; }
 
-@media (max-width: 767px) {
+@media (max-width: 800px) {
   body.deckbuilder-page dialog.deck-manager-dialog {
     inset: 0;
     width: 100%;

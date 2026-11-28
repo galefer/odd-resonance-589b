@@ -1,4 +1,4 @@
-const CACHE = 'jush-public-shell-v1',
+const CACHE = 'jush-public-shell-v2',
   offline = '/gog/offline.html';
 self.addEventListener('install', (e) =>
   e.waitUntil(

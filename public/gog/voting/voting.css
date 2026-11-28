@@ -247,3 +247,7 @@ dialog .tools { justify-content: flex-end; }
 }
 .votes .change-choice { --vote-fill: #194a35; --vote-accent: #78e6a1; }
 .votes .keep-choice { --vote-fill: #662d34; --vote-accent: #ffa2a2; }
+
+@media (max-width: 800px) {
+  #catalogue { border: 0; margin: 0; padding: 0; }
+}

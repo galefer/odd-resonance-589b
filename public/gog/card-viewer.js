@@ -1,4 +1,4 @@
-import { viewerMarkup } from './card-viewer-markup.js';
+import { catalogueMarkup, cardDetailMarkup } from './card-viewer-markup.js?v=card-detail-view';
 
 const GOG_BASE = '/gog';
 const CARD_POOL_CUTOFF = '2025-08-01';
@@ -70,8 +70,8 @@ async function api(path, options = {}) {
   return payload;
 }
 
-export function mountCardViewer(container, { onConfig, onPropose, canPropose, catalogueHeading = true } = {}) {
-  container.innerHTML = viewerMarkup;
+export function mountCardViewer(container, { onConfig, onPropose, canPropose, catalogueHeading = true, catalogueMedia } = {}) {
+  container.innerHTML = cardDetailMarkup;
   const $ = (selector, root = container) => root.querySelector(selector);
   const $$ = (selector, root = container) => [...root.querySelectorAll(selector)];
   const state = {
@@ -92,11 +92,6 @@ export function mountCardViewer(container, { onConfig, onPropose, canPropose, ca
   let selectedCard, detailRequest = 0;
   let proposalButton;
   if (onPropose) {
-    const heading = $('#search-heading');
-    if (catalogueHeading) {
-      heading.textContent = 'Card catalogue';
-      heading.parentElement.replaceChildren(heading);
-    }
     $('.card-detail-copy').insertAdjacentHTML('beforeend', '<button type="button" class="button propose-card" hidden>Propose a change</button>');
     proposalButton = $('.propose-card');
     proposalButton.onclick = () => {
@@ -439,11 +434,6 @@ export function mountCardViewer(container, { onConfig, onPropose, canPropose, ca
       updateFilterUi();
       $('#list-workspace').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }));
-    $$('[data-close-dialog]').forEach((button) => button.addEventListener('click', () => $(`#${button.dataset.closeDialog}`).close()));
-    $$('.modal').forEach((dialog) => dialog.addEventListener('click', (event) => {
-      if (event.target === dialog) dialog.close();
-    }));
-
     $$('[data-list-view]').forEach((button) => button.addEventListener('click', () => switchView(button.dataset.listView)));
     $('#filter-toggle').addEventListener('click', () => {
       const panel = $('#filters-panel');
@@ -502,7 +492,13 @@ export function mountCardViewer(container, { onConfig, onPropose, canPropose, ca
 
   }
 
-  async function init() {
+  async function initCatalogue() {
+    container.insertAdjacentHTML('afterbegin', catalogueMarkup);
+    if (onPropose && catalogueHeading) {
+      const heading = $('#search-heading');
+      heading.textContent = 'Card catalogue';
+      heading.parentElement.replaceChildren(heading);
+    }
     wireEvents();
     restoreUrlState();
     try {
@@ -515,6 +511,18 @@ export function mountCardViewer(container, { onConfig, onPropose, canPropose, ca
 
   }
 
-  init();
+  const detailDialog = $('#card-modal');
+  detailDialog.querySelector('[data-close-dialog]').addEventListener('click', () => detailDialog.close());
+  detailDialog.addEventListener('click', event => {
+    if (event.target === detailDialog) detailDialog.close();
+  });
+
+  function showCatalogueWhenReady() {
+    if (catalogueMedia && !catalogueMedia.matches) return;
+    catalogueMedia?.removeEventListener('change', showCatalogueWhenReady);
+    initCatalogue();
+  }
+  catalogueMedia?.addEventListener('change', showCatalogueWhenReady);
+  showCatalogueWhenReady();
   return { openCardDetail, syncProposalAction };
 }

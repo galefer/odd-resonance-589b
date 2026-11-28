@@ -120,13 +120,13 @@ try {
       const build=[...document.querySelectorAll('a,button')].filter(e=>e.textContent.trim().toLowerCase()==='build a deck'&&e.getClientRects().length);
       const adminButton=document.querySelector('.gog-admin-link');
       const adminRect=adminButton.getBoundingClientRect();
-      const mobileActions=document.querySelector('.hero-mobile-actions').getBoundingClientRect();
+
       return {
         overflow:document.documentElement.scrollWidth-innerWidth,
         clipped:[...document.querySelectorAll('main button,main input,main a,main h1,main h2,main h3')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&(r.left<0||r.right>innerWidth+1)}).map(e=>e.id||e.className),
         rootFont:getComputedStyle(document.documentElement).fontSize,
         bodyFont:getComputedStyle(document.body).fontFamily,
-        hero:{height:hero.height,left:hero.left,right:hero.right,bottomGap:hero.bottom-mobileActions.bottom}, event:{left:event.left,right:event.right,height:event.height},
+        hero:{height:hero.height,left:hero.left,right:hero.right,bottomGap:hero.bottom-event.bottom}, event:{left:event.left,right:event.right,height:event.height},
         stage:{background:getComputedStyle(stage).backgroundColor,overflow:getComputedStyle(stage).overflow},
         characterTreatment:{
           left:characterTreatment('.hero-character-left'),
@@ -175,7 +175,7 @@ try {
     assert.equal(geometry.rootFont,'16px');
     assert.match(geometry.bodyFont,/Barlow/i);
     assert.match(geometry.headingFont,/Barlow Condensed/i);
-    assert.equal(geometry.buildCount,1,`${width}px single Build a deck action`);
+    assert.equal(geometry.buildCount,width<=800?0:1,`${width}px Home navigation`);
     assert.equal(geometry.adminButton.text,'Player sign in',`${width}px player sign-in label`);
     assert.equal(geometry.adminButton.inHeader,true,`${width}px admin control remains available to the player sign-in flow`);
     assert.equal(geometry.oldNavigation,0,`${width}px obsolete navigation/components`);
@@ -215,7 +215,7 @@ try {
     }
     if (width <= 600) {
       assert.equal(geometry.adminButton.display,'none',`${width}px moves administration out of the public header`);
-      assert(geometry.hero.height<=300,`${width}px compact mobile hero`);
+      assert(geometry.hero.height<=215,`${width}px compact mobile event header`);
       assert(geometry.hero.bottomGap>=12&&geometry.hero.bottomGap<=24,`${width}px hero should retain a small cushion below its actions, got ${geometry.hero.bottomGap}px`);
       assert(geometry.event.height<=90,`${width}px compact mobile event summary`);
       assert.notEqual(geometry.mobileLayout.summary,'none',`${width}px compact format summary visible`);
@@ -251,7 +251,7 @@ try {
   await click('.mobile-format-summary summary');
   assert.equal(await evaluate("document.querySelector('.gog-admin-link').getAttribute('href')"),'/gog/voting/#account');
   assert.equal(await evaluate("document.querySelector('.event-deck-link').getAttribute('href')"),'/gog/deckbuilder/');
-  await click('#hero-check-card');
+  await click('.j-app-nav a[href="/gog/cards/"]');
   await waitFor(`location.pathname==='/gog/cards/'&&document.querySelectorAll('.card-row').length>0`,'Check a card opens the catalogue');
   await send('Emulation.setDeviceMetricsOverride', { width:1536,height:1024,deviceScaleFactor:1,mobile:false });
   await sleep(80);

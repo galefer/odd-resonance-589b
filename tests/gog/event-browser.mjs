@@ -207,21 +207,51 @@ try {
   await wait(
     'location.pathname==="/gog/deckbuilder/"&&document.querySelector("#deck-name")?.textContent==="Rehearsal deck"',
   );
-  await wait('document.querySelector(".j-view-deck")');
-  assert.equal(await ev('getComputedStyle(document.querySelector("#deck-workspace")).display'), 'none');
-  await click('.j-view-deck');
-  await wait('getComputedStyle(document.querySelector("#deck-workspace")).display!=="none"');
-  await click('.j-view-deck');
+  await send('Emulation.setTouchEmulationEnabled', {enabled: true});
+  for (const [width, height] of [[320, 640], [390, 844], [740, 390], [800, 900]]) {
+    await send('Emulation.setDeviceMetricsOverride', {width, height, deviceScaleFactor: 1, mobile: true});
+    const measure = () => ev(`(() => {
+      const rect = s => document.querySelector(s).getBoundingClientRect();
+      const grip = rect('#mobile-workspace-splitter');
+      return {x: grip.x + grip.width / 2, y: grip.y + grip.height / 2,
+        library: rect('#card-library-panel').height, deck: rect('#deck-workspace').height,
+        bottom: rect('#deck-workspace').bottom, nav: rect('.j-app-nav').top};
+    })()`);
+    await wait('document.querySelector("#mobile-workspace-splitter").getBoundingClientRect().height >= 44');
+    await ev("document.querySelector('#mobile-workspace-splitter').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))");
+    await wait("Math.abs(document.querySelector('#workspace').getBoundingClientRect().bottom - document.querySelector('.j-app-nav').getBoundingClientRect().top) < 4");
+    await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
+    const before = await measure();
+    assert.ok(before.deck > 40 && before.library > 40 && before.bottom <= before.nav + 1, JSON.stringify(before));
+    await send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: before.x, y: before.y}]});
+    await send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: before.x, y: before.y - 36}]});
+    await send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+    const after = await measure();
+    assert.ok(after.deck > before.deck + 15 && after.library < before.library - 15, JSON.stringify({before,after}));
+  }
+  await send('Emulation.setDeviceMetricsOverride', {width: 390, height: 844, deviceScaleFactor: 1, mobile: true});
+  await goto('/gog/voting/');
+  await wait('document.querySelector("#catalogue")?.shadowRoot?.querySelector("#card-modal")');
+  assert.equal(await ev('!!document.querySelector("#catalogue").shadowRoot.querySelector("#card-search")'), false);
+  assert.equal(await ev('document.querySelector(".hero-meta a").pathname'), '/gog/cards/');
+  await send('Emulation.setDeviceMetricsOverride', {width: 1280, height: 900, deviceScaleFactor: 1, mobile: false});
+  await wait('document.querySelector("#catalogue").shadowRoot.querySelector("#card-search")');
+  await send('Emulation.setDeviceMetricsOverride', {width: 390, height: 844, deviceScaleFactor: 1, mobile: true});
+  await wait('!document.querySelector("#catalogue").shadowRoot.querySelector("#card-search").getClientRects().length');
   await goto('/gog/cards/');
   await wait('document.querySelector("#card-search")');
   await goto('/gog/');
   await wait('document.querySelector("#home-standings .item")');
   assert.equal(await ev('!!document.querySelector("#card-search")'), false);
+  assert.ok(await ev("document.querySelector('#home-standings').getBoundingClientRect().bottom < document.querySelector('.j-app-nav').getBoundingClientRect().top"));
+  assert.ok(await ev("['.hero-mobile-actions','.event-deck-link','.jush-ballot-entry','.site-footer'].every(s=>!document.querySelector(s).getClientRects().length)"));
+  await click('.mobile-format-summary summary');
+  assert.ok(await ev("document.querySelector('.mobile-format-summary a[href=\"/gog/cookies/\"]').getClientRects().length > 0"));
   await goto('/gog/install/');
   await wait('document.querySelector(".ja-qr").naturalWidth>0');
   assert.deepEqual(errors, []);
   console.log(
-    'Chrome passed: 390px and 1280px live/closed Duel, reciprocal match history, mobile Builder sheet, Cards, Home and install QR.',
+    'Chrome passed: live/closed Duel, reciprocal match history, touch resizing in Builder, responsive Voting, compact Home and install QR.',
   );
 } finally {
   ws?.close();
