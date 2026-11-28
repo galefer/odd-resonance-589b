@@ -92,7 +92,8 @@ try {
     await evaluate('window.scrollTo(0,0)');
     await sleep(120);
     await send('Page.navigate',{url:origin+'/gog/'});
-    await waitFor(`document.querySelector('#home-standings')&&!document.querySelector('#card-search')`,'/gog/');
+    await waitFor(`document.querySelector('#home-standings')&&document.querySelector('#next-event-date')?.dateTime&&!document.querySelector('#card-search')`,'/gog/');
+    await evaluate('document.fonts.ready.then(()=>true)');
     const home=await evaluate(`(() => {
       const hero=document.querySelector('.hero').getBoundingClientRect();
       const event=document.querySelector('.next-event-panel').getBoundingClientRect();
@@ -140,6 +141,7 @@ try {
     await screenshot(`jush-home-${width}.png`);
     await send('Page.navigate',{url:origin+'/gog/cards/'});
     await waitFor(`document.querySelectorAll('.card-row').length>0`,'/gog/cards/');
+    await evaluate('document.fonts.ready.then(()=>true)');
     const geometry = await evaluate(`(() => {
       const shell=document.querySelector('.search-zone .shell').getBoundingClientRect();
       const status=document.querySelector('.status-filter input');
@@ -165,7 +167,7 @@ try {
         filterDisplay:getComputedStyle(document.querySelector('#filters-panel')).display
       };
     })()`);
-    assert(home.overflow<=1);assert.deepEqual(home.clipped,[]);
+    assert(home.overflow<=1,JSON.stringify({width,overflow:home.overflow,clipped:home.clipped,hero:home.hero}));assert.deepEqual(home.clipped,[]);
     Object.assign(geometry,{hero:home.hero,event:home.event,stage:home.stage,characterTreatment:home.characterTreatment,buildCount:home.buildCount,adminButton:home.adminButton});
     Object.assign(geometry.mobileLayout,{facts:home.facts,summary:home.summary});
     assert(geometry.overflow<=1,`${width}px overflow`);
@@ -312,7 +314,7 @@ try {
   await send('Page.navigate', { url: `${origin}/gog/deckbuilder/` });
   await waitFor(`document.querySelector('#workspace') && document.querySelector('#card-library-panel') && document.querySelectorAll('.library-card').length>0`, 'deckbuilder direct load');
   assert.equal(await evaluate(`document.querySelectorAll('.gog-primary-nav,.gog-mobile-nav').length`),0);
-  assert.equal(await evaluate(`document.querySelector('.gog-back-link').getAttribute('href')`),'/gog/');
+  assert.equal(await evaluate(`document.querySelector('.gog-back-link:not(.jush-ballot-link)').getAttribute('href')`),'/gog/');
 
   evidence.checks.push('single JUSH homepage route, preserved legacy query/hash redirect and direct deckbuilder route');
   evidence.checks.push('one visible deck CTA, compact mobile event and format summary, exclusive All/House changes/Recent views, combined filters, eligible search and card details');
