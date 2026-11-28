@@ -1,4 +1,6 @@
-import {settleDue} from '../../lib/jush-settlement.js';
+import { settleDue } from '../../lib/jush-settlement.js';
 export default {
-  async scheduled(controller, env) { await settleDue(env.GOG_DB,true); }
+  async scheduled(controller, env) {
+    await settleDue(env.GOG_DB, true);
+  },
 };

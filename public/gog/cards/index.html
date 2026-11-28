@@ -1,1 +1,49 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#071929"><link rel="stylesheet" href="/gog/assets/jush/fonts/fonts.css"><link rel="stylesheet" href="/gog/mobile-app.css"><link rel="manifest" href="/gog/app.webmanifest"><link rel="apple-touch-icon" href="/gog/assets/app/icon-180.png"><script type="module" src="/gog/mobile-nav.js"></script><title>Cards · JUSH</title><link rel="stylesheet" href="/gog/styles.css"><link rel="stylesheet" href="/gog/house-format/house-format.css"></head><body class="ja house-format-page jush-theme"><a class="j-skip" href="#main">Skip to content</a><header class="ja-head"><a href="/gog/"><img src="/gog/assets/jush/artwork/guild-of-games-logo-64.webp" width="40" height="40" alt=""> Guild of Games</a><a href="/gog/duel/?profile=me">Player account</a></header><main id="main" class="ja-main"><h1>Cards</h1><div id="viewer"></div><div id="toast-region" aria-live="polite"></div></main><footer class="ja-foot"><a href="/gog/install/">Install JUSH</a> · <a href="/gog/cookies/">Cookies and device storage</a></footer><script type="module">import {mountCardViewer} from '/gog/card-viewer.js';mountCardViewer(document.querySelector('#viewer'));</script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#071929" />
+    <link rel="stylesheet" href="/gog/assets/jush/fonts/fonts.css" />
+    <link rel="stylesheet" href="/gog/mobile-app.css" />
+    <link rel="manifest" href="/gog/app.webmanifest" />
+    <link rel="apple-touch-icon" href="/gog/assets/app/icon-180.png" />
+    <script type="module" src="/gog/mobile-nav.js"></script>
+    <title>Cards · JUSH</title>
+    <link rel="stylesheet" href="/gog/styles.css" />
+    <link rel="stylesheet" href="/gog/house-format/house-format.css" />
+  </head>
+  <body class="ja ja-cards house-format-page jush-theme">
+    <a class="j-skip" href="#main">Skip to content</a>
+    <header class="ja-head">
+      <a href="/gog/"
+        ><img src="/gog/assets/jush/artwork/guild-of-games-logo-64.webp" width="40" height="40" alt="" /> Guild of
+        Games</a
+      ><a href="/gog/duel/?profile=me">Player account</a>
+    </header>
+    <main id="main" class="ja-main">
+      <h1>Cards</h1>
+      <div id="viewer"></div>
+      <div id="toast-region" aria-live="polite"></div>
+    </main>
+    <footer class="ja-foot">
+      <a href="/gog/install/">Install JUSH</a> · <a href="/gog/cookies/">Cookies and device storage</a>
+    </footer>
+    <script type="module">
+      import { mountCardViewer } from '/gog/card-viewer.js';
+      let period;
+      const viewer = mountCardViewer(document.querySelector('#viewer'), {
+        catalogueHeading: false,
+        canPropose: () => Boolean(period?.period?.active && period.period.deadline > Date.now() / 1000),
+        onPropose: (card) => location.assign('/gog/voting/?propose=' + encodeURIComponent(card.id)),
+      });
+      fetch('/gog/api/community/board')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          period = data;
+          viewer.syncProposalAction();
+        })
+        .catch(() => {});
+    </script>
+  </body>
+</html>

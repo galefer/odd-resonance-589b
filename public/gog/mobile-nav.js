@@ -1,16 +1,86 @@
-const tabs=[['Home','/gog/','house'],['Cards','/gog/cards/','layers'],['Voting','/gog/voting/','vote'],['Duel','/gog/duel/','swords'],['Builder','/gog/deckbuilder/','panels-top-left']];
-const nav=document.createElement('nav');nav.className='j-app-nav';nav.ariaLabel='JUSH navigation';
-for(const [label,path,icon] of tabs){const a=document.createElement('a');a.href=path;a.textContent=label.toUpperCase();
- const pic=document.createElement('i');pic.ariaHidden='true';pic.style.setProperty('--nav-icon','url("/gog/assets/app/'+icon+'.svg")');a.prepend(pic);
- if(path==='/gog/'?location.pathname===path:(location.pathname.startsWith(path)||label==='Cards'&&location.pathname.startsWith('/gog/house-format/')))a.setAttribute('aria-current','page');nav.append(a);}
-const header=document.querySelector('body>header');if(header)header.after(nav);else document.body.prepend(nav);document.body.classList.add('j-nav-ready');
-if(location.pathname==='/gog/deckbuilder/'){
- document.body.classList.add('j-builder');const button=document.createElement('button'),menu=document.querySelector('#mobile-actions-button'),count=document.querySelector('#mobile-count');
- button.className='j-view-deck';button.type='button';button.setAttribute('aria-controls','deck-workspace');
- function refresh(){const open=document.body.classList.contains('j-deck-open');button.textContent=open?'Close deck':'View deck';button.setAttribute('aria-expanded',String(open));button.setAttribute('aria-label',button.textContent+' · '+count.textContent);}
- function toggle(){document.body.classList.toggle('j-deck-open');refresh();}
- button.onclick=toggle;menu.before(button);refresh();new MutationObserver(refresh).observe(count,{childList:true,subtree:true,characterData:true});
- document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('j-deck-open')&&!document.querySelector('dialog[open]')){toggle();button.focus();}});
- const top=menu.closest('.deck-toolbar')||menu.parentElement;new ResizeObserver(()=>document.body.style.setProperty('--j-header-height',top.getBoundingClientRect().bottom+'px')).observe(top);
+const tabs = [
+  ['Home', '/gog/', 'house'],
+  ['Cards', '/gog/cards/', 'layers'],
+  ['Voting', '/gog/voting/', 'vote'],
+  ['Duel', '/gog/duel/', 'swords'],
+  ['Builder', '/gog/deckbuilder/', 'panels-top-left'],
+];
+const nav = document.createElement('nav');
+nav.className = 'j-app-nav';
+nav.ariaLabel = 'JUSH navigation';
+for (const [label, path, icon] of tabs) {
+  const a = document.createElement('a');
+  a.href = path;
+  a.textContent = label.toUpperCase();
+  const pic = document.createElement('i');
+  pic.ariaHidden = 'true';
+  pic.style.setProperty('--nav-icon', 'url("/gog/assets/app/' + icon + '.svg")');
+  a.prepend(pic);
+  if (
+    path === '/gog/'
+      ? location.pathname === path
+      : location.pathname.startsWith(path) ||
+        (label === 'Cards' && location.pathname.startsWith('/gog/house-format/'))
+  )
+    a.setAttribute('aria-current', 'page');
+  nav.append(a);
 }
-if('serviceWorker' in navigator)navigator.serviceWorker.register('/gog/sw.js',{scope:'/gog/'}).catch(()=>{});
+const header = document.querySelector('body>header');
+if (header) header.after(nav);
+else document.body.prepend(nav);
+document.body.classList.add('j-nav-ready');
+if (location.pathname === '/gog/deckbuilder/') {
+  document.body.classList.add('j-builder');
+  const button = document.createElement('button'),
+    menu = document.querySelector('#mobile-actions-button'),
+    count = document.querySelector('#mobile-count');
+  button.className = 'j-view-deck';
+  button.type = 'button';
+  button.setAttribute('aria-controls', 'deck-workspace');
+  function refresh() {
+    const open = document.body.classList.contains('j-deck-open');
+    button.textContent = open ? 'Close deck' : 'View deck';
+    button.setAttribute('aria-expanded', String(open));
+    button.setAttribute('aria-label', button.textContent + ' · ' + count.textContent);
+  }
+  function toggle() {
+    document.body.classList.toggle('j-deck-open');
+    refresh();
+  }
+  button.onclick = toggle;
+  menu.before(button);
+  refresh();
+  new MutationObserver(refresh).observe(count, { childList: true, subtree: true, characterData: true });
+  document.addEventListener('keydown', (e) => {
+    if (
+      e.key === 'Escape' &&
+      document.body.classList.contains('j-deck-open') &&
+      !document.querySelector('dialog[open]')
+    ) {
+      toggle();
+      button.focus();
+    }
+  });
+  const top = menu.closest('.deck-toolbar') || menu.parentElement;
+  new ResizeObserver(() =>
+    document.body.style.setProperty('--j-header-height', top.getBoundingClientRect().bottom + 'px'),
+  ).observe(top);
+}
+if (!location.pathname.startsWith('/gog/duel/')) {
+  const duel = nav.querySelector('[href="/gog/duel/"]');
+  fetch('/gog/api/community/app/inbox', { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (data?.pending) {
+        duel.href = '/gog/duel/?inbox=1';
+        duel.setAttribute('aria-label', 'Duel · ' + data.pending + ' pending approvals');
+        const badge = document.createElement('span');
+        badge.className = 'j-inbox-count';
+        badge.textContent = data.pending;
+        duel.append(badge);
+      }
+    })
+    .catch(() => {});
+}
+if ('serviceWorker' in navigator)
+  navigator.serviceWorker.register('/gog/sw.js', { scope: '/gog/' }).catch(() => {});

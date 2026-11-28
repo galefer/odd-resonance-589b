@@ -85,21 +85,18 @@ try {
   await Promise.all([send('Page.enable'), send('Runtime.enable'), send('Network.enable'), send('Log.enable')]);
   await send('Emulation.setEmulatedMedia', { features: [{name:'prefers-reduced-motion',value:'reduce'}] });
   await send('Page.navigate', { url: `${origin}/gog/` });
-  await waitFor(`document.querySelectorAll('.card-row').length>0 && document.querySelector('#next-event-time').textContent!=='Checking schedule…'`, 'JUSH homepage');
+  await waitFor(`document.querySelector('#home-standings') && document.querySelector('#next-event-time').textContent!=='Checking schedule…'`, 'JUSH homepage');
 
   for (const width of [320,390,768,1440,1536,1920,2048]) {
     await send('Emulation.setDeviceMetricsOverride', { width,height:1024,deviceScaleFactor:1,mobile:width<600 });
     await evaluate('window.scrollTo(0,0)');
     await sleep(120);
-    const geometry = await evaluate(`(() => {
+    await send('Page.navigate',{url:origin+'/gog/'});
+    await waitFor(`document.querySelector('#home-standings')&&!document.querySelector('#card-search')`,'/gog/');
+    const home=await evaluate(`(() => {
       const hero=document.querySelector('.hero').getBoundingClientRect();
       const event=document.querySelector('.next-event-panel').getBoundingClientRect();
-      const shell=document.querySelector('.search-zone .shell').getBoundingClientRect();
       const stage=document.querySelector('.hero-stage');
-      const status=document.querySelector('.status-filter input');
-      const statusRect=status.getBoundingClientRect();
-      const statusStyle=getComputedStyle(status);
-      const semi=document.querySelector('.status-filter .semi-limited span');
       const characterTreatment=(selector)=>{
         const wrapper=document.querySelector(selector);
         const image=wrapper.querySelector('img');
@@ -122,10 +119,36 @@ try {
       const build=[...document.querySelectorAll('a,button')].filter(e=>e.textContent.trim().toLowerCase()==='build a deck'&&e.getClientRects().length);
       const adminButton=document.querySelector('.gog-admin-link');
       const adminRect=adminButton.getBoundingClientRect();
+      const mobileActions=document.querySelector('.hero-mobile-actions').getBoundingClientRect();
+      return {
+        overflow:document.documentElement.scrollWidth-innerWidth,
+        clipped:[...document.querySelectorAll('main button,main input,main a,main h1,main h2,main h3')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&(r.left<0||r.right>innerWidth+1)}).map(e=>e.id||e.className),
+        rootFont:getComputedStyle(document.documentElement).fontSize,
+        bodyFont:getComputedStyle(document.body).fontFamily,
+        hero:{height:hero.height,left:hero.left,right:hero.right,bottomGap:hero.bottom-mobileActions.bottom}, event:{left:event.left,right:event.right,height:event.height},
+        stage:{background:getComputedStyle(stage).backgroundColor,overflow:getComputedStyle(stage).overflow},
+        characterTreatment:{
+          left:characterTreatment('.hero-character-left'),
+          right:characterTreatment('.hero-character-right'),
+          heroAfter:{backgroundImage:getComputedStyle(document.querySelector('.hero'),'::after').backgroundImage}
+        },
+        buildCount:build.length,
+        adminButton:{text:adminButton.textContent.trim(),inHeader:Boolean(adminButton.closest('.gog-site-header')),right:adminRect.right,width:adminRect.width,display:getComputedStyle(adminButton).display},
+        summary:getComputedStyle(document.querySelector('.mobile-format-summary')).display,facts:getComputedStyle(document.querySelector('.facts-grid')).display
+      };
+    })()`);
+    await screenshot(`jush-home-${width}.png`);
+    await send('Page.navigate',{url:origin+'/gog/cards/'});
+    await waitFor(`document.querySelectorAll('.card-row').length>0`,'/gog/cards/');
+    const geometry = await evaluate(`(() => {
+      const shell=document.querySelector('.search-zone .shell').getBoundingClientRect();
+      const status=document.querySelector('.status-filter input');
+      const statusRect=status.getBoundingClientRect();
+      const statusStyle=getComputedStyle(status);
+      const semi=document.querySelector('.status-filter .semi-limited span');
       const viewToggles=[...document.querySelectorAll('[data-list-view]')].map(button=>{const r=button.getBoundingClientRect();return {label:button.textContent.trim(),pressed:button.getAttribute('aria-pressed'),height:r.height,radius:getComputedStyle(button).borderRadius}});
       const search=document.querySelector('#card-search').getBoundingClientRect(),filter=document.querySelector('#filter-toggle').getBoundingClientRect();
       const firstCard=document.querySelector('.card-row'),firstCardRect=firstCard?.getBoundingClientRect();
-      const mobileActions=document.querySelector('.hero-mobile-actions').getBoundingClientRect();
       return {
         viewport:innerWidth,
         overflow:document.documentElement.scrollWidth-innerWidth,
@@ -133,24 +156,18 @@ try {
         rootFont:getComputedStyle(document.documentElement).fontSize,
         bodyFont:getComputedStyle(document.body).fontFamily,
         headingFont:getComputedStyle(document.querySelector('#search-heading')).fontFamily,
-        hero:{height:hero.height,left:hero.left,right:hero.right,bottomGap:hero.bottom-mobileActions.bottom}, event:{left:event.left,right:event.right,height:event.height},
         content:{left:shell.left,right:shell.right,width:shell.width,ratio:shell.width/innerWidth},
-        stage:{background:getComputedStyle(stage).backgroundColor,overflow:getComputedStyle(stage).overflow},
-        characterTreatment:{
-          left:characterTreatment('.hero-character-left'),
-          right:characterTreatment('.hero-character-right'),
-          heroAfter:{backgroundImage:getComputedStyle(document.querySelector('.hero'),'::after').backgroundImage}
-        },
         statusFilter:{width:statusRect.width,height:statusRect.height,opacity:statusStyle.opacity,position:statusStyle.position,appearance:statusStyle.appearance,semiWhiteSpace:getComputedStyle(semi).whiteSpace},
         defaultComparisonRows:document.querySelectorAll('.change-context').length,
-        buildCount:build.length,
-        adminButton:{text:adminButton.textContent.trim(),inHeader:Boolean(adminButton.closest('.gog-site-header')),right:adminRect.right,width:adminRect.width,display:getComputedStyle(adminButton).display},
         viewToggles,
-        mobileLayout:{summary:getComputedStyle(document.querySelector('.mobile-format-summary')).display,facts:getComputedStyle(document.querySelector('.facts-grid')).display,heading:document.querySelector('#search-heading').innerText.trim(),placeholder:document.querySelector('#card-search').placeholder,search:{top:search.top,height:search.height,right:search.right},filter:{top:filter.top,height:filter.height,left:filter.left},restriction:getComputedStyle(document.querySelector('.restriction-key')).display,firstCardHeight:firstCardRect?.height||0,nameWhiteSpace:firstCard?getComputedStyle(firstCard.querySelector('.card-name')).whiteSpace:''},
+        mobileLayout:{heading:document.querySelector('#search-heading').innerText.trim(),placeholder:document.querySelector('#card-search').placeholder,search:{top:search.top,height:search.height,right:search.right},filter:{top:filter.top,height:filter.height,left:filter.left},restriction:getComputedStyle(document.querySelector('.restriction-key')).display,firstCardHeight:firstCardRect?.height||0,nameWhiteSpace:firstCard?getComputedStyle(firstCard.querySelector('.card-name')).whiteSpace:''},
         oldNavigation:document.querySelectorAll('.gog-primary-nav,.gog-mobile-nav,.view-tabs,.feature-card,.hero-actions').length,
         filterDisplay:getComputedStyle(document.querySelector('#filters-panel')).display
       };
     })()`);
+    assert(home.overflow<=1);assert.deepEqual(home.clipped,[]);
+    Object.assign(geometry,{hero:home.hero,event:home.event,stage:home.stage,characterTreatment:home.characterTreatment,buildCount:home.buildCount,adminButton:home.adminButton});
+    Object.assign(geometry.mobileLayout,{facts:home.facts,summary:home.summary});
     assert(geometry.overflow<=1,`${width}px overflow`);
     assert.deepEqual(geometry.clipped,[],`${width}px clipped controls`);
     assert.equal(geometry.rootFont,'16px');
@@ -213,27 +230,31 @@ try {
       assert(geometry.adminButton.width>=90,`${width}px admin control should remain readable`);
       assert(geometry.adminButton.right<=width+1,`${width}px admin control should remain within the viewport`);
     }
-    await screenshot(`jush-home-${width}.png`);
+    await screenshot(`jush-cards-${width}.png`);
     evidence.viewports.push({width,...geometry});
   }
 
   await send('Emulation.setDeviceMetricsOverride', { width:320,height:800,deviceScaleFactor:1,mobile:true });
-  const enlargedText = await evaluate(`(() => {const root=document.documentElement,name=document.querySelector('.card-name'),row=name.closest('.card-row');window.__mobileReflowName=name.textContent;root.style.fontSize='20px';name.textContent='The Longest Possible Justice Hunters Card Name for Mobile Reflow';return{overflow:root.scrollWidth-innerWidth,rowHeight:row.getBoundingClientRect().height,nameClient:name.clientHeight,nameScroll:name.scrollHeight,filterHeight:document.querySelector('#filter-toggle').getBoundingClientRect().height,summaryHeight:document.querySelector('.mobile-format-summary summary').getBoundingClientRect().height};})()`);
+  const enlargedText = await evaluate(`(() => {const root=document.documentElement,name=document.querySelector('.card-name'),row=name.closest('.card-row');window.__mobileReflowName=name.textContent;root.style.fontSize='20px';name.textContent='The Longest Possible Justice Hunters Card Name for Mobile Reflow';return{overflow:root.scrollWidth-innerWidth,rowHeight:row.getBoundingClientRect().height,nameClient:name.clientHeight,nameScroll:name.scrollHeight,filterHeight:document.querySelector('#filter-toggle').getBoundingClientRect().height};})()`);
   assert(enlargedText.overflow<=1,`320px enlarged text overflow: ${JSON.stringify(enlargedText)}`);
   assert(enlargedText.nameScroll<=enlargedText.nameClient+1,'Long card names remain fully visible with enlarged text');
   assert(enlargedText.rowHeight>80,'Long card names increase row height instead of clipping');
-  assert(enlargedText.filterHeight>=44&&enlargedText.summaryHeight>=44,'Mobile controls retain accessible touch targets');
+  assert(enlargedText.filterHeight>=44,'Mobile controls retain accessible touch targets');
   await screenshot('jush-home-320-enlarged.png');
   await evaluate(`(()=>{document.querySelector('.card-name').textContent=window.__mobileReflowName;document.documentElement.style.removeProperty('font-size');delete window.__mobileReflowName;})()`);
+    await send('Page.navigate',{url:origin+'/gog/'});
+    await waitFor(`document.querySelector('.mobile-format-summary')`,'/gog/');
   await click('.mobile-format-summary summary');
   assert(await evaluate(`document.querySelector('.mobile-format-summary').open && document.querySelector('.mobile-format-summary > p').getBoundingClientRect().height>0`),'Compact format summary expands to its full explanation');
   await click('.mobile-format-summary summary');
+  assert.equal(await evaluate("document.querySelector('.gog-admin-link').getAttribute('href')"),'/gog/voting/#account');
+  assert.equal(await evaluate("document.querySelector('.event-deck-link').getAttribute('href')"),'/gog/deckbuilder/');
   await click('#hero-check-card');
-  await waitFor(`document.activeElement===document.querySelector('#card-search')`,'Check a card shortcut focuses search');
+  await waitFor(`location.pathname==='/gog/cards/'&&document.querySelectorAll('.card-row').length>0`,'Check a card opens the catalogue');
   await send('Emulation.setDeviceMetricsOverride', { width:1536,height:1024,deviceScaleFactor:1,mobile:false });
   await sleep(80);
 
-  assert.equal(await evaluate(`document.querySelector('.gog-admin-link').getAttribute('href')`),'/gog/voting/#account');
+
   assert.equal(await evaluate(`document.querySelector('#admin-modal')`),null);
 
   await click('.status-filter .forbidden');
@@ -248,7 +269,7 @@ try {
 
   await send('Emulation.setDeviceMetricsOverride', { width:1536,height:1024,deviceScaleFactor:1,mobile:false });
   await send('Page.navigate', { url: `${origin}/gog/house-format/?view=changes#list-workspace` });
-  await waitFor(`location.pathname==='/gog/' && document.querySelectorAll('.card-row').length>0`, 'legacy route redirect');
+  await waitFor(`location.pathname==='/gog/cards/' && document.querySelectorAll('.card-row').length>0`, 'legacy route redirect');
   assert.equal(await evaluate(`location.search`),'?view=changes');
   assert.equal(await evaluate(`location.hash`),'#list-workspace');
   assert.equal(await evaluate(`document.querySelector('[data-list-view="changes"]').getAttribute('aria-pressed')`),'true');
@@ -287,7 +308,7 @@ try {
   assert((await evaluate(`document.querySelector('#detail-name').textContent`)).includes('Dracotail'));
   await click('[data-close-dialog="card-modal"]');
 
-  assert.equal(await evaluate(`document.querySelector('.event-deck-link').getAttribute('href')`),'/gog/deckbuilder/');
+
   await send('Page.navigate', { url: `${origin}/gog/deckbuilder/` });
   await waitFor(`document.querySelector('#workspace') && document.querySelector('#card-library-panel') && document.querySelectorAll('.library-card').length>0`, 'deckbuilder direct load');
   assert.equal(await evaluate(`document.querySelectorAll('.gog-primary-nav,.gog-mobile-nav').length`),0);

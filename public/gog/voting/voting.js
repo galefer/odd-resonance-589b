@@ -266,6 +266,13 @@ $('candidates').addEventListener('click',async event=>{
     b.disabled=true;await action('vote',{candidate:c.id,direction,previous:prior});notice('Vote updated.');
   }catch(e){notice(e.message);}finally{if(!b.closest('dialog') && b.disabled)await refresh().catch(e=>notice(e.message));}
 });
+async function linkedProposal(){
+  const url=new URL(location.href),id=Number(url.searchParams.get('propose'));if(!Number.isSafeInteger(id)||id<1)return;
+  if(!active()){notice('Voting is closed for this period.');return;}if(!board.username){if(!$('auth').open)signIn();return;}
+  const {results}=await api('cards/resolve',{ids:[id]});const card=results[0]?.card;
+  if(!card){notice('This card is unavailable.');return;}
+  url.searchParams.delete('propose');history.replaceState(history.state,'',url);await proposeCard(card);
+}
 async function proposeCard(card) {
   try{if(!usable())return;chosen=board.cardBallots?{...card,status:(await api('community/opening-limit?window='+board.period.id+'&card='+card.id)).status}:card;
     const f=$('compose');f.reset();f.querySelector('[role=alert]').textContent='';
@@ -332,7 +339,7 @@ auth.onsubmit=async event=>{
   }catch(e){authError.textContent=e.message;return;}
   finally{authButton.disabled=false;authButton.textContent='Continue';}
   notice('Signed in.');
-  await refresh().catch(e=>notice('Signed in. '+e.message));
+  await refresh().then(linkedProposal).catch(e=>notice('Signed in. '+e.message));
 };
 $('account').onclick=async()=>{if(!board.username){signIn();return;}try{await action('logout',{});await refresh();notice('Signed out.');}catch(e){notice(e.message);}};
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
@@ -385,7 +392,7 @@ catalogue.innerHTML = `
   <div class="house-format-page"><div id="viewer"></div><div id="toast-region" class="toast-region" role="status"></div></div>`;
 const viewer = mountCardViewer(catalogue.getElementById('viewer'), { onPropose: proposeCard, canPropose: active });
 openScannedInvite();
-refresh().then(()=>{revealCandidate(location.hash);if(location.hash==='#account'&&!board.username)signIn();}).catch(e=>notice(e.message));
+refresh().then(()=>{revealCandidate(location.hash);if(location.hash==='#account'&&!board.username)signIn();return linkedProposal();}).catch(e=>notice(e.message));
 setInterval(()=>{if(document.hidden)return;
   if(board.period?.active&&!active() || (!document.querySelector('dialog[open],.comments[open]')&&!catalogue.querySelector('dialog[open]')&&!selectedPeriod))refresh().catch(e=>notice(e.message));
 },20000);

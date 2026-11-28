@@ -70,7 +70,7 @@ async function api(path, options = {}) {
   return payload;
 }
 
-export function mountCardViewer(container, { onConfig, onPropose, canPropose } = {}) {
+export function mountCardViewer(container, { onConfig, onPropose, canPropose, catalogueHeading = true } = {}) {
   container.innerHTML = viewerMarkup;
   const $ = (selector, root = container) => root.querySelector(selector);
   const $$ = (selector, root = container) => [...root.querySelectorAll(selector)];
@@ -93,8 +93,10 @@ export function mountCardViewer(container, { onConfig, onPropose, canPropose } =
   let proposalButton;
   if (onPropose) {
     const heading = $('#search-heading');
-    heading.textContent = 'Card catalogue';
-    heading.parentElement.replaceChildren(heading);
+    if (catalogueHeading) {
+      heading.textContent = 'Card catalogue';
+      heading.parentElement.replaceChildren(heading);
+    }
     $('.card-detail-copy').insertAdjacentHTML('beforeend', '<button type="button" class="button propose-card" hidden>Propose a change</button>');
     proposalButton = $('.propose-card');
     proposalButton.onclick = () => {
