@@ -9,8 +9,9 @@ const file=name=>readFileSync(new URL('../../'+name,import.meta.url),'utf8');
 sql.exec(file('database/schema.sql'));
 sql.exec(file('database/migrations/0012_community_votes.sql'));
 sql.exec(file('database/migrations/0013_voted_changes.sql'));
+sql.exec(file('database/migrations/0014_proposal_admin.sql'));
 sql.exec("INSERT INTO versions(version_label,effective_date,status,created_at) VALUES('Fixture','2026-01-01','published','2026-01-01')");
-for(let i=1;i<=6;i++)sql.prepare(`INSERT INTO cards_cache(card_id,name,sort_name,category,subtype,card_type,pool_verified,tcg_date,updated_at)
+for(let i=1;i<=11;i++)sql.prepare(`INSERT INTO cards_cache(card_id,name,sort_name,category,subtype,card_type,pool_verified,tcg_date,updated_at)
   VALUES(?,?,?,'Monster','Effect','Effect Monster',1,'2024-01-01','2024-01-01')`).run(i,'Card '+i,'card '+i);
 const prepare=(query,args=[])=>({
   bind:(...values)=>prepare(query,values),first:()=>sql.prepare(query).get(...args)??null,
@@ -182,6 +183,35 @@ for(const n of [40,100,125]){
 await admin('open',{window:(await officeBoard()).period.id});const scaled=await officeBoard();
 assert.equal(scaled.reviewRule.minSupporters,5);assert.deepEqual(scaled.reviewRule.history.map(h=>h.voters),[125,100,40]);
 await admin('reset',{window:scaled.period.id});assert.equal((await officeBoard()).reviewRule.minSupporters,5);
+// The single proposal-admin flag changes only the number of distinct cards per window.
+const quotaUser=await invite('QuotaMember');
+assert.equal((await act('board',null,quotaUser)).nominationLimit,3);
+sql.exec("INSERT INTO jush_proposal_admin(singleton,member) SELECT 1,id FROM jush_members WHERE username='QuotaMember'");
+assert.throws(()=>sql.exec("INSERT INTO jush_proposal_admin(singleton,member) SELECT 2,id FROM jush_members WHERE username='Alice'"),/constraint/i);
+assert.equal((await act('board',null,quotaUser)).nominationLimit,10);
+assert.equal((await act('board',null,alice)).nominationLimit,3);
+assert.equal((await act('board')).nominationLimit,3);
+await req('admin/community/players',null,quotaUser,403);
+const quotaWindow=(await act('board')).period.id;
+const nomination=card=>({window:quotaWindow,card,target:'limited',reason:'Quota check'});
+for(let card=1;card<=9;card++) await act('nominate',nomination(card),quotaUser);
+const lastTwo=await Promise.all([10,11].map(card=>onRequest({env,request:new Request('https://jush.example/gog/api/community/nominate',{
+  method:'POST',headers:{Cookie:quotaUser,'Content-Type':'application/json','X-JUSH-Action':'member'},
+  body:JSON.stringify(nomination(card))
+})})));
+assert.deepEqual(lastTwo.map(r=>r.status).sort(),[200,409]);
+assert.match((await lastTwo.find(r=>r.status===409).json()).error,/all 10/);
+const atLimit=await act('board',null,quotaUser);
+assert.equal(atLimit.nominations.length,10);
+assert.equal(atLimit.mine.length,0);
+await act('withdraw-nomination',{window:quotaWindow,card:1,candidate:idOf(atLimit,1,'limited')},quotaUser);
+await act('nominate',nomination(1),quotaUser);
+await admin('close',{window:quotaWindow});
+await admin('open',{window:quotaWindow});
+const newWindow=await act('board',null,quotaUser);
+assert.equal(newWindow.nominations.length,0);
+assert.equal(newWindow.nominationLimit,10);
+
 const change=(card,supporters,ballots)=>({card,supporters,card_ballots:ballots});
 for(const [cards,places] of [[0,0],[1,1],[3,1],[4,2],[6,2],[7,3],[10,3],[100,3]]){
   const preview=rankReviewChanges([],cards);

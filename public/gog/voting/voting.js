@@ -1,4 +1,4 @@
-import {compareVoteTotals,qualificationProgress,renderCardBallots,vetoRule} from './card-ballots.js?v=qualification-1';
+import {compareVoteTotals,qualificationProgress,renderCardBallots,vetoRule} from './card-ballots.js?v=proposal-limit-1';
 import { mountCardViewer } from '/gog/card-viewer.js';
 
 const $ = id => document.getElementById(id);
@@ -184,7 +184,7 @@ $('candidates').addEventListener('click',async event=>{
       if(!usable())return;
       const card=Number(modern.closest('article').dataset.card);
       if(modern.hasAttribute('data-withdraw')){
-        if(!confirm('Withdraw this proposal and its discussion? The card still counts toward your three proposals.'))return;
+        if(!confirm('Withdraw this proposal and its discussion? The card still counts toward your proposal limit for this window.'))return;
         modern.disabled=true;
         await action('withdraw-nomination',{card,candidate:Number(modern.dataset.withdraw)});
       }else{

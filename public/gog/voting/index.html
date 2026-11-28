@@ -12,7 +12,7 @@
   <div class="hero-copy">
     <img class="wordmark" src="/gog/assets/jush/artwork/jush-wordmark-768.webp" width="768" height="256" alt="JUSH">
     <h1 id="page-title">Community Banlist</h1>
-    <p>Propose a card limit or vote on a player’s proposal. Propose up to three cards per window and vote once on every card you choose.</p>
+    <p>Propose a card limit or vote on a player’s proposal. Vote once on every card you choose.</p>
     <div class="hero-meta">
       <span class="window-status">
         <svg aria-hidden="true" class="icon"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-calendar-clock"></use></svg>
@@ -34,5 +34,5 @@
 <section id="catalogue" aria-label="Card catalogue"></section>
 </main>
 <dialog id="auth"><form id="credentials" novalidate><h2>Player account</h2><label>Account action <select name="mode"><option value="login">Sign in</option><option value="join">Join with a code</option><option value="recover">Reset password</option></select></label><label>Username <input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required aria-describedby="username-help"></label><small id="username-help">Use 3–32 letters (A–Z), digits, hyphens or underscores.</small><label>Password <input name="password" type="password" autocomplete="current-password" required aria-describedby="password-help"><small id="password-help" hidden>Use at least 12 characters.</small></label><label id="code-field" hidden>One-use code <input name="code" autocomplete="off"></label><p role="alert"></p><div class="tools"><button type="button" data-close>Cancel</button><button class="primary">Continue</button></div></form></dialog>
-<dialog id="proposal"><form id="compose"><h2>Start a proposal</h2><strong id="proposed-card"></strong><label>Proposed status <select name="target"></select></label><label>Your reason <textarea name="reason" required maxlength="200" rows="3"></textarea></label><small>Up to 200 characters. Proposing uses one of your three nomination cards. Cast your vote separately.</small><p role="alert"></p><div class="tools"><button type="button" data-close>Cancel</button><button class="primary">Start proposal</button></div></form></dialog>
-<script type="module" src="voting.js?v=mobile-signup-1-qualification-1"></script></body></html>
+<dialog id="proposal"><form id="compose"><h2>Start a proposal</h2><strong id="proposed-card"></strong><label>Proposed status <select name="target"></select></label><label>Your reason <textarea name="reason" required maxlength="200" rows="3"></textarea></label><small>Up to 200 characters. Each distinct card counts toward your proposal limit for this window. Cast your vote separately.</small><p role="alert"></p><div class="tools"><button type="button" data-close>Cancel</button><button class="primary">Start proposal</button></div></form></dialog>
+<script type="module" src="voting.js?v=proposal-limit-1"></script></body></html>

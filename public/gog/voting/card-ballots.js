@@ -58,7 +58,7 @@ export function renderCardBallots(board,ui){
     summary.textContent=shortlist.cardCount?`${timing} · ${places} for ${shortlist.cardCount} ${shortlist.cardCount===1?'card':'cards'}. ${ruleLine}`:ruleLine;
   }
   $('review-rules').hidden=false;
-  $('review-rules').querySelector('p').textContent=`Vote for a proposed limit or against changing the card. You can vote once on every card and propose up to three distinct cards. To qualify, a limit needs at least ${rule.supportPercent}% of all ballots on its card and at least ${rule.minSupporters} supporters. The upvotes needed assume every new ballot supports that limit. Kirk publishes the official banlist manually.`;
+  $('review-rules').querySelector('p').textContent=`Vote for a proposed limit or against changing the card. You can vote once on every card and propose up to ${board.nominationLimit} distinct cards. To qualify, a limit needs at least ${rule.supportPercent}% of all ballots on its card and at least ${rule.minSupporters} supporters. The upvotes needed assume every new ballot supports that limit. Kirk publishes the official banlist manually.`;
   if(shortlist)$('review-rules').querySelector('p').append(' Review picks go to qualifying limits with the most supporters, then the higher share of card ballots. Kirk decides ties at the last place.');
   const myBallots=new Map(board.mine.map(b=>[b.card,b.choice]));
   function choiceName(card,choice){
@@ -73,7 +73,7 @@ export function renderCardBallots(board,ui){
     const card=cards.get(v.card);return card?cardLink(card,choiceName(card,v.choice)):'';
   }).join('')||'<p>You can vote on every proposed card.</p>';
   $('my-proposals').hidden=!board.username;
-  $('my-proposals').querySelector('summary').textContent=`My proposals · ${board.nominations.length} of 3 cards used`;
+  $('my-proposals').querySelector('summary').textContent=`My proposals · ${board.nominations.length} of ${board.nominationLimit} cards used`;
   $('my-proposals').querySelector('div').innerHTML=board.nominations.map(n=>{
     const card=cards.get(n.card), own=card?.options.find(o=>o.starter===board.username);
     return own?cardLink(card,statuses[own.target]):`<p>${escape(n.name||('Card '+n.card))} · withdrawn</p>`;

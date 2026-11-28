@@ -256,11 +256,12 @@ Your existing `/`, `/null/`, `/outworld/`, etc. remain unchanged.
 
 ## 7. Connect the JUSH Office and enable member voting
 
-Apply the community voting migrations in order before deploying the matching website code. A site already running member voting needs the second command for voted changes.
+Apply the community voting migrations in order before deploying the matching website code. A site already running member voting needs 0013 for voted changes and 0014 for account-specific nomination limits.
 
 ```
 npx wrangler d1 execute gog-house-format --remote --file=./database/migrations/0012_community_votes.sql
 npx wrangler d1 execute gog-house-format --remote --file=./database/migrations/0013_voted_changes.sql
+npx wrangler d1 execute gog-house-format --remote --file=./database/migrations/0014_proposal_admin.sql
 ```
 
 After the matching Pages deployment is serving the new voting client and API, activate card ballots once. This enrols the open window in place and enables the locked opening rule for future windows. Repeating the command preserves the same records.
