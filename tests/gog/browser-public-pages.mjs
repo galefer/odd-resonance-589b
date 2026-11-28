@@ -35,7 +35,7 @@ async function pollJson(url, options) {
 }
 
 await pollJson(`http://127.0.0.1:${debugPort}/json/version`);
-const target = await pollJson(`http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(`${origin}/gog/`)}`, { method: 'PUT' });
+const target = await pollJson(`http://127.0.0.1:${debugPort}/json/new?about:blank`, { method: 'PUT' });
 const socket = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((resolvePromise, reject) => { socket.onopen = resolvePromise; socket.onerror = reject; });
 let commandId = 0;
@@ -244,8 +244,8 @@ try {
   assert(enlargedText.filterHeight>=44,'Mobile controls retain accessible touch targets');
   await screenshot('jush-home-320-enlarged.png');
   await evaluate(`(()=>{document.querySelector('.card-name').textContent=window.__mobileReflowName;document.documentElement.style.removeProperty('font-size');delete window.__mobileReflowName;})()`);
-    await send('Page.navigate',{url:origin+'/gog/'});
-    await waitFor(`document.querySelector('.mobile-format-summary')`,'/gog/');
+  await send('Page.navigate', {url: origin+'/gog/'});
+  await waitFor(`document.querySelector('.mobile-format-summary .home-links') && document.querySelector('.j-app-nav a[href="/gog/cards/"]')`, 'phone Home navigation and format details');
   await click('.mobile-format-summary summary');
   assert(await evaluate(`document.querySelector('.mobile-format-summary').open && document.querySelector('.mobile-format-summary > p').getBoundingClientRect().height>0`),'Compact format summary expands to its full explanation');
   await click('.mobile-format-summary summary');
@@ -262,7 +262,12 @@ try {
   await click('.status-filter .forbidden');
   assert.equal(await evaluate(`document.querySelector('[data-filter="status"][value="forbidden"]').checked`),true,'Status label click should check the input');
   assert(await evaluate(`[...document.querySelectorAll('.card-row')].every(e=>e.classList.contains('status-forbidden'))`),'Status label click should filter results');
-  const focusedStatus=await evaluate(`(() => {const e=document.querySelector('[data-filter="status"][value="forbidden"]');e.focus();const s=getComputedStyle(e);return {focused:document.activeElement===e,outline:s.outlineStyle,shadow:s.boxShadow};})()`);
+  await evaluate(`document.querySelector('[data-filter="status"][value="forbidden"]').focus()`);
+  for (const modifiers of [0, 8]) {
+    await send('Input.dispatchKeyEvent', {type:'rawKeyDown', key:'Tab', code:'Tab', windowsVirtualKeyCode:9, modifiers});
+    await send('Input.dispatchKeyEvent', {type:'keyUp', key:'Tab', code:'Tab', windowsVirtualKeyCode:9, modifiers});
+  }
+  const focusedStatus=await evaluate(`(() => {const e=document.querySelector('[data-filter="status"][value="forbidden"]');const s=getComputedStyle(e);return {focused:document.activeElement===e,outline:s.outlineStyle};})()`);
   assert.equal(focusedStatus.focused,true);
   assert.notEqual(focusedStatus.outline,'none');
   await send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
