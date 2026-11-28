@@ -122,17 +122,30 @@ const choose=(actor,card,choice,previous=null,status)=>windowAction('choose',{ca
 const nominate=(actor,card,target='limited',status)=>windowAction('nominate',{card,target,reason:'New limit'},actor,status);
 const dan=await invite('Daniel'),eve=await invite('Evelyn');
 await nominate(cara,3);await nominate(cara,4);await nominate(cara,5);await nominate(cara,6,'limited',409);
-assert.equal((await act('board',null,cara)).mine.length,1);
+const afterNominations=await act('board',null,cara);
+assert.equal(afterNominations.mine.length,4);
+for(const card of [3,4,5]){
+  const candidate=afterNominations.candidates.find(c=>c.card===card);
+  assert.equal(candidate.up,1);
+  assert.equal(afterNominations.mine.find(v=>v.card===card).choice,candidate.id);
+}
+await nominate(cara,3,'limited',409); // Retrying creates neither a proposal nor another vote.
 await choose(alice,1,alternative,first); // A committed starter can freely move their ballot.
 assert.equal((await officeBoard()).candidates.length,6);
 await choose(alice,1,first,alternative);
 await choose(cara,1,0,-first);await choose(cara,1,first,-first,409);
 await choose(cara,1,first,0);await choose(dan,1,first);await choose(eve,1,0);
-for(const card of [2,3,4,5]) await choose(cara,card,idOf(await officeBoard(),card,'limited'));
+await choose(cara,2,idOf(await officeBoard(),2,'limited'));
+const ownThird=idOf(afterNominations,3,'limited');
+await choose(cara,3,null,ownThird);
+assert.equal((await officeBoard()).candidates.find(c=>c.id===ownThird).up,0);
+await choose(cara,3,0);
+await choose(cara,3,ownThird,0);
 assert.equal((await act('board',null,cara)).mine.length,5);
 await choose(cara,2,null,idOf(await officeBoard(),2,'limited'));
 await choose(dan,3,first,null,409);
 await nominate(dan,1,'forbidden');
+assert.equal((await act('board',null,dan)).mine.find(v=>v.card===1).choice,first);
 await windowAction('withdraw-nomination',{card:1,candidate:first},alice,409);
 const fifth=idOf(await officeBoard(),5,'limited');
 await windowAction('withdraw-nomination',{card:5,candidate:fifth},cara);
@@ -142,7 +155,7 @@ await windowAction('vote',{candidate:first,previous:0,direction:-1},eve,409);
 await windowAction('propose',{card:6,target:'limited',reason:'Stale client',previous:0},eve,409);
 await nominate(dan,2,'semi_limited');
 const limit2=idOf(await officeBoard(),2,'limited'),semi2=idOf(await officeBoard(),2,'semi_limited');
-await choose(cara,2,semi2);await choose(dan,2,limit2);await choose(eve,2,semi2);
+await choose(cara,2,semi2);await choose(dan,2,limit2,semi2);await choose(eve,2,semi2);
 const guest2=await act('board');assert.equal(guest2.mine.length,0);assert.ok(!('ballots' in guest2));assert.ok(!('votedChanges' in guest2));
 assert.equal(guest2.shortlist.priorityOnly,true);
 assert.equal(guest2.shortlist.cardCount,4);
@@ -174,7 +187,7 @@ assert.equal(listState(),official);
 for(const n of [40,100,125]){
   await admin('open',{window:(await officeBoard()).period.id});const w=(await officeBoard()).period.id;
   await act('nominate',{window:w,card:1,target:'limited',reason:'History'},alice);
-  for(let i=0;i<n;i++){
+  for(let i=1;i<n;i++){ // The proposer's automatic ballot already counts toward turnout.
     sql.prepare('INSERT OR IGNORE INTO jush_members(username,salt,verifier) VALUES(?,?,?)').run('History'+i,'salt','verifier');
     sql.prepare('INSERT INTO jush_card_ballots(window,member,card,choice) SELECT ?,id,1,0 FROM jush_members WHERE username=?').run(w,'History'+i);
   }
@@ -203,9 +216,13 @@ assert.deepEqual(lastTwo.map(r=>r.status).sort(),[200,409]);
 assert.match((await lastTwo.find(r=>r.status===409).json()).error,/all 10/);
 const atLimit=await act('board',null,quotaUser);
 assert.equal(atLimit.nominations.length,10);
-assert.equal(atLimit.mine.length,0);
+assert.equal(atLimit.mine.length,10);
 await act('withdraw-nomination',{window:quotaWindow,card:1,candidate:idOf(atLimit,1,'limited')},quotaUser);
+const afterWithdrawal=await act('board',null,quotaUser);
+assert.equal(afterWithdrawal.mine.length,9);
+assert.ok(!afterWithdrawal.mine.some(v=>v.card===1));
 await act('nominate',nomination(1),quotaUser);
+assert.equal((await act('board',null,quotaUser)).mine.length,10);
 await admin('close',{window:quotaWindow});
 await admin('open',{window:quotaWindow});
 const newWindow=await act('board',null,quotaUser);
