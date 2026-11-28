@@ -1,4 +1,4 @@
-import {compareVoteTotals,qualificationProgress,renderCardBallots,vetoRule} from './card-ballots.js?v=proposal-limit-1';
+import {compareVoteTotals,qualificationProgress,renderCardBallots,vetoRule} from './card-ballots.js?v=proposal-limit-1.author-edits-1';
 import { mountCardViewer } from '/gog/card-viewer.js';
 
 const $ = id => document.getElementById(id);
@@ -98,6 +98,7 @@ function renderBoard(keepThreads){
         ${notes.length ? `<span class="row-note">${notes.join(' · ')}</span>` : ''}
       </summary><div class="proposal-body">
       <div class="case"><strong>${escape(c.starter)}</strong><p>${escape(c.reason)}</p></div>
+      ${open && c.starter===board.username?`<button type="button" data-edit-reason="${c.id}">Edit proposal text</button>`:''}
       ${rule && others.length ? `<p class="target-share">${c.up} of ${cardTurnout.get(c.card)} votes on this card support this limit.</p>` : ''}
       ${c.ruling?`<p class="ruling"><b>Ruling</b> ${escape(c.ruling)}</p>`:''}
       <div class="votes">${btn(1,'Upvote',c.up)}${btn(-1,'Downvote',c.down)}${mine&&open&&!disabled?`<button data-vote="0">${starter?'Withdraw proposal':'Remove my vote'}</button>`:''}</div>
@@ -147,8 +148,40 @@ function previous(card,next){
 async function loadThread(details,cid){
   const thread=details.querySelector('.thread');
   const {comments}=await api('community/thread?candidate='+cid);
-  thread.innerHTML=comments.map(c=>`<p><b>${escape(c.username)}</b> ${escape(c.text)}</p>`).join('')||'<p>Be the first to comment.</p>';
+  details.querySelector('summary').textContent=`Comments (${comments.length})`;
+  thread.innerHTML=comments.map(c=>`<div><p><b>${escape(c.username)}</b> <span>${escape(c.text)}</span></p>
+    ${active() && c.editKey && c.username===board.username?`<div class="tools" data-comment-key="${escape(c.editKey)}">
+      <button type="button" data-edit-comment>Edit comment</button><button type="button" data-delete-comment>Delete comment</button></div>`:''}</div>`).join('')||'<p>Be the first to comment.</p>';
   if(active()&&board.username)thread.insertAdjacentHTML('beforeend','<form><label>Comment<textarea required maxlength="1000" name="text" rows="2"></textarea></label><button>Post comment</button></form>');
+}
+function editText(path, fields, previous) {
+  const dialog=$('text-editor'), form=dialog.querySelector('form');
+  const field=form.elements.text, error=form.querySelector('[role=alert]');
+  const save=form.querySelector('.primary'), cancel=form.querySelector('[data-close]');
+  const comment=path==='edit-comment';
+  $('edit-heading').textContent=comment?'Edit comment':'Edit proposal text';
+  $('edit-label').textContent=comment?'Your comment':'Your reason';
+  field.maxLength=comment?1000:200;
+  field.value=previous;
+  error.textContent='';
+  const period=board.period.id;
+  form.onsubmit=async event=>{
+    event.preventDefault();
+    if(save.disabled)return;
+    const text=field.value.trim();
+    if(!text){error.textContent='Enter some text to save.';field.focus();return;}
+    save.disabled=cancel.disabled=true;
+    try {
+      await action(path,{...fields,window:period,previous,text});
+      dialog.close();
+      notice(comment?'Comment updated.':'Proposal text updated.');
+      await refresh().catch(e=>notice(e.message));
+    } catch(e){error.textContent=e.message;}
+    finally{save.disabled=cancel.disabled=false;}
+  };
+  dialog.oncancel=event=>{if(save.disabled)event.preventDefault();};
+  dialog.showModal();
+  field.focus();
 }
 $('candidates').addEventListener('toggle',event=>{
   const details = event.target;
@@ -168,11 +201,33 @@ $('candidates').addEventListener('submit',async event=>{
     if(form.dataset.lastText!==text){form.dataset.key=crypto.randomUUID();form.dataset.lastText=text;}
     await action('comment',{candidate,text,requestId:form.dataset.key});
     const details=form.closest('details');await loadThread(details,candidate);
-    const data=await api('community/thread?candidate='+candidate);
-    details.querySelector('summary').textContent=`Comments (${data.comments.length})`;
   }catch(e){notice(e.message);}finally{button.disabled=false;}
 });
 $('candidates').addEventListener('click',async event=>{
+  const authorButton=event.target.closest('[data-edit-reason],[data-edit-comment],[data-delete-comment]');
+  if(authorButton){
+    try{
+      if(!usable())return;
+      if(authorButton.hasAttribute('data-edit-reason')){
+        const candidate=board.candidates.find(c=>c.id===Number(authorButton.dataset.editReason));
+        editText('edit-reason',{candidate:candidate.id},candidate.reason);
+      }else{
+        const details=authorButton.closest('.comments');
+        const candidate=Number(details.dataset.option||details.closest('article').dataset.id);
+        const controls=authorButton.closest('[data-comment-key]');
+        const previous=controls.parentElement.querySelector('p span').textContent;
+        const fields={candidate,editKey:controls.dataset.commentKey};
+        if(authorButton.hasAttribute('data-edit-comment'))editText('edit-comment',fields,previous);
+        else if(confirm('Delete your comment?')){
+          authorButton.disabled=true;
+          await action('delete-comment',{...fields,previous});
+          notice('Comment deleted.');
+          await refresh();
+        }
+      }
+    }catch(e){notice(e.message);}finally{authorButton.disabled=false;}
+    return;
+  }
   if (event.target.closest('[data-view-card]')) {
     const candidate = board.candidates.find(c => c.id === Number(event.target.closest('article').dataset.id));
     if (candidate) viewer.openCardDetail({ id: candidate.card, name: candidate.name, status: candidate.published });

@@ -102,6 +102,7 @@ export function renderCardBallots(board,ui){
     const detail=options.map(o=>`<section data-option="${o.id}" ${o.id===c.id?'':`id="candidate-${o.id}"`}>
       <div class="case"><strong>${escape(o.starter)} · ${escape(statuses[o.target])}</strong><p>${escape(o.reason)}</p></div>
       ${o.ruling?`<p class="ruling"><b>Ruling</b> ${escape(o.ruling)}</p>`:''}
+      ${open && o.starter===board.username?`<button type="button" data-edit-reason="${o.id}">Edit proposal text</button>`:''}
       ${open && o.starter===board.username&&!o.committed?`<button data-withdraw="${o.id}">Withdraw proposal</button>`:''}
       <details class="comments" data-option="${o.id}"><summary>Comments (${o.comments})</summary><div class="thread"></div></details></section>`).join('');
     return `<article class="candidate" id="candidate-${c.id}" data-id="${c.id}" data-card="${c.card}"${tone?` data-pick="${tone}"`:''}>
