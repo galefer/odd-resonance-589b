@@ -47,19 +47,27 @@ export function renderCardBallots(board,ui){
   const total=board.counts.reduce((n,v)=>n+v.votes,0);
   $('candidate-count').hidden=false;
   $('candidate-count').textContent=cards.size;
-  $('sort').parentElement.hidden=cards.size<2;
   $('board-leaning').textContent=total+' '+(total===1?'vote':'votes')+' · Review cut: '+rule.supportPercent+'% and '+rule.minSupporters+' supporters';
-  const summary=$('pick-summary');
-  summary.hidden=!shortlist;
-  if(shortlist){
-    const places=shortlist.limit===1?'1 place':shortlist.limit+' places';
-    const timing=open?'If voting ended now':'At close';
-    const ruleLine=shortlist.priorityOnly?vetoRule:'Top 30% of proposed cards, rounded up, up to 3 picks. '+vetoRule;
-    summary.textContent=shortlist.cardCount?`${timing} · ${places} for ${shortlist.cardCount} ${shortlist.cardCount===1?'card':'cards'}. ${ruleLine}`:ruleLine;
+  const picks = [], others = [];
+  for (const card of cards.values()) {
+    const entry = ranks.get(card.card);
+    if (entry?.status === 'pick' || entry?.status === 'cutoff-tie') picks.push(card);
+    else others.push(card);
+  }
+  picks.sort((a,b) => ranks.get(a.card).rank - ranks.get(b.card).rank || a.name.localeCompare(b.name,'en'));
+  others.sort((a,b) => compareVoteTotals(a,b,sort.value));
+  sort.parentElement.hidden = others.length < 2;
+  $('remaining-count').textContent = others.length;
+  if (shortlist) {
+    const tie = shortlist.entries.find(entry => entry.status === 'cutoff-tie');
+    const filled = shortlist.entries.filter(entry => entry.status === 'pick').length;
+    const places = shortlist.limit === 1 ? 'place' : 'places';
+    const result = tie ? `${tie.places} ${tie.places === 1 ? 'place' : 'places'} tied` : `${filled} of ${shortlist.limit} ${places}`;
+    $('pick-places').textContent = open ? result : 'At close · ' + result;
   }
   $('review-rules').hidden=false;
   $('review-rules').querySelector('p').textContent=`Vote for a proposed limit or against changing the card. You can vote once on every card and propose up to ${board.nominationLimit} distinct cards. To qualify, a limit needs at least ${rule.supportPercent}% of all ballots on its card and at least ${rule.minSupporters} supporters. The upvotes needed assume every new ballot supports that limit. Kirk publishes the official banlist manually.`;
-  if(shortlist)$('review-rules').querySelector('p').append(' Review picks go to qualifying limits with the most supporters, then the higher share of card ballots. Kirk decides ties at the last place.');
+  if(shortlist)$('review-rules').querySelector('p').append(' Up to 30% of proposed cards, rounded up and capped at three, earn review places. Review picks go to qualifying limits with the most supporters, then the higher share of card ballots. Kirk decides ties at the last place. '+vetoRule);
   const myBallots=new Map(board.mine.map(b=>[b.card,b.choice]));
   function choiceName(card,choice){
     if(choice===0)return card.options.length===1?'Against':'Against all changes';
@@ -67,17 +75,29 @@ export function renderCardBallots(board,ui){
     if(choice<0 && card.options.length===1)return 'Against';
     return (choice<0?'Against ':'For ')+(statuses[option?.target]||'earlier option');
   }
-  function cardLink(card,label){return `<a href="#candidate-${card.first.id}">${escape(card.first.name)} · ${escape(label)}</a>`;}
-  $('mine').querySelector('summary').textContent='My votes · '+board.mine.length;
-  $('mine').querySelector('div').innerHTML=board.mine.map(v=>{
-    const card=cards.get(v.card);return card?cardLink(card,choiceName(card,v.choice)):'';
-  }).join('')||'<p>You can vote on every proposed card.</p>';
-  $('my-proposals').hidden=!board.username;
-  $('my-proposals').querySelector('summary').textContent=`My proposals · ${board.nominations.length} of ${board.nominationLimit} cards used`;
-  $('my-proposals').querySelector('div').innerHTML=board.nominations.map(n=>{
+  function cardLink(card, label, tone='') {
+    return `<a class="activity-link" href="#candidate-${card.first.id}"><strong>${escape(card.name)}</strong><span class="${tone}">${escape(label)}</span>${icon('chevron-right')}</a>`;
+  }
+  const activityFocus = $('activity').contains(document.activeElement) ? document.activeElement.closest('a') : null;
+  const voteCount = board.mine.length, proposalCount = board.nominations.length;
+  $('vote-count').textContent = voteCount;
+  $('nomination-count').textContent = proposalCount;
+  $('activity-counts').textContent = `${voteCount} ${voteCount===1?'vote':'votes'} · ${proposalCount} ${proposalCount===1?'proposal':'proposals'}`;
+  $('allowance').textContent = `${proposalCount} of ${board.nominationLimit} proposals used`;
+  $('activity-votes').innerHTML = board.mine.map(v => {
+    const card=cards.get(v.card);
+    if (!card) return '';
+    const label = v.choice===0 && card.options.length===1 ? 'Against · Keep '+statuses[card.first.published] : choiceName(card,v.choice);
+    return cardLink(card,label,v.choice>0?'votes-for':'votes-against');
+  }).join('') || '<p>You haven’t voted on any proposals this period.</p>';
+  $('nomination-list').innerHTML = board.nominations.map(n => {
     const card=cards.get(n.card), own=card?.options.find(o=>o.starter===board.username);
-    return own?cardLink(card,statuses[own.target]):`<p>${escape(n.name||('Card '+n.card))} · withdrawn</p>`;
-  }).join('')||'<p>Choose a card in the catalogue to propose a limit.</p>';
+    return own ? cardLink(card,'Proposed · '+statuses[own.target]) : `<p>${escape(n.name||('Card '+n.card))} · withdrawn</p>`;
+  }).join('') || '<p>You haven’t proposed a change this period.</p>';
+  if (activityFocus) {
+    const panel = $('activity-proposals').hidden ? $('activity-votes') : $('nomination-list');
+    panel.querySelector(`a[href="${activityFocus.hash}"]`)?.focus({preventScroll:true});
+  }
   function row(card){
     const c=card.first, options=card.options.sort((a,b)=>Object.values(statuses).indexOf(statuses[a.target])-Object.values(statuses).indexOf(statuses[b.target]));
     const mine=myBallots.get(card.card), locked=open?'':'disabled';
@@ -86,11 +106,8 @@ export function renderCardBallots(board,ui){
     const selected=single && mine===-c.id?0:mine;
     const button=(choice,label,count)=>`<button type="button" data-choice="${choice}" class="${choice===0?'keep-choice':'change-choice'}" aria-pressed="${selected===choice}" ${locked}>${escape(label)} · ${count}${selected===choice?' · Yours':''}</button>`;
     const pick=ranks.get(c.card);
-    const passed=shortlist?pick:options.find(o=>o.up>=rule.minSupporters&&o.up*100>=rule.supportPercent*card.votes);
-    const leader=Math.max(...options.map(o=>o.up));
-    const leaning=board.reviewDiscarded?'Round reset':passed?(open?'At review threshold':'Met review threshold'):!card.votes?'No votes yet':!single?'Competing limits':leader>card.down?'Leaning for':leader<card.down?'Leaning against':'Vote tied';
     const tone=pick?.status==='pick'?String(pick.rank):pick?.status==='cutoff-tie'?'tie':'';
-    const standing=pick?`<strong class="${tone?'pick-badge':'lean'}">${escape(pick.label)}</strong>${options.length>1?` <span class="pick-target">${escape(statuses[pick.target])}</span>`:''}`:`<strong class="lean">${leaning}</strong>`;
+    const standing=pick ? `<strong class="${tone?'pick-badge':'lean'}">${escape(pick.label)}</strong>${!single ? ` <span class="pick-target">${escape(statuses[pick.target])}</span>` : ''}` : '';
     const splits=options.map(o=>`<span class="votes-for">${o.up} ${options.length===1?'for':escape(statuses[o.target])}</span>`);
     splits.push(`<span class="votes-against">${single?card.down:card.keep} ${single?'against':'against all'}</span>`);
     if(!single)for (const o of options) if(o.down)splits.push(`<span class="votes-against">${o.down} against ${escape(statuses[o.target])}</span>`);
@@ -106,19 +123,24 @@ export function renderCardBallots(board,ui){
       <details class="comments" data-option="${o.id}"><summary>Comments (${o.comments})</summary><div class="thread"></div></details></section>`).join('');
     return `<article class="candidate" id="candidate-${c.id}" data-id="${c.id}" data-card="${c.card}"${tone?` data-pick="${tone}"`:''}>
       <button class="candidate-art" type="button" data-view-card aria-label="View card details for ${escape(c.name)}">${cardArt(c.card)}</button>
-      <details class="proposal"><summary class="proposal-summary"><span class="summary-card"><strong class="candidate-title">${escape(c.name)}</strong>
+      <details class="proposal"><summary class="proposal-summary"><span class="summary-card">${standing}<strong class="candidate-title">${escape(c.name)}</strong>
       <span class="limits"><span class="sr">Current limit </span>${limitBadge(c.published)}${icon('arrow-right')}<span class="sr">Proposed limits </span>${options.map(o=>limitBadge(o.target)).join(' ')}</span></span>
-      <span class="tally">${standing}<span class="split">${splits.join(' · ')}</span>${progress}</span><span class="disclose" aria-hidden="true">${icon('chevron-right')}</span>
+      <span class="tally">${single ? `<strong class="share">${escape(qualificationProgress(c.up,card.votes,null))}</strong>` : progress}<span class="split">${splits.join(' · ')}</span></span><span class="disclose" aria-hidden="true">${icon('chevron-right')}</span>
       ${mine!==undefined?`<span class="row-note">Your vote · ${escape(choiceName(card,mine))}</span>`:''}</summary>
-      <div class="proposal-body"><div class="votes">${options.map(o=>button(o.id,single?'For':'For '+statuses[o.target],o.up)).join('')}${button(0,single?'Against':'Against all changes',single?card.down:card.keep)}
+      <div class="proposal-body">${single?progress:''}<div class="votes">${options.map(o=>button(o.id,single?'For':'For '+statuses[o.target],o.up)).join('')}${button(0,single?'Against':'Against all changes',single?card.down:card.keep)}
       ${open&&mine!==undefined?'<button data-choice="remove">Withdraw my vote</button>':''}</div>${detail}</div></details></article>`;
   }
   const list=$('candidates');
   const opened=[...list.querySelectorAll('.proposal[open]')].map(el=>el.closest('article').id);
   const threads=[...list.querySelectorAll('.comments[open]')].map(el=>[el.dataset.option,el.querySelector('textarea')?.value||'']);
   const focus=document.activeElement, focusRow=focus?.closest('article')?.id;
-  list.innerHTML=[...cards.values()].sort((a,b)=>compareVoteTotals(a,b,sort.value)).map(row).join('')||
-    `<div class="empty"><p>${open?'Start the first proposal in the card catalogue.':'No proposals this period.'}</p></div>`;
+  if (shortlist) {
+    $('top-rows').innerHTML = picks.map(row).join('') ||
+      '<p class="section-empty">'+(open?'No proposals currently qualify.':'No proposals qualified at close.')+'</p>';
+  }
+  $('remaining-rows').innerHTML = others.map(row).join('') || (cards.size ?
+    '<p class="section-empty">All proposals are in Top Proposals.</p>' :
+    `<div class="empty"><p>${open?'Start the first proposal in the card catalogue.':'No proposals this period.'}</p></div>`);
   for(const id of opened){const item=$(id);if(item)item.querySelector('.proposal').open=true;}
   for(const [id,draft] of threads){const thread=list.querySelector(`.comments[data-option="${Number(id)}"]`);if(thread){thread.dataset.draft=draft;thread.open=true;}}
   if(focusRow){

@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#041426">
 <title>Community Banlist · JUSH House Format</title>
 <link rel="icon" href="/gog/assets/jush/artwork/guild-of-games-logo-64.webp">
-<link rel="stylesheet" href="/gog/assets/jush/fonts/fonts.css"><link rel="stylesheet" href="voting.css?v=tally-type-1">
+<link rel="stylesheet" href="/gog/assets/jush/fonts/fonts.css"><link rel="stylesheet" href="voting.css?v=proposal-sections-1">
 </head><body>
 <a class="skip" href="#board">Skip to votes</a>
 <header class="mast"><div class="wrap mast-inner"><a class="brand" href="/gog/"><img src="/gog/assets/jush/artwork/guild-of-games-logo-64.webp" alt="" width="38" height="36"><span>Guild of Games</span></a><nav aria-label="Guild of Games"><a href="/gog/">House format</a><a href="/gog/deckbuilder/">Deckbuilder</a><button id="account">Player sign in</button></nav></div></header>
@@ -24,15 +24,43 @@
   <div class="hero-art" aria-hidden="true"></div>
 </div></section>
 <div class="wrap content"><p id="feedback" role="status"></p>
-<section id="board"><div class="heading"><div><h2>Proposals <span id="candidate-count" hidden></span></h2><p id="board-leaning"></p></div><div class="tools"><label hidden>Voting period <select id="period"></select></label><label hidden>Sort by <select id="sort"><option value="up">Most upvoted</option><option value="down">Most downvoted</option><option value="least">Least voted</option></select></label></div></div>
-<p id="pick-summary" hidden></p>
-<details id="review-rules" hidden><summary>How proposals qualify</summary><p></p></details>
-<details id="my-proposals" hidden><summary>My proposals</summary><div></div></details>
-<details id="mine" hidden><summary>My votes</summary><div></div></details>
-<div id="candidates"></div></section>
+<section id="board" aria-labelledby="board-heading">
+  <div class="heading">
+    <div><h2 id="board-heading">Proposals <span id="candidate-count" hidden></span></h2><p id="board-leaning"></p></div>
+    <label hidden>Voting period <select id="period"></select></label>
+  </div>
+  <details id="review-rules" hidden><summary>How picks work</summary><p></p></details>
+  <details id="mine" hidden><summary>My votes</summary><div></div></details>
+  <div id="candidates">
+    <section id="top-proposals" aria-labelledby="top-heading" hidden>
+      <div class="section-heading"><h3 id="top-heading">Top Proposals</h3><span id="pick-places"></span></div>
+      <div id="top-rows" class="proposal-list"></div>
+    </section>
+    <aside id="activity" aria-label="My activity" hidden>
+      <details id="activity-panel">
+        <summary>My activity <span id="activity-counts"></span></summary>
+        <div class="activity-content">
+          <div class="activity-views" role="group" aria-label="Activity view">
+            <button type="button" id="show-votes" aria-controls="activity-votes" aria-pressed="true">My votes <b id="vote-count"></b></button>
+            <button type="button" id="show-proposals" aria-controls="activity-proposals" aria-pressed="false">My proposals <b id="nomination-count"></b></button>
+          </div>
+          <div id="activity-votes"></div>
+          <div id="activity-proposals" hidden><p id="allowance"></p><div id="nomination-list"></div></div>
+        </div>
+      </details>
+    </aside>
+    <section id="remaining" aria-labelledby="remaining-heading">
+      <div class="section-heading">
+        <h3 id="remaining-heading">Other Proposals <span id="remaining-count"></span></h3>
+        <label hidden>Sort by <select id="sort"><option value="up">Most upvoted</option><option value="down">Most downvoted</option><option value="least">Least voted</option></select></label>
+      </div>
+      <div id="remaining-rows" class="proposal-list"></div>
+    </section>
+  </div>
+</section>
 </div>
 <section id="catalogue" aria-label="Card catalogue"></section>
 </main>
 <dialog id="auth"><form id="credentials" novalidate><h2>Player account</h2><label>Account action <select name="mode"><option value="login">Sign in</option><option value="join">Join with a code</option><option value="recover">Reset password</option></select></label><label>Username <input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required aria-describedby="username-help"></label><small id="username-help">Use 3–32 letters (A–Z), digits, hyphens or underscores.</small><label>Password <input name="password" type="password" autocomplete="current-password" required aria-describedby="password-help"><small id="password-help" hidden>Use at least 12 characters.</small></label><label id="code-field" hidden>One-use code <input name="code" autocomplete="off"></label><p role="alert"></p><div class="tools"><button type="button" data-close>Cancel</button><button class="primary">Continue</button></div></form></dialog>
 <dialog id="proposal"><form id="compose"><h2>Start a proposal</h2><strong id="proposed-card"></strong><label>Proposed status <select name="target"></select></label><label>Your reason <textarea name="reason" required maxlength="200" rows="3"></textarea></label><small>Up to 200 characters. Each distinct card counts toward your proposal limit for this window. Your proposal gets your upvote unless you already voted on this card. You can change or withdraw your vote while voting is open.</small><p role="alert"></p><div class="tools"><button type="button" data-close>Cancel</button><button class="primary">Start proposal</button></div></form></dialog>
-<script type="module" src="voting.js?v=proposal-limit-1"></script></body></html>
+<script type="module" src="voting.js?v=proposal-sections-1"></script></body></html>

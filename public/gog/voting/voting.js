@@ -1,4 +1,4 @@
-import {compareVoteTotals,qualificationProgress,renderCardBallots,vetoRule} from './card-ballots.js?v=proposal-limit-1';
+import {compareVoteTotals,qualificationProgress,renderCardBallots,vetoRule} from './card-ballots.js?v=proposal-sections-1';
 import { mountCardViewer } from '/gog/card-viewer.js';
 
 const $ = id => document.getElementById(id);
@@ -40,9 +40,11 @@ function renderBoard(keepThreads){
   $('sort').parentElement.hidden=board.candidates.length<2;
   $('window').parentElement.classList.toggle('open',open);
   $('account').textContent=board.username?'Sign out · '+board.username:'Player sign in';
-  $('mine').hidden=!board.username;
-  $('my-proposals').hidden=true;
-  if(!board.shortlist)$('pick-summary').hidden=true;
+  $('mine').hidden=board.cardBallots || !board.username;
+  $('activity').hidden=!board.cardBallots || !board.username;
+  $('top-proposals').hidden=!board.shortlist;
+  $('remaining-heading').hidden=!board.shortlist;
+  if (!board.shortlist) $('top-rows').replaceChildren();
   if(board.cardBallots){
     if(!keepThreads)for(const thread of $('candidates').querySelectorAll('.comments[open]'))thread.open=false;
     renderCardBallots(board,{$,escape,statuses,limitBadge,cardArt,icon,open});
@@ -75,7 +77,7 @@ function renderBoard(keepThreads){
     const c=board.candidates.find(c=>c.id===v.candidate);
     return c?`<a href="#candidate-${c.id}">${escape(c.name)} · ${statuses[c.target]} · ${v.direction===1?'Upvote':'Downvote'}</a>`:'';
   }).join('')||'<p>You have three available slots.</p>';
-  const list = $('candidates');
+  const list = $('remaining-rows');
   const focused = document.activeElement;
   const focusedRow = focused?.closest('.candidate')?.id;
   const openRows = new Set([...list.querySelectorAll('.proposal[open]')].map(el => el.closest('article').id));
@@ -279,9 +281,21 @@ auth.onsubmit=async event=>{
 $('account').onclick=async()=>{if(!board.username){signIn();return;}try{await action('logout',{});await refresh();notice('Signed out.');}catch(e){notice(e.message);}};
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 $('period').onchange=e=>{selectedPeriod=e.target.value;refresh().catch(e=>notice(e.message));};
+function setActivityView(proposals) {
+  $('show-votes').setAttribute('aria-pressed', String(!proposals));
+  $('show-proposals').setAttribute('aria-pressed', String(proposals));
+  $('activity-votes').hidden = proposals;
+  $('activity-proposals').hidden = !proposals;
+}
+$('show-votes').onclick = () => setActivityView(false);
+$('show-proposals').onclick = () => setActivityView(true);
+const desktopActivity = matchMedia('(min-width: 850px)');
+$('activity-panel').open = desktopActivity.matches;
+desktopActivity.addEventListener('change', e => { $('activity-panel').open = e.matches; });
+
 $('sort').onchange=()=>{
   if(board.cardBallots){renderBoard(true);return;}
-  for (const c of sortedCandidates()) $('candidates').append($('candidate-'+c.id));
+  for (const c of sortedCandidates()) $('remaining-rows').append($('candidate-'+c.id));
 };
 function revealCandidate(hash) {
   if (!/^#candidate-\d+$/.test(hash)) return;
