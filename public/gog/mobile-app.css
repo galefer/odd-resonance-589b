@@ -338,6 +338,7 @@
 .j-home-top {
   padding: 32px 0;
 }
+.home-trophy { display: none; }
 .ja :focus-visible,
 .j-app-nav :focus-visible {
   outline: 3px solid #ffc774;
@@ -480,39 +481,84 @@
   .jush-homepage .home-links > span,
   .jush-homepage main::before,
   .jush-homepage main::after { display: none; }
-  .jush-homepage .hero,
-  .jush-homepage .hero-stage { height: auto; min-height: 0; }
+  .jush-homepage {
+    --home-gutter: clamp(16px, 4.8vw, 32px);
+    min-height: 100svh;
+  }
+  .jush-homepage .hero, .jush-homepage .hero-stage { height: auto; min-height: 0; }
+  .jush-homepage .hero { border-bottom: 0; }
+  .jush-homepage .hero-paint, .jush-homepage .hero-character-left,
+  .jush-homepage .event-panel-icon, .jush-homepage .hero::after { display: none; }
+  .jush-homepage .hero-stage::before {
+    content: ''; position: absolute; inset: 0 auto auto 0; width: 55px; height: 35px;
+    background: radial-gradient(circle, #35465b 1px, transparent 1.6px) 0 0 / 5px 5px;
+    clip-path: polygon(0 0, 100% 0, 0 100%); opacity: .5;
+  }
+  .jush-homepage .hero-character-right {
+    width: min(86vw, 480px); left: 51%; right: auto; top: 4%; opacity: 1;
+  }
   .jush-homepage .hero-copy {
-    width: min(100% - 32px, 520px);
-    height: auto;
-    gap: 6px;
-    padding: 8px 0 16px;
+    align-items: flex-start; text-align: left; width: auto; height: auto;
+    margin: 0 46% 0 var(--home-gutter); padding: clamp(16px, 5vw, 30px) 0;
+    gap: clamp(10px, 3vw, 20px);
   }
-  .jush-homepage .hero-wordmark { width: clamp(160px, 48vw, 230px); margin: 0; }
+  .jush-homepage .hero-copy h1 { justify-items: start; }
+  .jush-homepage .hero-wordmark { width: min(100%, 44vw, 220px); margin: 0; }
   .jush-homepage .next-event-panel {
-    width: 100%;
-    min-height: 0;
-    grid-template-columns: 28px minmax(0, 1fr);
-    gap: 10px;
-    margin: 0;
-    padding: 8px 12px;
-    text-align: left;
+    display: block; width: 100%; min-height: 0; margin: 0; padding: 0; overflow-wrap: anywhere;
+    background: transparent; color: var(--jush-navy); border: 0; box-shadow: none; clip-path: none;
   }
-  .jush-homepage .event-panel-icon { width: 26px; height: 26px; margin: 0; align-self: center; }
-  .jush-homepage #next-event-location { display: inline-block; max-width: 100%; }
-  .jush-homepage .next-event-copy time { font-size: clamp(1.35rem, 5vw, 1.7rem); white-space: normal; }
-  .jush-homepage .j-home-top { width: min(100% - 32px, 520px); padding: 20px 0 12px; }
-  .jush-homepage .j-home-top h2 { font-size: 1.65rem; margin: 0 0 10px; }
-  .jush-homepage #home-standings { padding: 10px 14px; }
-  .jush-homepage #home-standings .item { flex-wrap: nowrap; padding: 6px 0; gap: 8px; }
-  .jush-homepage #home-standings .avatar { width: 32px; height: 32px; }
+  .jush-homepage .next-event-copy > p:first-child {
+    font-size: .87rem; font-style: italic; letter-spacing: .065em; color: inherit; margin: 0 0 6px;
+  }
+  .jush-homepage .next-event-copy > p:first-child::after {
+    content: ''; display: block; width: 3.3rem; height: 2px; margin-top: 3px;
+    background: currentColor; clip-path: polygon(1% 10%, 100% 0, 94% 65%, 0 100%);
+  }
+  .jush-homepage .next-event-copy time {
+    font-size: clamp(2.05rem, 10.5vw, 3.75rem); letter-spacing: -.025em;
+    font-style: italic; line-height: .98; white-space: normal;
+  }
+  .jush-homepage .next-event-copy time:not([datetime]),
+  .jush-homepage .next-event-copy time[datetime=""] { font-size: 1.5rem; }
+  .jush-homepage .event-year {
+    display: block; margin-top: 4px; font-size: .46em; letter-spacing: .035em;
+  }
+  .jush-homepage .next-event-copy > p:last-of-type {
+    display: grid; gap: 2px; margin: 9px 0 0; color: inherit;
+    font-size: .9rem; font-weight: 600; line-height: 1.2;
+  }
+  .jush-homepage .next-event-copy > p [aria-hidden] { display: none; }
+  .jush-homepage .event-data-state { color: #415061; }
+  .jush-homepage .j-home-top, .jush-homepage .mobile-format-summary {
+    width: auto; margin-inline: var(--home-gutter);
+  }
+  .jush-homepage .j-home-top { padding: 20px 0 16px; }
+  .jush-homepage .j-home-top h2 {
+    display: flex; align-items: center; gap: 9px; font-size: 1.6rem; margin: 0 0 8px;
+  }
+  .jush-homepage .home-trophy { display: block; flex: none; }
+  .jush-homepage #home-standings {
+    padding: 0; background: transparent; border: 0; color: var(--jush-muted); font-size: .98rem;
+  }
+  .jush-homepage #home-standings .item { flex-wrap: nowrap; min-height: 44px; padding: 4px 0; gap: 9px; }
+  .jush-homepage #home-standings .avatar {
+    flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid;
+    place-items: center; background: #183548; color: var(--jush-cream);
+  }
   .jush-homepage #home-standings .item a { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .jush-homepage #home-standings .item strong { white-space: nowrap; }
   .jush-homepage .format-facts { background: transparent; border: 0; min-height: 0; padding: 0 0 12px; }
-  .jush-homepage .mobile-format-summary { display: block; width: min(100% - 32px, 520px); margin: 0 auto; }
-  .jush-homepage .mobile-format-summary summary { min-height: 46px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
-  .jush-homepage .mobile-format-summary summary > span { display: grid; }
-  .jush-homepage .mobile-format-summary summary > svg { width: 18px; }
+  .jush-homepage .mobile-format-summary { display: block; border-top: 1px solid var(--jush-line); }
+  .jush-homepage .mobile-format-summary summary {
+    min-height: 60px; padding: 12px 0; display: flex; align-items: center;
+    justify-content: space-between; list-style: none; cursor: pointer;
+  }
+  .jush-homepage .mobile-format-summary summary > span { display: grid; gap: 2px; }
+  .jush-homepage .mobile-format-summary summary strong { font-size: 1rem; }
+  .jush-homepage .mobile-format-summary summary small { font-size: .85rem; color: var(--jush-muted); }
+  .jush-homepage .mobile-format-summary summary > svg { width: 18px; color: var(--jush-cyan); }
+  .jush-homepage .mobile-format-summary[open] summary > svg { transform: rotate(90deg); }
   .jush-homepage .mobile-format-summary .footer-inner { display: block; padding: 8px 4px; width: auto; }
   .jush-homepage .mobile-format-summary .footer-inner strong,
   .jush-homepage .mobile-format-summary #footer-version { display: none; }

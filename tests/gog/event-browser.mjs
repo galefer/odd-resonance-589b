@@ -434,7 +434,12 @@ try {
   await click('.j-account');
   await wait('document.querySelector("#auth")?.open');
   await goto('/gog/');
-  await wait('document.querySelector("#home-standings .item")');
+  await wait('document.querySelector("#home-standings .item") && document.querySelector("#next-event-date .event-year")');
+  assert.ok(await ev(`(() => {
+    const date = document.querySelector('#next-event-date'), year = date.querySelector('.event-year');
+    return year.textContent === date.dateTime.slice(0, 4) &&
+      parseFloat(getComputedStyle(year).fontSize) < 0.6 * parseFloat(getComputedStyle(date).fontSize);
+  })()`), 'The scheduled year appears as secondary text on the mobile poster.');
   assert.equal(await ev('!!document.querySelector("#card-search")'), false);
   assert.ok(await ev("document.querySelector('#home-standings').getBoundingClientRect().bottom < document.querySelector('.j-app-nav').getBoundingClientRect().top"));
   assert.ok(await ev("['.hero-mobile-actions','.event-deck-link','.jush-ballot-entry','.site-footer'].every(s=>!document.querySelector(s).getClientRects().length)"));

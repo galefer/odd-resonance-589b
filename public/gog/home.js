@@ -81,11 +81,17 @@ function renderEventGroup(selector, events, emptyMessage) {
   grid.innerHTML = events.length ? events.map(eventCard).join('') : `<p class="empty-events">${emptyMessage}</p>`;
 }
 
-function eventDisplayDate(value) {
-  if (!value) return 'Schedule to be confirmed';
-  return new Intl.DateTimeFormat('en-GB', {
-    weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC'
-  }).format(new Date(`${value}T12:00:00Z`)).toUpperCase();
+function renderEventDate(value) {
+  const date = new Date(value + 'T12:00:00Z');
+  const day = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC'
+  }).format(date).replace(',', '');
+  const year = document.createElement('span');
+  year.className = 'event-year';
+  year.textContent = date.getUTCFullYear();
+  const time = $('#next-event-date');
+  time.replaceChildren(day + ' ', year);
+  time.dateTime = value;
 }
 
 function londonClock() {
@@ -152,8 +158,7 @@ function renderNextJushEvent(events, status = '') {
     $('#next-event-location').textContent = 'Guild of Games, Rotherham';
     return;
   }
-  $('#next-event-date').textContent = eventDisplayDate(event.eventDate);
-  $('#next-event-date').dateTime = event.eventDate;
+  renderEventDate(event.eventDate);
   $('#next-event-time').textContent = displayTime(event.startTime) + (event.endTime ? `–${displayTime(event.endTime)}` : '');
   $('#next-event-location').textContent = event.location || 'Guild of Games, Rotherham';
   scheduleEventBoundaryRefresh(event);

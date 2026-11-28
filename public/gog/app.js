@@ -25,10 +25,21 @@ function applyConfig(config) {
   const cutoff = config.cardPool.cutoffDate;
   $('#pool-cutoff').textContent = formatDate(cutoff).replace(/\s(\d{4})$/, ' $1');
   $('#pool-cutoff').dateTime = cutoff;
+  $('#mobile-cutoff').textContent = new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC'
+  }).format(new Date(cutoff + 'T12:00:00Z'));
+  $('#mobile-cutoff').dateTime = cutoff;
   $('#footer-version').textContent = `Version ${version?.label || 'Foundation'}`;
   document.title = `${settings.format_name || 'Yu-Gi-Oh! JUSH House Format'} · Guild of Games`;
 }
 
 if(location.search&&['q','view','subtype','status','type','category','card','archetype','sort','page'].some(k=>new URLSearchParams(location.search).has(k))||['#card-search','#list-workspace'].includes(location.hash))location.replace('/gog/cards/'+location.search+location.hash);
 fetch('/gog/api/config').then(r=>r.json()).then(applyConfig).catch(()=>{});
-api('ladder').then(({players})=>{$('#home-standings').innerHTML=players.slice(0,3).map(p=>'<div class="row item"><strong>#'+p.place+'</strong>'+avatar(p)+'<a href="/gog/duel/?profile='+p.id+'">'+esc(p.name)+'</a><strong>'+p.score+' pts</strong></div>').join('')||'Standings start after players complete four rated matches.';}).catch(()=>{$('#home-standings').textContent='Standings are unavailable. Try again shortly.';}).finally(()=>window.JushTabs.contentReady());
+api('ladder').then(({players}) => {
+  $('#home-standings').innerHTML = players.slice(0, 3).map(p =>
+    '<div class="row item"><strong>#' + p.place + '</strong>' + avatar(p) +
+    '<a href="/gog/duel/?profile=' + p.id + '">' + esc(p.name) + '</a><strong>' + p.score + ' pts</strong></div>'
+  ).join('') || 'Players appear here after four rated matches.';
+}).catch(() => {
+  $('#home-standings').textContent = 'Standings are unavailable. Try again shortly.';
+}).finally(() => window.JushTabs.contentReady());
