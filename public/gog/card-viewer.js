@@ -2,7 +2,7 @@ import { catalogueMarkup, cardDetailMarkup } from './card-viewer-markup.js?v=com
 
 const GOG_BASE = '/gog';
 const CARD_POOL_CUTOFF = '2025-08-01';
-function cardImageUrl(id) { return `${GOG_BASE}/api/cards/${id || 0}/image`; }
+function cardImageUrl(id) { return `${GOG_BASE}/api/cards/${Number(id) || 0}/image`; }
 
 const mobileHouseLayout = window.matchMedia('(max-width: 600px)');
 
@@ -47,7 +47,7 @@ function typeInitial(category) {
 
 function statusBadge(status) {
   const item = STATUS[status] || STATUS.unlimited;
-  return `<span class="status-badge status-${status}"><b>${item.copies}</b><span>${item.label}</span></span>`;
+  return `<span class="status-badge status-${escapeHtml(status)}"><b>${item.copies}</b><span>${item.label}</span></span>`;
 }
 
 function houseChangeBadge(card) {
@@ -112,17 +112,48 @@ export function mountCardViewer(container, { onConfig, onPropose, canPropose, ca
     setTimeout(() => element.remove(), 4200);
   }
 
-  async function loadPublicData() {
-    const [configPayload, listPayload] = await Promise.all([api('/api/config'), api('/api/list')]);
-    state.config = configPayload;
-    if (configPayload.cardPool?.cutoffDate !== CARD_POOL_CUTOFF) throw new Error('Card pool mismatch. The deployed list is not locked to Justice Hunters.');
-    state.baseline = listPayload.baseline || null;
-    state.entries = listPayload.entries || [];
-    state.changes = listPayload.changes || [];
-    state.recentChanges = listPayload.recentChanges || [];
-    state.config.version = listPayload.version || configPayload.version;
-    onConfig?.(state.config);
+  const cardsTab = document.body.classList.contains('ja-cards');
+  const snapshotKey = 'jush-public-list-' + CARD_POOL_CUTOFF;
+  let loadedList = false, checkingSnapshot = false;
+
+  function applyList(list) {
+    state.baseline = list.baseline || null;
+    state.entries = list.entries || [];
+    state.changes = list.changes || [];
+    state.recentChanges = list.recentChanges || [];
+    loadedList = true;
     renderList();
+  }
+
+  async function loadPublicData() {
+    const fresh = Promise.all([api('/api/config'), api('/api/list')]);
+    let cachedJson;
+    if (cardsTab) {
+      try {
+        const snapshot = JSON.parse(sessionStorage.getItem(snapshotKey));
+        if (snapshot && Date.now() - snapshot.checked < 300000) {
+          const list = JSON.parse(snapshot.json);
+          if (Array.isArray(list.entries)) {
+            checkingSnapshot = true;
+            applyList(list);
+            cachedJson = snapshot.json;
+            window.JushTabs.contentReady();
+          }
+        }
+      } catch { checkingSnapshot = false; }
+    }
+    const [config, list] = await fresh;
+    if (config.cardPool?.cutoffDate !== CARD_POOL_CUTOFF) throw new Error('Card pool mismatch. The deployed list is not locked to Justice Hunters.');
+    state.config = config;
+    state.config.version = list.version || config.version;
+    onConfig?.(state.config);
+    checkingSnapshot = false;
+    const json = cardsTab ? JSON.stringify(list) : null;
+    if (json === cachedJson) showCount(filteredDataset().length);
+    else applyList(list);
+    if (cardsTab) {
+      try { sessionStorage.setItem(snapshotKey, JSON.stringify({ checked: Date.now(), json })); } catch {}
+    }
   }
 
   function currentDataset() {
@@ -147,14 +178,20 @@ export function mountCardViewer(container, { onConfig, onPropose, canPropose, ca
     return data;
   }
 
+  function showCount(count) {
+    const label = count + (count === 1 ? ' card shown' : ' cards shown');
+    $('#results-count').textContent = checkingSnapshot ? label + ' · Checking for updates' : label;
+  }
+
   function renderList() {
     const list = $('#card-list');
+    if (!loadedList) return;
     const data = filteredDataset();
     const isHouse = state.view === 'changes';
     const isRecent = state.view === 'recent';
     $$('[data-list-view]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.listView === state.view)));
     $('#results-title').textContent = 'Forbidden & Limited List';
-    $('#results-count').textContent = `${data.length} ${data.length === 1 ? 'card' : 'cards'} shown`;
+    showCount(data.length);
     list.setAttribute('aria-busy', 'false');
 
     if (!data.length) {
@@ -207,8 +244,8 @@ export function mountCardViewer(container, { onConfig, onPropose, canPropose, ca
           ? `<span class="change-context">${STATUS[card.previousStatus]?.label || 'Unlimited'} <span aria-hidden="true">&gt;</span> ${status.label}</span>`
           : '';
     return `
-      <article class="card-row status-${card.status}${card.isHouseChange ? ' is-house-change' : ''}" data-card-name="${escapeHtml(card.name)}">
-        <div class="card-thumbnail ${card.category.toLowerCase()}">
+      <article class="card-row status-${escapeHtml(card.status)}${card.isHouseChange ? ' is-house-change' : ''}" data-card-name="${escapeHtml(card.name)}">
+        <div class="card-thumbnail ${escapeHtml(card.category.toLowerCase())}">
           <img src="${cardImageUrl(card.cardId || card.id || 0)}" alt="" width="42" height="61" loading="lazy" decoding="async">
           <span aria-hidden="true">${typeInitial(card.category)}</span>
         </div>
@@ -505,10 +542,19 @@ export function mountCardViewer(container, { onConfig, onPropose, canPropose, ca
       await loadPublicData();
     }
     catch (error) {
+      loadedList = false;
+      checkingSnapshot = false;
+      if (cardsTab) {
+        try { sessionStorage.removeItem(snapshotKey); } catch {}
+      }
+      $('#empty-state').hidden = true;
       $('#card-list').innerHTML = `<div class="empty-state"><h3>Could not load the house-format list</h3><p>${escapeHtml(error.message)}</p></div>`;
+      $('#card-list').setAttribute('aria-busy', 'false');
+      $('#results-count').textContent = 'Cards unavailable';
       toast(error.message, 'error');
+    } finally {
+      if (cardsTab) window.JushTabs.contentReady();
     }
-
   }
 
   const detailDialog = $('#card-modal');

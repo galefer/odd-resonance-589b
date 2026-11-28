@@ -1,6 +1,6 @@
 import {compareVoteTotals,qualificationProgress,renderCardBallots,vetoRule} from './card-ballots.js?v=proposal-sections-1.author-edits-1';
 import { mountCardViewer } from '/gog/card-viewer.js';
-import { refreshInbox } from '/gog/mobile-nav.js';
+import { refreshInbox, accountChanged } from '/gog/mobile-nav.js';
 
 const $ = id => document.getElementById(id);
 const escape = x => String(x ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -343,16 +343,18 @@ auth.onsubmit=async event=>{
   try{
     const salt=mode==='login'?(await api('community/salt?username='+encodeURIComponent(username))).salt:hex(crypto.getRandomValues(new Uint8Array(16)));
     await action(mode,{username,code,salt,remember:auth.elements.remember.checked,proof:await proof(password,salt)});
+    accountChanged();
     auth.reset();auth.elements.mode.onchange();$('auth').close();
     const destination=new URLSearchParams(location.search).get('return');
     if(destination==='account'){location.assign('/gog/duel/?profile=me');return;}
     if(destination==='duel'){location.assign('/gog/duel/');return;}
+    refreshInbox();
   }catch(e){authError.textContent=e.message;return;}
   finally{authButton.disabled=false;authButton.textContent='Continue';}
   notice('Signed in.');
   await refresh().then(linkedProposal).catch(e=>notice('Signed in. '+e.message));
 };
-$('account').onclick=async()=>{if(!board.username){signIn();return;}try{await action('logout',{});await refresh();notice('Signed out.');}catch(e){notice(e.message);}};
+$('account').onclick=async()=>{if(!board.username){signIn();return;}try{await action('logout',{});accountChanged(true);await refresh();notice('Signed out.');}catch(e){notice(e.message);}};
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 $('period').onchange=e=>{selectedPeriod=e.target.value;refresh().catch(e=>notice(e.message));};
 function setActivityView(proposals) {
@@ -410,7 +412,8 @@ function updateBrowseLink() { browseCards.href = desktopCatalogue.matches ? '#ca
 desktopCatalogue.addEventListener('change', updateBrowseLink);
 updateBrowseLink();
 openScannedInvite();
-refresh().then(()=>{revealCandidate(location.hash);if(location.hash==='#account'&&!board.username)signIn();return linkedProposal();}).catch(e=>notice(e.message));
+window.addEventListener('jush-account-changed', () => refresh().catch(e=>notice(e.message)));
+refresh().then(()=>{revealCandidate(location.hash);if(location.hash==='#account'&&!board.username)signIn();return linkedProposal();}).catch(e=>notice(e.message)).finally(()=>window.JushTabs.contentReady());
 setInterval(()=>{if(document.hidden)return;
   if(board.period?.active&&!active() || (!document.querySelector('dialog[open],.comments[open]')&&!catalogue.querySelector('dialog[open]')&&!selectedPeriod))refresh().catch(e=>notice(e.message));
 },20000);

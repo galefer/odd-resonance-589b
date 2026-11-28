@@ -139,7 +139,9 @@ function renderEventUnavailable(error) {
   $('#next-event-status').hidden = false;
 }
 
-function renderNextJushEvent(events, cached = false) {
+function renderNextJushEvent(events, status = '') {
+  $('#next-event-status').textContent = status;
+  $('#next-event-status').hidden = !status;
   const event = events
     .filter((item) => isJushEvent(item) && item.status !== 'cancelled' && !eventHasFinished(item))
     .sort((a, b) => a.eventDate.localeCompare(b.eventDate) || (a.startTime || '99:99').localeCompare(b.startTime || '99:99'))[0];
@@ -148,16 +150,12 @@ function renderNextJushEvent(events, cached = false) {
     $('#next-event-date').removeAttribute('datetime');
     $('#next-event-time').textContent = 'No upcoming JUSH date is currently published';
     $('#next-event-location').textContent = 'Guild of Games, Rotherham';
-    $('#next-event-status').textContent = cached ? 'Showing the last known schedule state.' : '';
-    $('#next-event-status').hidden = !cached;
     return;
   }
   $('#next-event-date').textContent = eventDisplayDate(event.eventDate);
   $('#next-event-date').dateTime = event.eventDate;
   $('#next-event-time').textContent = displayTime(event.startTime) + (event.endTime ? `–${displayTime(event.endTime)}` : '');
   $('#next-event-location').textContent = event.location || 'Guild of Games, Rotherham';
-  $('#next-event-status').textContent = cached ? 'Live schedule unavailable; showing the last known event.' : '';
-  $('#next-event-status').hidden = !cached;
   scheduleEventBoundaryRefresh(event);
 }
 
@@ -176,7 +174,7 @@ async function loadEvents() {
   }
   state.events = payload.events || [];
   eventsLoadedAt = Date.now();
-  renderNextJushEvent(state.events, cached);
+  renderNextJushEvent(state.events, cached ? 'Showing the last known schedule.' : '');
 }
 
 // The same rules, credits and utility links live in one disclosure on a phone.
@@ -201,6 +199,10 @@ function arrangeHome() {
 arrangeHome();
 phoneHome.addEventListener('change', arrangeHome);
 
+try {
+  const prior = JSON.parse(sessionStorage.getItem(EVENT_CACHE_KEY));
+  if (Array.isArray(prior?.events)) renderNextJushEvent(prior.events, 'Checking for schedule updates…');
+} catch {}
 loadEvents().catch(renderEventUnavailable);
 
 document.addEventListener('visibilitychange', () => {

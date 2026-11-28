@@ -1,106 +1,29 @@
 import { artUrl } from './duel/common.js';
 
-const tabs = [
-  ['Home', '/gog/', 'house'],
-  ['Cards', '/gog/cards/', 'layers'],
-  ['Voting', '/gog/voting/', 'vote'],
-  ['Duel', '/gog/duel/', 'swords'],
-  ['Builder', '/gog/deckbuilder/', 'panels-top-left'],
-];
-const nav = document.createElement('nav');
-nav.className = 'j-app-nav';
-nav.ariaLabel = 'JUSH navigation';
-const header = document.querySelector('body > header');
-const pagePath = location.pathname.replace(/(?:\/index\.html|\/)?$/, '/');
-const tab = tabs.find(([, path]) => path === pagePath);
-if (header && tab) {
-  header.classList.add('j-tab-head');
-  const brand = document.createElement('div');
-  brand.className = 'j-mobile-brand';
-  brand.innerHTML = '<a href="/gog/" aria-label="Guild of Games home"><img src="/gog/assets/jush/artwork/guild-of-games-logo-64.webp" width="32" height="32" alt=""></a>';
-  const title = document.createElement('span');
-  title.textContent = tab[0];
-  brand.append(title);
-  header.prepend(brand);
-  if (!header.querySelector('.j-account')) {
-    const link = document.createElement('a');
-    link.className = 'j-account j-mobile-account';
-    link.href = '/gog/duel/?profile=me';
-    link.textContent = 'Account';
-    header.append(link);
-  }
+// A tab reopened from an earlier release can still have the old HTML.
+if (!window.JushTabs) {
+  await import('./tab-shell.js');
+  window.JushTabs.mount();
 }
-for (const [label, path, icon] of tabs) {
-  const a = document.createElement('a');
-  a.href = path;
-  a.textContent = label.toUpperCase();
-  const pic = document.createElement('i');
-  pic.ariaHidden = 'true';
-  pic.style.setProperty('--nav-icon', 'url("/gog/assets/app/' + icon + '.svg")');
-  a.prepend(pic);
-  if (
-    path === '/gog/'
-      ? pagePath === path
-      : pagePath.startsWith(path) ||
-        (label === 'Cards' && pagePath.startsWith('/gog/house-format/'))
-  )
-    a.setAttribute('aria-current', 'page');
-  nav.append(a);
-}
-if (header) header.after(nav);
-else document.body.prepend(nav);
-const deckTools = document.querySelector('body.deckbuilder-page > .deck-toolbar');
-if (header && deckTools) {
-  const phone = matchMedia('(max-width: 800px)');
-  const account = header.querySelector('.j-account');
-  function placeDeckTools() {
-    if (phone.matches) account.before(deckTools);
-    else nav.after(deckTools);
-  }
-  placeDeckTools();
-  phone.addEventListener('change', placeDeckTools);
-}
-document.body.classList.add('j-nav-ready');
+const shell = window.JushTabs;
 export function renderAccount(player) {
-  const link = header?.querySelector('.j-account');
-  if (!link) return;
-  if (!player) {
-    link.href = '/gog/voting/?return=account#account';
-    link.textContent = 'Sign in';
-    link.removeAttribute('aria-label');
-    link.classList.remove('has-player');
-    return;
-  }
-  link.href = '/gog/duel/?profile=me';
-  const label = 'Account for ' + player.name;
-  const src = player.art ? artUrl(player.art) : '';
-  if (link.ariaLabel === label && link.dataset.art === src) return;
-  link.ariaLabel = label;
-  link.dataset.art = src;
-  link.classList.add('has-player');
-  const portrait = document.createElement('span');
-  portrait.className = 'j-account-portrait';
-  portrait.ariaHidden = 'true';
-  portrait.textContent = Array.from(player.name.trim())[0]?.toUpperCase() || '?';
-  if (src) {
-    const img = document.createElement('img');
-    img.alt = '';
-    img.addEventListener('error', () => img.remove(), { once: true });
-    img.src = src;
-    portrait.append(img);
-  }
-  link.replaceChildren(portrait);
+  shell.rememberBadge(player ? { name: player.name, src: player.art ? artUrl(player.art) : '' } : null);
+}
+export function accountChanged(signedOut = false) {
+  ++inboxRequest;
+  shell.accountChanged();
+  if (signedOut) renderAccount(null);
 }
 
 let inboxRequest = 0;
 export function refreshInbox() {
-  const request = ++inboxRequest;
+  const request = ++inboxRequest, generation = shell.generation();
   return fetch('/gog/api/community/app/inbox', { cache: 'no-store' })
     .then((r) => (r.ok ? r.json() : null))
     .then((data) => {
-      if (!data || request !== inboxRequest) return;
+      if (!data || request !== inboxRequest || generation !== shell.generation()) return;
       if ('player' in data) renderAccount(data.player);
-      const duel = nav.querySelector('a[href^="/gog/duel/"]');
+      const duel = document.querySelector('.j-app-nav a[href^="/gog/duel/"]');
       duel.querySelector('.j-inbox-count')?.remove();
       duel.href = data.pending ? '/gog/duel/?inbox=1' : '/gog/duel/';
       duel.removeAttribute('aria-label');
@@ -116,6 +39,7 @@ export function refreshInbox() {
 }
 if (!location.pathname.startsWith('/gog/duel/')) {
   refreshInbox();
+  window.addEventListener('jush-account-changed', refreshInbox);
   window.addEventListener('pageshow', (event) => { if (event.persisted) refreshInbox(); });
 }
 if ('serviceWorker' in navigator)

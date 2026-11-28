@@ -14,7 +14,9 @@
   <link rel="stylesheet" href="/gog/site-header.css">
   <link rel="stylesheet" href="/gog/house-format/house-format.css?v=2026-10-29-mobile-hero-spacing">
   <link rel="stylesheet" href="/gog/voting/entry.css">
-<link rel="manifest" href="/gog/app.webmanifest"><link rel="apple-touch-icon" href="/gog/assets/app/icon-180.png"><link rel="stylesheet" href="/gog/mobile-app.css"><script type="module" src="/gog/mobile-nav.js"></script>
+<link rel="manifest" href="/gog/app.webmanifest"><link rel="apple-touch-icon" href="/gog/assets/app/icon-180.png"><link rel="stylesheet" href="/gog/mobile-app.css"><script src="/gog/tab-shell.js"></script>
+  <script type="module" src="/gog/mobile-nav.js"></script>
+<link rel="expect" blocking="render" href="#j-shell-ready" media="(max-width: 800px)">
 </head>
 <body class="house-format-page jush-theme jush-homepage">
   <a class="skip-link" href="#main-content">Skip to event information</a>
@@ -32,6 +34,7 @@
       </div>
     </div>
   </header>
+  <script id="j-shell-ready">JushTabs.mount();</script>
 
   <main id="main-content">
     <section class="hero jush-surface--cream" aria-labelledby="format-name">
@@ -67,8 +70,8 @@
           <svg class="jush-icon event-panel-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-calendar-clock"></use></svg>
           <div class="next-event-copy">
             <p id="next-event-label">Next JUSH format</p>
-            <time id="next-event-date" datetime="">Schedule unavailable</time>
-            <p><span id="next-event-time">Checking schedule…</span><span aria-hidden="true"> · </span><span id="next-event-location">Guild of Games, Rotherham</span></p>
+            <time id="next-event-date" datetime="">Checking schedule…</time>
+            <p><span id="next-event-time"></span><span aria-hidden="true"> · </span><span id="next-event-location">Guild of Games, Rotherham</span></p>
             <span class="event-data-state" id="next-event-status" hidden></span>
           </div>
           <a class="jush-button event-deck-link" href="/gog/deckbuilder/">Build a deck <svg class="jush-icon" aria-hidden="true" focusable="false"><use href="/gog/assets/jush/icons/sprite.svg#jush-icon-chevron-right"></use></svg></a>

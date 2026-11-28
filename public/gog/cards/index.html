@@ -8,11 +8,13 @@
     <link rel="stylesheet" href="/gog/mobile-app.css" />
     <link rel="manifest" href="/gog/app.webmanifest" />
     <link rel="apple-touch-icon" href="/gog/assets/app/icon-180.png" />
+    <script src="/gog/tab-shell.js"></script>
     <script type="module" src="/gog/mobile-nav.js"></script>
     <title>Cards · JUSH</title>
     <link rel="stylesheet" href="/gog/styles.css" />
     <link rel="stylesheet" href="/gog/house-format/house-format.css" />
     <link rel="stylesheet" href="/gog/cards/cards.css" />
+    <link rel="expect" blocking="render" href="#j-shell-ready" media="(max-width: 800px)">
   </head>
   <body class="ja ja-cards house-format-page jush-theme">
     <a class="j-skip" href="#main">Skip to content</a>
@@ -23,6 +25,7 @@
       </a>
       <a class="j-account" href="/gog/duel/?profile=me">Account</a>
     </header>
+    <script id="j-shell-ready">JushTabs.mount();</script>
     <main id="main" class="ja-main">
       <h1>Cards</h1>
       <div id="viewer"></div>

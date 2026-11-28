@@ -153,6 +153,69 @@ try {
     }
     console.log(signedIn ? 'Member' : 'Guest', 'header on all five tabs:', layouts[0]);
   }
+  async function checkFirstPaint(signedIn) {
+    const { identifier } = await send('Page.addScriptToEvaluateOnNewDocument', {source: `
+      let resume;
+      const gate = new Promise(resolve => { resume = resolve; });
+      window.releaseApi = resume;
+      const originalFetch = window.fetch;
+      window.fetch = async (...args) => {
+        if (new URL(args[0], location.href).pathname.startsWith('/gog/api/')) await gate;
+        return originalFetch(...args);
+      };
+      requestAnimationFrame(function sample() {
+        const header = document.querySelector('body > header');
+        if (!header) { requestAnimationFrame(sample); return; }
+        const account = header.querySelector('.j-account');
+        window.firstHeader = {
+          title: header.querySelector('.j-mobile-brand span')?.innerText,
+          account: account?.ariaLabel || account?.textContent,
+          image: account?.querySelector('img')?.getAttribute('src') || null,
+          navLinks: document.querySelectorAll('.j-app-nav a').length,
+          legacy: [...header.children].some(el => !el.matches('.j-mobile-brand,.j-account,.deck-toolbar') && el.getClientRects().length)
+        };
+      });
+    `});
+    try {
+      for (const [i, name] of ['Home','Cards','Voting','Duel','Builder'].entries()) {
+        await click('.j-app-nav a:nth-child(' + (i+1) + ')');
+        await wait('window.firstHeader && document.querySelector(".j-app-nav [aria-current]")?.textContent.startsWith(' + JSON.stringify(name.toUpperCase()) + ')');
+        const frame = await ev('window.firstHeader');
+        assert.equal(frame.title, name);
+        assert.equal(frame.account, signedIn ? 'Account for Tester6' : 'Sign in', name + ' before authentication returns');
+        assert.equal(frame.image, signedIn ? '/gog/api/cards/12/image?size=cover&purpose=profile' : null);
+        assert.equal(frame.navLinks, 5);
+        assert.equal(frame.legacy, false);
+        if (name === 'Home') {
+          await wait('document.querySelector("#next-event-status")?.textContent.includes("Checking for schedule updates")');
+        }
+        if (name === 'Cards') {
+          await wait('document.querySelector("#card-list")');
+          assert.ok(await ev('document.querySelector("#empty-state").hidden'));
+          assert.ok(await ev('document.querySelector(".card-name") && document.querySelector("#results-count").textContent.includes("Checking for updates")'));
+        }
+        await ev('window.releaseApi()');
+        if (name === 'Cards') await wait('document.querySelector(".card-name") && !document.querySelector("#results-count").textContent.includes("Checking")');
+      }
+      if (!signedIn) {
+        const cold = await send('Page.addScriptToEvaluateOnNewDocument', { source:
+          "sessionStorage.removeItem('jush-tab-badge-v1'); sessionStorage.removeItem('jush-public-list-2025-08-01')" });
+        await click('.j-app-nav a:nth-child(2)');
+        await wait('window.firstHeader && document.querySelector("#card-list")');
+        await send('Page.removeScriptToEvaluateOnNewDocument', cold);
+        assert.equal(await ev('window.firstHeader.account'), 'Account');
+        assert.ok(await ev('document.querySelector("#empty-state").hidden && document.querySelector("#card-list").ariaBusy === "true"'));
+        await ev('window.releaseApi()');
+        await wait('document.querySelector(".card-name") && document.querySelector(".j-account").textContent === "Sign in"');
+        await click('.j-app-nav a:nth-child(5)');
+        await wait('window.firstHeader && document.querySelector("#deck-name")?.textContent==="Rehearsal deck"');
+        await ev('window.releaseApi()');
+      }
+    } finally {
+      await send('Page.removeScriptToEvaluateOnNewDocument', {identifier});
+    }
+    console.log('Verified all five first frames with API requests held, ' + (signedIn ? 'signed in.' : 'signed out.'));
+  }
   await send('Runtime.enable');
   await send('Network.enable');
   await send('Page.enable');
@@ -319,13 +382,18 @@ try {
   assert.equal(await ev("document.querySelector('.catalogue-rules').getClientRects().length"), 0);
   await send('Emulation.setDeviceMetricsOverride', {width:390, height:844, deviceScaleFactor:1, mobile:true});
   await checkTabHeaders(true);
+  await checkFirstPaint(true);
   await click('.j-account');
   await wait('document.querySelector("#player-dialog")?.open && document.querySelector("#dialog-title").textContent==="My account"');
   await as(5);
   await goto('/gog/cards/');
   await wait('document.querySelector(".j-account-portrait")?.textContent==="T"');
-  await send('Network.clearBrowserCookies');
+  await click('.j-account');
+  await wait('document.querySelector("[data-action=logout]")');
+  await click('[data-action=logout]');
+  await wait('document.querySelector(".j-account").textContent === "Sign in"');
   await checkTabHeaders(false);
+  await checkFirstPaint(false);
   await send('Emulation.setDeviceMetricsOverride', {width:320, height:640, deviceScaleFactor:1, mobile:true});
   await ev("document.querySelector('#deck-name').textContent = 'A long deck name for the narrowest phone'");
   const controls = await ev(`(() => {

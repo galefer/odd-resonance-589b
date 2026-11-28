@@ -292,6 +292,16 @@
 .j-app-nav a {
   position: relative;
 }
+@media (max-width: 800px) and (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root) {
+    z-index: 1;
+    mix-blend-mode: normal;
+    animation: j-hold-tab 350ms step-end both;
+  }
+  ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+  @keyframes j-hold-tab { from { opacity: 1; } to { opacity: 0; } }
+}
 @media (max-width: 800px) {
   .j-inbox-count {
     position: absolute;
@@ -351,6 +361,7 @@
 }
 @media (max-width: 800px) {
   :root {
+    background-color: #061828;
     --j-bar: calc(60px + env(safe-area-inset-bottom, 0px));
     --j-header-height: calc(57px + env(safe-area-inset-top, 0px));
     scroll-padding-bottom: calc(var(--j-bar) + 12px);

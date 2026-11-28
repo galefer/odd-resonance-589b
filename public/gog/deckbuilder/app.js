@@ -2605,4 +2605,4 @@ async function start() {
   }
 }
 
-start();
+start().finally(() => window.JushTabs.contentReady());

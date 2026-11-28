@@ -12,7 +12,9 @@
   <link rel="stylesheet" href="/gog/site-header.css">
   <link rel="stylesheet" href="/gog/deckbuilder/deckbuilder-jush-theme.css?v=desktop-20261125">
   <link rel="stylesheet" href="/gog/voting/entry.css">
-<link rel="manifest" href="/gog/app.webmanifest"><link rel="apple-touch-icon" href="/gog/assets/app/icon-180.png"><link rel="stylesheet" href="/gog/mobile-app.css"><script type="module" src="/gog/mobile-nav.js"></script>
+<link rel="manifest" href="/gog/app.webmanifest"><link rel="apple-touch-icon" href="/gog/assets/app/icon-180.png"><link rel="stylesheet" href="/gog/mobile-app.css"><script src="/gog/tab-shell.js"></script>
+  <script type="module" src="/gog/mobile-nav.js"></script>
+<link rel="expect" blocking="render" href="#j-shell-ready" media="(max-width: 800px)">
 </head>
 <body class="deckbuilder-page" data-deck-zone="main">
   <a class="skip-link" href="#workspace">Skip to deckbuilder</a>
@@ -33,7 +35,7 @@
         <div class="deck-heading">
           <p>JUSH Deckbuilder</p>
           <div class="deck-name-line">
-            <h1 id="deck-name">Untitled deck</h1>
+            <h1 id="deck-name">Opening deck…</h1>
             <button id="deck-menu-button" class="deck-title-button" type="button" aria-label="Open deck menu" aria-describedby="deck-name" aria-haspopup="menu" aria-expanded="false" aria-controls="deck-menu"><span aria-hidden="true">⌄</span></button>
           </div>
         </div>
@@ -60,6 +62,7 @@
       <button id="mobile-actions-button" class="icon-button mobile-only" type="button" aria-label="Open deckbuilder menu" aria-haspopup="dialog" aria-controls="mobile-actions-dialog"><span class="desktop-only">Deck tools</span><span class="compact-only" aria-hidden="true">•••</span></button>
     </div>
   </section>
+  <script id="j-shell-ready">JushTabs.mount();</script>
 
   <main id="workspace" class="workspace">
     <aside class="left-panel panel">

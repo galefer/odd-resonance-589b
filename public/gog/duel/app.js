@@ -1,5 +1,5 @@
 import { api, esc, avatar, nameButton, resultName, statusName, artUrl } from './common.js';
-import { renderAccount } from '../mobile-nav.js';
+import { renderAccount, accountChanged } from '../mobile-nav.js';
 import { DeckDatabase } from '../deckbuilder/persistence.js';
 const $ = (id) => document.getElementById(id),
   dlg = $('player-dialog'),
@@ -163,6 +163,7 @@ function render() {
       )
       .join('') ||
     '<strong>Standings start after the first rated matches.</strong><p class="muted">Players appear here after four confirmed results.</p>';
+  $('account').disabled = false;
   $('account').textContent = board.me
     ? pending().length
       ? 'My account · ' + pending().length + ' pending'
@@ -171,9 +172,9 @@ function render() {
   clocks();
 }
 async function refresh() {
-  const seq = ++sequence;
+  const seq = ++sequence, generation = window.JushTabs.generation();
   const data = await api('board');
-  if (seq !== sequence) return;
+  if (seq !== sequence || generation !== window.JushTabs.generation()) return;
   board = data;
   renderAccount(board.me);
   offset = board.serverTime - Date.now() / 1000;
@@ -436,6 +437,8 @@ document.addEventListener('click', async (e) => {
         });
         if (!r.ok) throw Error('Could not sign out.');
       } else await api('logout-all', {});
+      ++sequence;
+      accountChanged(true);
       end();
       await refresh();
     }
@@ -499,7 +502,9 @@ async function start() {
     notice(e.message);
   }
 }
-start();
+start().finally(() => window.JushTabs.contentReady());
+window.addEventListener('jush-account-changed', () => { end(); refresh().catch((e) => notice(e.message)); });
+window.addEventListener('pageshow', (e) => { if (e.persisted) refresh().catch((err) => notice(err.message)); });
 setInterval(clocks, 1000);
 setInterval(() => {
   if (!document.hidden && !dlg.open) refresh().catch((e) => notice(e.message));
